@@ -1,6 +1,6 @@
 [package]
 name = "rosemyne"
-version = "0.1.0"
+version = "0.1.1"
 description = "A ShareX-like screenshot capture, annotate and upload tool"
 authors = ["SalahaldinBilal"]
 license = "GPL-3.0-or-later"
