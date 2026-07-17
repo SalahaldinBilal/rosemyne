@@ -32,5 +32,6 @@ pub(crate) fn base_window_builder<'a, R: Runtime>(
     .transparent(true)
     .maximizable(false)
     .minimizable(false)
+    .always_on_top(true)
     .inner_size(bounds.width() as f64, bounds.height() as f64)
 }
