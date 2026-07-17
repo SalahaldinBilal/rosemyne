@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "Rosemyne",
-        "width": 860,
-        "height": 600,
+        "width": 1040,
+        "height": 700,
         "minWidth": 700,
         "minHeight": 480,
         "theme": "Dark",
