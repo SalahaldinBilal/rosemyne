@@ -225,7 +225,10 @@ function Main() {
     });
     onCleanup(() => unlistenDrop());
 
-    await getCurrentWebview().window.show();
+    // Autostart launches this window hidden (tray-only); a manual launch
+    // (including the very first one, before autostart is ever enabled) shows it.
+    const launchedViaAutostart = await safeInvoke("was_launched_via_autostart", undefined);
+    if (!launchedViaAutostart) await getCurrentWebview().window.show();
     await reload();
   });
 

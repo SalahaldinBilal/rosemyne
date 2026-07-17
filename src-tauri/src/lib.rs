@@ -480,6 +480,16 @@ pub fn default_app_path() -> PathBuf {
         .join("Rosemyne")
 }
 
+/// Baked into the autostart entry's command line (see `tauri_plugin_autostart::init`
+/// below), so only OS-triggered startup launches carry it , a manual double-click
+/// or Start Menu launch never does, even if autostart is also enabled.
+const AUTOSTART_ARG: &str = "--autostart";
+
+#[tauri::command]
+fn was_launched_via_autostart() -> bool {
+    std::env::args().any(|arg| arg == AUTOSTART_ARG)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_path = default_app_path();
@@ -505,7 +515,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec![AUTOSTART_ARG]),
         ))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -686,6 +696,7 @@ pub fn run() {
             open_file,
             move_mouse_by,
             get_system_datetime_patterns,
+            was_launched_via_autostart,
             is_uploader_valid,
             upload_image,
             test_uploader,
