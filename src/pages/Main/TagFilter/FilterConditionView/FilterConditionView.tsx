@@ -1,4 +1,4 @@
-import { createMemo, For, Match, Show, Switch } from "solid-js";
+import { createMemo, For, Index, Match, Show, Switch } from "solid-js";
 import styles from "./FilterConditionView.module.scss";
 import { FilterCondition, FilterOperations, FilterValueType, OPERATION_LABELS, OPERATIONS_BY_TYPE, SelectItem, TagValueTypeMap } from "../../../../types";
 import useTagFilterState from "../../../../states/tagFilterState";
@@ -112,30 +112,30 @@ function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTyp
           <Select accent value={props.node.operation} items={operationItems()} onItemClick={item => setOperation(props.node.id, item.value)} />
 
           <div class={styles.Values}>
-            <For each={props.node.values}>{(value, index) =>
+            <Index each={props.node.values}>{(value, index) =>
               <div class={styles.Value}>
                 <Switch fallback={
                   <FilterValueField
                     type={INPUT_TYPE[props.node.valueType]}
-                    value={formatFieldValue(props.node.valueType, value as string | number)}
+                    value={formatFieldValue(props.node.valueType, value() as string | number)}
                     path={props.node.path}
-                    onChange={raw => changeValue(index(), raw)}
+                    onChange={raw => changeValue(index, raw)}
                   />
                 }>
                   <Match when={props.node.valueType === "boolean"}>
-                    <Select value={String(value)} items={BOOLEAN_ITEMS} onItemClick={item => setValue(props.node.id, index(), item.value)} />
+                    <Select value={String(value())} items={BOOLEAN_ITEMS} onItemClick={item => setValue(props.node.id, index, item.value)} />
                   </Match>
                   <Match when={props.node.valueType === "time"}>
-                    <DurationField valueMs={value as number} onChange={ms => setValue(props.node.id, index(), ms)} />
+                    <DurationField valueMs={value() as number} onChange={ms => setValue(props.node.id, index, ms)} />
                   </Match>
                 </Switch>
                 <Show when={props.node.values.length > 1}>
-                  <Button isIcon tooltip="Remove value" style={ICON_STYLE} onClick={() => removeValue(props.node.id, index())}>
+                  <Button isIcon tooltip="Remove value" style={ICON_STYLE} onClick={() => removeValue(props.node.id, index)}>
                     <X size={15} />
                   </Button>
                 </Show>
               </div>
-            }</For>
+            }</Index>
             <Button isIcon tooltip="Add value" style={ICON_STYLE} onClick={() => addValue(props.node.id)}>
               <Plus size={15} />
             </Button>

@@ -36,17 +36,16 @@
   }
 }
 
+// Portaled to document.body; position/width are set inline (FilterValueField.tsx),
+// clamped to the viewport so long suggestion values can't push it off-window.
 .Suggestions {
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 0;
-  min-width: 100%;
+  position: fixed;
   background-color: var(--secondary-bg-color);
   border: 1px solid var(--control-border);
   border-radius: var(--radius-md);
   box-shadow: 0 12px 32px -6px rgba(0, 0, 0, .6);
   padding: 4px;
-  z-index: 60;
+  z-index: var(--z-menu);
   max-height: 210px;
   overflow-y: auto;
 }
@@ -70,6 +69,8 @@
 }
 
 .Label {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
