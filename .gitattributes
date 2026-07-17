@@ -1,0 +1,34 @@
+# Normalize line endings to LF for everything Git treats as text, checked in
+# and checked out the same way regardless of OS , this repo is edited on
+# Windows but CI (and potentially contributors) may run on Linux too.
+* text=auto eol=lf
+
+# Explicit for editors/tools that key off extension rather than content sniffing.
+*.rs    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+*.scss  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.svg   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Binary assets, never line-ending-normalize or text-diff these.
+*.png   binary
+*.ico   binary
+*.icns  binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.flac  binary
+*.mp3   binary
+*.wav   binary
+
+# Keep generated lock files out of GitHub's diff/language-stats noise.
+package-lock.json linguist-generated=true
+Cargo.lock linguist-generated=true
