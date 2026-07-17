@@ -1,0 +1,66 @@
+.Container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.EditableTable {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  th:not(:last-child),
+  td:not(:last-child) {
+    border-right: 1px solid var(--border-color);
+  }
+
+  th {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 12px;
+  }
+
+  td {
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 2px;
+  }
+}
+
+.DataRow {
+  transition: background-color 0.15s ease;
+
+  .ActionCell> :global(button) {
+    opacity: 0;
+    transition: opacity .15s ease;
+  }
+
+  &:hover {
+    background-color: rgba(255, 255, 255, .03);
+
+    .ActionCell> :global(button) {
+      opacity: 1;
+    }
+  }
+
+  // Keyboard users shouldn't need a hover to reach the delete button.
+  &:focus-within .ActionCell> :global(button) {
+    opacity: 1;
+  }
+}
+
+.ActionColumn {
+  width: 48px;
+}
+
+.ActionCell {
+  text-align: center;
+}

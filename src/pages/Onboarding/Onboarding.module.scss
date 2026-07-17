@@ -1,0 +1,96 @@
+.Onboarding {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--base-bg-color);
+  color: var(--base-font-color);
+}
+
+.Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+
+  .Brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 600;
+
+    img {
+      width: 22px;
+      height: 22px;
+    }
+  }
+
+  .Progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .Dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--control-border);
+    transition: background-color .15s ease, transform .15s ease;
+  }
+
+  .DotDone {
+    background-color: var(--base-blue);
+  }
+
+  .DotActive {
+    background-color: var(--base-blue);
+    transform: scale(1.35);
+  }
+}
+
+.Body {
+  flex-grow: 1;
+  min-height: 0;
+  padding: 20px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.StepHeading {
+  max-width: 650px;
+  margin-bottom: 18px;
+
+  h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+}
+
+.StepContent {
+  max-width: 650px;
+}
+
+.Footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+
+  .NavButtons {
+    display: flex;
+    gap: 8px;
+  }
+}

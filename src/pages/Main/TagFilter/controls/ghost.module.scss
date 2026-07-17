@@ -1,0 +1,26 @@
+.Ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px dashed var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color .15s, border-color .15s, background-color .15s;
+
+  &:hover {
+    color: var(--base-font-color);
+    border-color: var(--control-border-hover);
+    background-color: var(--control-bg);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}

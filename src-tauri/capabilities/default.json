@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main",
+    "screenshotter",
+    "recording-hud",
+    "recording-border"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:allow-open-path",
+    "core:window:default",
+    "core:webview:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-create",
+    "core:webview:allow-create-webview",
+    "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-position",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "clipboard-manager:default",
+    "dialog:default",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "updater:default",
+    "process:default"
+  ]
+}

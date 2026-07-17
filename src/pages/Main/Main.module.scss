@@ -1,0 +1,406 @@
+.Main {
+  display: flex;
+  background-color: var(--base-bg-color);
+  width: 100%;
+  height: 100%;
+
+  .SideBar {
+    width: 200px;
+    flex-shrink: 0;
+    flex-grow: 0;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--panel-bg);
+    border-right: 1px solid var(--border-color);
+
+    .Brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: 600;
+
+      img {
+        width: 22px;
+        height: 22px;
+      }
+    }
+
+    .Actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 4px 16px 16px;
+
+      button {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 0 14px;
+      }
+    }
+
+    .SettingsRow {
+      margin-top: auto;
+    }
+
+    .Footer {
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+  }
+
+  .Content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .EmptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    gap: 6px;
+    color: var(--text-muted);
+
+    span:first-child {
+      font-size: 22px;
+    }
+  }
+
+  .ScreenshotListing {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    position: relative;
+    padding: 0 16px 20px;
+
+    // flow-root keeps the panel's margins inside, so offsetHeight measures true.
+    // Sticky with an opaque background (owning the listing's top padding so no
+    // strip above it is ever transparent): the grid slides underneath while
+    // the scrollbar still spans the full listing.
+    .FiltersHeader {
+      display: flow-root;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding-top: 10px;
+      background-color: var(--base-bg-color);
+    }
+
+    .Viewport {
+      position: relative;
+      width: 100%;
+    }
+
+    .Grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .Screenshot {
+      height: 230px;
+      background-color: var(--secondary-bg-color);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+
+      .ImageWrap {
+        position: relative;
+        cursor: zoom-in;
+        height: 132px;
+        flex-shrink: 0;
+        background-color: rgba(0, 0, 0, 0.25);
+
+        img,
+        video {
+          object-fit: contain;
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+
+        .PlayBadge {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          pointer-events: none;
+
+          svg {
+            filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+            fill: rgba(255, 255, 255, 0.85);
+          }
+        }
+
+        .FilePlaceholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          width: 100%;
+          height: 100%;
+          color: rgba(255, 255, 255, 0.6);
+
+          span {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+          }
+        }
+
+        .HoverActions {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          justify-content: center;
+          gap: 4px;
+          padding: 4px;
+          background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+          opacity: 0;
+          transition: opacity 0.15s ease;
+        }
+
+        &:hover .HoverActions {
+          opacity: 1;
+        }
+      }
+
+      .Meta {
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 13px;
+        line-height: 1.4;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+
+        .FileName {
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .Date {
+          color: var(--text-muted);
+        }
+
+        .Tag {
+          color: var(--secondary-blue);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .UploadedRow {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .UploadedLink {
+          color: var(--success-color);
+          text-decoration: none;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          flex: 1;
+          min-width: 0;
+
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+
+        .Status {
+          color: var(--secondary-blue);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .UploadBar {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 2px;
+          min-width: 0;
+          max-width: 100%;
+          overflow: hidden;
+
+          .UploadTrack {
+            flex: 1;
+            min-width: 0;
+            height: 4px;
+            border-radius: 2px;
+            background-color: rgba(255, 255, 255, 0.12);
+            overflow: hidden;
+          }
+
+          .UploadFill {
+            height: 100%;
+            width: 0;
+            border-radius: 2px;
+            background-color: var(--base-blue);
+            transition: width 0.2s ease;
+
+            &.Indeterminate {
+              width: 40%;
+              animation: UploadIndeterminate 1.2s ease-in-out infinite;
+            }
+          }
+
+          .UploadLabel {
+            flex: 1;
+            min-width: 0;
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          &.Success {
+            .UploadFill {
+              background-color: var(--success-color);
+            }
+
+            .UploadLabel {
+              color: var(--success-color);
+            }
+          }
+
+          &.Failed {
+            flex-shrink: 0;
+
+            .UploadTrack {
+              background-color: rgb(from var(--danger-color) r g b / .2);
+            }
+
+            .UploadFill {
+              background-color: var(--danger-color);
+            }
+
+            .UploadLabel {
+              color: var(--danger-color);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes UploadIndeterminate {
+  0% {
+    margin-left: -40%;
+  }
+
+  100% {
+    margin-left: 100%;
+  }
+}
+
+.Divider {
+  height: 1px;
+  margin: 6px 0;
+  background-color: var(--border-color);
+  opacity: .6;
+}
+
+.Spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--base-blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.CenterLoader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.MoreLoader {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+
+  .Spinner {
+    width: 22px;
+    height: 22px;
+    border-width: 2px;
+  }
+}
+
+.PreviewBody {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  flex-grow: 1;
+  padding: 0 16px 16px;
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .FilePreview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    color: rgba(255, 255, 255, 0.7);
+
+    span {
+      font-size: 16px;
+      word-break: break-all;
+      text-align: center;
+    }
+  }
+}
+
+.ConfirmBody {
+  padding: 0 16px 16px;
+
+  .ConfirmActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+  }
+}

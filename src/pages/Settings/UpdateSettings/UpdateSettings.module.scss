@@ -1,0 +1,65 @@
+.CheckRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.StatusText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+
+  &.Success {
+    color: var(--success-color);
+  }
+
+  &.Error {
+    color: var(--danger-color);
+  }
+}
+
+.ProgressBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+
+  .ProgressTrack {
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+
+  .ProgressFill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background-color: var(--base-blue);
+    transition: width 0.2s ease;
+
+    &.Indeterminate {
+      width: 40%;
+      animation: ProgressIndeterminate 1.2s ease-in-out infinite;
+    }
+  }
+
+  .StatusText {
+    flex-shrink: 0;
+  }
+}
+
+@keyframes ProgressIndeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(250%);
+  }
+}

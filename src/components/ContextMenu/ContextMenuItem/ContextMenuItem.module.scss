@@ -1,0 +1,42 @@
+.Container {
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  position: relative;
+  transition: background-color 0.2s;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: var(--base-font-color);
+
+  &:hover:not(.Disabled) {
+    background-color: rgba(255, 255, 255, .08);
+  }
+
+  &.Disabled {
+    cursor: not-allowed !important;
+    opacity: .5;
+  }
+
+  &.Danger {
+    color: var(--danger-color);
+
+    &:hover:not(.Disabled) {
+      background-color: rgb(from var(--danger-color) r g b / .15);
+    }
+  }
+
+  .Icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 15px;
+    width: 13px;
+
+    &>* {
+      flex-shrink: 0;
+      flex-grow: 1;
+    }
+  }
+}

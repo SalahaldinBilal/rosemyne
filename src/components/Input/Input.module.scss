@@ -1,0 +1,60 @@
+.Input {
+  display: inline-flex;
+  align-items: stretch;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  transition: border-color .15s ease, background-color .15s ease;
+
+  &:hover:not(.Focused):not(.Disabled) {
+    border-color: var(--control-border-hover);
+  }
+
+  &.Focused:not(.Disabled) {
+    border-color: var(--input-accent);
+  }
+
+  &.Disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  &>* {
+    flex-shrink: 0;
+  }
+
+  &.Borderless {
+    border-color: transparent;
+    background-color: transparent;
+  }
+
+  &.NoRadius {
+    border-radius: 0;
+  }
+
+  input {
+    all: unset;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--base-font-color);
+    flex-grow: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 10px;
+
+    &::placeholder {
+      color: var(--text-faint);
+    }
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    &:focus {
+      outline: none;
+    }
+  }
+}

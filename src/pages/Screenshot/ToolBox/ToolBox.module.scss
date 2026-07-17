@@ -1,0 +1,98 @@
+.ToolBoxParent {
+  position: fixed;
+  pointer-events: none;
+  transform: translateX(-50%);
+  overflow: visible;
+  z-index: 30002;
+  opacity: 1;
+  transition: opacity 150ms ease;
+
+  &.Interacting {
+    opacity: .35;
+
+    .ToolBox {
+      pointer-events: none;
+    }
+  }
+
+  .ToolBoxColumn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ToolBox {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background-color: rgba(32, 32, 32, .85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 14px;
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .2);
+    padding: 6px;
+    color: var(--base-font-color);
+    pointer-events: all;
+  }
+
+  .Divider {
+    align-self: stretch;
+    width: 1px;
+    margin: 4px 3px;
+    background-color: rgba(255, 255, 255, .12);
+  }
+
+  .Hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 3px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .ToolOptions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(32, 32, 32, .85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .2);
+    padding: 6px 10px;
+    pointer-events: all;
+  }
+
+  .ToolOptionsLabel {
+    font-size: 12px;
+    color: rgba(255, 255, 255, .7);
+    white-space: nowrap;
+  }
+
+  .ColorPickerWrapper {
+    width: 26px;
+    height: 26px;
+    display: flex;
+
+    :global(.color-picker) {
+      width: 100%;
+      height: 100%;
+    }
+  }
+}
+
+// Sibling of .ToolBoxParent, not a descendant , it tracks the mouse over the
+// whole capture, not just the toolbox.
+.BrushCursor {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .9);
+  pointer-events: none;
+  z-index: 40000;
+}

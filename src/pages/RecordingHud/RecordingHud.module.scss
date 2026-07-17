@@ -1,0 +1,61 @@
+.RecordingHud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(20, 20, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eee;
+  font-size: 14px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.RecordDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e5484d;
+  flex-shrink: 0;
+  animation: pulse 1.6s ease-in-out infinite;
+
+  &.Starting {
+    background: #f5a524;
+    animation-duration: 0.8s;
+  }
+}
+
+.StartingLabel {
+  color: #cfcfd6;
+  font-size: 13px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.Timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 58px;
+}
+
+.Audio {
+  display: flex;
+  align-items: center;
+  color: #9a9aa3;
+  flex-shrink: 0;
+}
+
+.Spacer {
+  flex-grow: 1;
+}
+
+.Saving {
+  color: #9a9aa3;
+  font-size: 13px;
+}

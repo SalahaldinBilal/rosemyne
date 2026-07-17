@@ -1,0 +1,124 @@
+.RequestCreator {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 12px;
+
+  .NameRow {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .FieldError {
+    color: var(--danger-color);
+    font-size: 14px;
+  }
+
+  .SettingRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      accent-color: var(--base-blue);
+      cursor: pointer;
+    }
+
+    .SettingText {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .Hint {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+    }
+  }
+
+  .VarHint,
+  .SectionHint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+  }
+
+  .TestResult {
+    padding: 8px 12px;
+    border-radius: 5px;
+    background-color: rgba(53, 213, 119, 0.15);
+    font-size: 14px;
+    word-break: break-all;
+
+    &.TestError {
+      background-color: rgba(225, 65, 44, 0.15);
+    }
+  }
+
+  .Tables {
+    display: flex;
+    flex-wrap: wrap;
+
+    .TableContainer {
+      padding: 5px;
+      display: flex;
+      justify-content: flex-start;
+      flex-grow: 1;
+      flex-shrink: 1;
+      flex-basis: 320px;
+      align-items: center;
+      flex-direction: column;
+
+      .Header {
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+    }
+  }
+
+  .Section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+
+    .SectionTitle {
+      font-weight: bold;
+    }
+
+    .SectionRow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+
+      >span {
+        min-width: 110px;
+        font-size: 14px;
+      }
+    }
+  }
+
+  .JsonEditor {
+    background-color: var(--control-bg);
+    color: var(--base-font-color);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    resize: vertical;
+
+    &:focus {
+      outline: none;
+      border-color: var(--base-blue);
+    }
+  }
+}

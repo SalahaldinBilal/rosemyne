@@ -1,0 +1,25 @@
+.ShortcutPickerContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+
+  .Controls {
+    display: flex;
+  }
+
+  .Warning {
+    color: var(--warning-color);
+    font-size: 13px;
+    text-align: center;
+    padding-bottom: 10px;
+  }
+
+  .KeyRenderer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 400px;
+    min-height: 200px;
+    padding: 0 50px;
+  }
+}

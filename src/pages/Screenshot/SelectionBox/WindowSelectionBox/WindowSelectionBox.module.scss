@@ -1,0 +1,7 @@
+.WindowBox {
+  position: fixed;
+
+  &.Disabled {
+    pointer-events: none;
+  }
+}

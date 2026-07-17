@@ -1,0 +1,107 @@
+.Button {
+  --button-tint: rgb(from var(--button-color) r g b / .10);
+  --button-tint-strong: rgb(from var(--button-color) r g b / .18);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  background-color: transparent;
+  border: 0;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  appearance: none;
+  text-decoration: none;
+  color: var(--button-color);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  height: 34px;
+  min-width: 64px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  transition: background-color .15s ease, color .15s ease, opacity .15s ease;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:not(:disabled):hover {
+    background-color: var(--button-tint);
+  }
+
+  &:not(:disabled):active {
+    background-color: var(--button-tint-strong);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgb(from var(--button-color) r g b / .5);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+
+  &.Icon {
+    min-width: 34px;
+    width: 34px;
+    padding: 0;
+  }
+
+  &.NoRadius {
+    border-radius: 0;
+  }
+
+  &.Filled {
+    background-color: var(--button-color);
+    color: #fff;
+
+    &:not(:disabled):hover {
+      background-color: var(--button-color);
+      filter: brightness(1.08);
+    }
+
+    &:not(:disabled):active {
+      background-color: var(--button-color);
+      filter: brightness(.92);
+    }
+
+    &:focus-visible {
+      outline-offset: 2px;
+    }
+  }
+}
+
+// Rendered through a Portal (into document.body), so it must not be nested under .Button.
+.Tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  background-color: rgba(20, 20, 20, .95);
+  color: var(--base-font-color);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, .5);
+  pointer-events: none;
+  animation: tooltip-fade-in .12s ease-out;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

@@ -1,0 +1,34 @@
+.Container {
+  position: fixed;
+  background-color: var(--secondary-bg-color);
+  box-sizing: border-box;
+  border: 1px solid var(--control-border);
+  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, .6);
+  border-radius: var(--radius-md);
+  padding: 6px 0;
+  min-width: 200px;
+  z-index: var(--z-menu);
+  overflow: visible;
+
+  &.StartState {
+    opacity: 0;
+  }
+
+  &.EnterAnimation {
+    animation: appear 0.15s;
+  }
+
+  &.EndAnimation {
+    animation: appear 0.15s reverse;
+  }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

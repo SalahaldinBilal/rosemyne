@@ -1,0 +1,46 @@
+.GeneralSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 650px;
+  padding-right: 20px;
+  padding-bottom: 20px;
+
+  .SettingRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    // Only the checkbox rows are `<label>`s (click-anywhere-to-toggle);
+    // plain `<div>` rows aren't themselves clickable, just their contents.
+    &:is(label) {
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      accent-color: var(--base-blue);
+      cursor: pointer;
+    }
+
+    .SettingText {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .Hint {
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .DirectoryRow {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+    }
+  }
+
+}

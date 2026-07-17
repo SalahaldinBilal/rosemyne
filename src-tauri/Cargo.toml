@@ -1,0 +1,94 @@
+[package]
+name = "rosemyne"
+version = "0.1.0"
+description = "A ShareX-like screenshot capture, annotate and upload tool"
+authors = ["SalahaldinBilal"]
+license = "GPL-3.0-or-later"
+edition = "2024"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "rosemyne_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.3.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.10.3", features = [
+  "protocol-asset",
+  "unstable",
+  "tray-icon",
+  "devtools",
+] }
+tauri-plugin-clipboard-manager = "2.3.2"
+tauri-runtime = "2.10.1"
+tauri-utils = "2.8.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+raw-window-handle = "0.6.2"
+image = "0.25.10"
+rand = "0.10.1"
+chrono = { version = "0.4.44", features = ["serde"] }
+dirs = "6.0.0"
+global-hotkey = { version = "0.8.0", features = ["serde"] }
+mouse-rs = "0.4.2"
+reqwest = { version = "0.13.2", features = ["multipart", "json", "form", "stream"] }
+futures-util = "0.3"
+url = { version = "2.5.8", features = ["serde"] }
+regex = "1.12.3"
+rusqlite = { version = "0.37.0", features = ["bundled", "functions"] }
+fuzzy-matcher = "0.3.7"
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-opener = "2.5.4"
+cpal = "0.16.0"
+rodio = "0.21.1"
+
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+version = "0.62.2"
+features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Devices_Display",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_DataExchange",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Shell",
+  "Win32_Storage_FileSystem",
+  "Win32_Globalization",
+]
+
+
+[target.'cfg(target_os = "windows")'.dependencies.windows-core]
+version = "0.62.2"
+
+[target.'cfg(target_os = "windows")'.dependencies.windows-capture]
+version = "2.0.0"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-global-shortcut = "2.3.1"
+tauri-plugin-single-instance = "2.4.1"
+tauri-plugin-autostart = "2.5.1"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
+
+# Pixel work (effect rendering, WebP/PNG encoding) is unusably slow unoptimized.
+[profile.dev.package.image]
+opt-level = 3
+
+[profile.dev.package.image-webp]
+opt-level = 3
+
+[profile.dev.package.png]
+opt-level = 3
+
+[profile.dev.package.fdeflate]
+opt-level = 3

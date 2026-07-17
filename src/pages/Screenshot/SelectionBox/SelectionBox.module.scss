@@ -1,0 +1,40 @@
+.WindowSelectionBox {
+  position: fixed;
+  box-sizing: border-box;
+  border: 2px dashed lightskyblue;
+  transition: all 0.1s;
+  z-index: 31000;
+  pointer-events: none;
+  overflow: hidden;
+
+  &.MouseDown {
+    transition: all 0s;
+  }
+}
+
+.DimensionsLabel {
+  position: fixed;
+  z-index: 31001;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 12px;
+  font-family: monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.LightPreviewContainer {
+  position: fixed;
+  box-sizing: border-box;
+  z-index: 30001;
+  pointer-events: none;
+  overflow: hidden;
+
+  img {
+    position: absolute;
+    transition: all 0s;
+    pointer-events: none;
+  }
+}

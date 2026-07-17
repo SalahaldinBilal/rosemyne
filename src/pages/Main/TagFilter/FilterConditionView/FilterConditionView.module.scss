@@ -1,0 +1,43 @@
+.Condition {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: var(--base-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.Body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.Path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.Sep {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.Values {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.Value {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}

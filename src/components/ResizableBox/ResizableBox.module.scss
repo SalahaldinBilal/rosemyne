@@ -1,0 +1,9 @@
+.ResizeBox {
+  resize: both;
+  position: fixed;
+  border: black solid;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  pointer-events: none;
+}

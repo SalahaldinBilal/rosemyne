@@ -1,0 +1,67 @@
+.Group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &.Nested {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background-color: rgba(255, 255, 255, .02);
+  }
+}
+
+.Head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.Actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.Children {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border-color);
+}
+
+.Segment {
+  display: inline-flex;
+  background-color: var(--base-bg-color);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+
+  button {
+    padding: 5px 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color .15s, color .15s;
+
+    &:hover:not(.Active) {
+      color: var(--base-font-color);
+    }
+
+    &.Active {
+      background-color: var(--base-blue);
+      color: #fff;
+    }
+  }
+}
+

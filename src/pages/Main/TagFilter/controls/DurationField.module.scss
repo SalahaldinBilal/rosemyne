@@ -1,0 +1,34 @@
+.Duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.Input {
+  all: unset;
+  box-sizing: border-box;
+  height: 34px;
+  width: 90px;
+  padding: 0 10px;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--base-font-color);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color .15s;
+
+  &:hover:not(:focus) {
+    border-color: var(--control-border-hover);
+  }
+
+  &:focus {
+    border-color: var(--base-blue);
+  }
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}

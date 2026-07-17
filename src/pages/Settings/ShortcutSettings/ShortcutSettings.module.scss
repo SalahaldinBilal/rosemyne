@@ -1,0 +1,107 @@
+.ShortcutsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+
+  .Section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .SectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 640px;
+  }
+
+  .SectionTitle {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .SectionDescription {
+    font-size: 14px;
+    opacity: 0.7;
+    margin-top: -4px;
+  }
+
+  .Empty {
+    font-size: 14px;
+    opacity: 0.6;
+    padding: 6px 2px;
+  }
+
+  .ShortcutItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--secondary-bg-color);
+    border-radius: 5px;
+    padding: 10px 14px;
+    width: fit-content;
+    min-width: 400px;
+    max-width: 640px;
+
+    span {
+      font-size: 18px;
+      margin-right: 5px;
+    }
+
+    .KeyContainer {
+      display: flex;
+      cursor: pointer;
+    }
+
+    .TargetSummary {
+      flex: 1;
+      font-size: 14px;
+      opacity: 0.85;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+.ButtonWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.TargetEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 320px;
+
+  .TargetTypeToggle {
+    display: flex;
+    gap: 10px;
+  }
+
+  .RegionFields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      opacity: 0.85;
+    }
+  }
+
+  .TargetEditorControls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 6px;
+  }
+}

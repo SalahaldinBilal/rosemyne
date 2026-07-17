@@ -1,0 +1,52 @@
+// Lives inside the history scroll container; its horizontal padding comes
+// from the listing, keeping the panel flush with the card grid.
+.TagFilters {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.Header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  &:not(:last-child) {
+    margin-bottom: 12px;
+  }
+}
+
+.Title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-weight: 600;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.Actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.Badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
