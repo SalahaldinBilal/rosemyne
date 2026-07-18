@@ -1,6 +1,6 @@
 import { createMemo, For, JSX } from "solid-js";
 import styles from "./Settings.module.scss";
-import { ArrowLeft, CloudUpload, Import, RefreshCw, Settings2, SquareSlash, Volume2 } from "lucide-solid";
+import { ArrowLeft, CloudUpload, Import, RefreshCw, Settings2, Shapes, SquareSlash, Volume2 } from "lucide-solid";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { Dynamic } from "solid-js/web";
 import SideNavItem from "@core/components/SideNav/SideNavItem";
@@ -10,6 +10,7 @@ const routes = [
   { path: "shortcuts", title: "Shortcuts", icon: SquareSlash },
   { path: "uploaders", title: "Uploaders", icon: CloudUpload },
   { path: "sounds", title: "Sounds", icon: Volume2 },
+  { path: "overlay-defaults", title: "Overlay Defaults", icon: Shapes },
   { path: "sharex", title: "ShareX import", icon: Import },
   { path: "updates", title: "Updates", icon: RefreshCw },
 ]

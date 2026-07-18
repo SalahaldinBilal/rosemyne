@@ -4,8 +4,9 @@ import { ImageOverlay } from "../../../types/imageOverlay";
 import { DragDropProvider, DragDropSensors, DragOverlay } from "@thisbeyond/solid-dnd";
 import ImageOverlayElem from "./ImageOverlayElem/ImageOverlayElem";
 import useScreenshotOverlayStateInner from "../../../states/screenshotOverlayState";
+import useOverlayDefaultsState from "../../../states/overlayDefaultsState";
 import { Dimensions } from "../../../types";
-import { OVERLAY_DEFAULT_ATTRIBUTES, OVERLAY_TOOLS, TOOL_TO_OVERLAY } from "../../../constants";
+import { OVERLAY_TOOLS, TOOL_TO_OVERLAY } from "../../../constants";
 import { getIntersection } from "../../../helpers";
 
 // Large enough to always outrank any realistic item.order, so a nearly-fully-covered
@@ -15,6 +16,7 @@ const HIDDEN_BEHIND_COVERAGE = 0.9;
 
 function ImageOverlayContainer() {
   const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting } = useScreenshotOverlayStateInner;
+  const { defaultAttributesFor } = useOverlayDefaultsState;
   const transform = createMutable({ x: 0, y: 0 });
   const [draggedItemIndex, setDraggedItemIndex] = createSignal<number | null>(null);
   let mouseDownLocation: MouseEvent;
@@ -104,7 +106,7 @@ function ImageOverlayContainer() {
     window.addEventListener("mousemove", mouseMoveHandler);
 
     const overlayType = TOOL_TO_OVERLAY[currentTool() as keyof typeof TOOL_TO_OVERLAY];
-    const defaultAttributes = structuredClone(OVERLAY_DEFAULT_ATTRIBUTES[overlayType]);
+    const defaultAttributes = defaultAttributesFor(overlayType);
 
     const overlay: Omit<ImageOverlay, "order"> = {
       type: overlayType,

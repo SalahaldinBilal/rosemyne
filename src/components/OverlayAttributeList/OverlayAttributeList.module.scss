@@ -1,0 +1,63 @@
+.AttributeList {
+  display: flex;
+  flex-direction: column;
+}
+
+.AttributeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 12px;
+  font-size: 13px;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, .04);
+  }
+}
+
+.AttributeLabel {
+  color: rgba(255, 255, 255, .8);
+  white-space: nowrap;
+}
+
+.AttributeControl {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ColorPickerWrapper {
+  width: 90px;
+  height: 26px;
+  display: flex;
+  // Matches .btn-appearance's own radius so the backdrop below doesn't show
+  // square corners peeking past the swatch's rounded ones. Not
+  // `overflow: hidden` , that would also clip the color-picker's popup panel,
+  // which needs to render past this box's bounds.
+  border-radius: 0.25rem;
+
+  // @thednp/color-picker's light/dark text choice (DefaultColorPicker.tsx:
+  // `isDark = brightness-based-dark && alpha > 0.33`) assumes any color at
+  // alpha <= 0.33 sits over a light backdrop and picks black text
+  // accordingly. We render no backdrop of our own, so at low alpha the
+  // hex text sits directly on our dark theme and the black text disappears.
+  // A checkerboard (the "correct" way to show translucency) made this worse,
+  // not better , alternating light/dark squares directly behind small text
+  // is illegible regardless of which text color gets picked. A single flat
+  // mid-tone gives reasonable contrast for both black and white text without
+  // being fought or being visually busy; it's fully hidden behind any opaque
+  // color same as before.
+  background-color: #888;
+
+  :global(.color-picker) {
+    width: 100%;
+    height: 100%;
+  }
+
+  :global(.color-preview) {
+    // Claws back some of the library's own (too generous for our compact
+    // controls) input padding, giving the hex text a bit more room to fit.
+    padding: 0 6px !important;
+  }
+}

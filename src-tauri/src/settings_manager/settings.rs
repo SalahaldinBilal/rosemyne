@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -70,6 +71,14 @@ impl GeneralSettings {
     }
 }
 
+/// User overrides for a new overlay item's starting attribute values, keyed by
+/// overlay type ("box"/"text"/"blur"/"pixelate") then attribute name. Only
+/// customized values are stored; anything missing falls back to the
+/// frontend's built-in defaults (`OVERLAY_DEFAULT_ATTRIBUTES`). The value
+/// shape (string/number/bool) is opaque to Rust , the frontend owns and
+/// validates it against its own attribute schema.
+pub type OverlayDefaultOverrides = HashMap<String, HashMap<String, serde_json::Value>>;
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct UserSettings {
@@ -79,6 +88,7 @@ pub struct UserSettings {
     default_uploader_id: Option<String>,
     general: GeneralSettings,
     sound: SoundSettings,
+    overlay_defaults: OverlayDefaultOverrides,
 }
 
 #[derive(Debug)]
@@ -204,6 +214,15 @@ impl Settings {
 
     pub fn get_sound_settings(&self) -> &SoundSettings {
         &self.user_settings.sound
+    }
+
+    pub fn get_overlay_defaults(&self) -> &OverlayDefaultOverrides {
+        &self.user_settings.overlay_defaults
+    }
+
+    pub fn set_overlay_defaults(&mut self, overlay_defaults: OverlayDefaultOverrides) -> Result<(), SettingsError> {
+        self.user_settings.overlay_defaults = overlay_defaults;
+        self.save_settings()
     }
 
     pub fn set_sound_enabled(&mut self, kind: SoundKind, enabled: bool) -> Result<(), SettingsError> {

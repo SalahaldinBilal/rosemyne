@@ -2,6 +2,7 @@ import { createEffect, onCleanup, onMount, Show } from "solid-js";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
 import { Data } from "../../types/screenshot";
 import useScreenshotOverlayStateInner from "../../states/screenshotOverlayState";
+import useOverlayDefaultsState from "../../states/overlayDefaultsState";
 import ImageOverlayContainer from "./ImageOverlayContainer/ImageOverlayContainer";
 import DrawLayer from "./DrawLayer/DrawLayer";
 import ToolBox from "./ToolBox/ToolBox";
@@ -27,6 +28,7 @@ const MOVE_ACCELERATION = 0.85;
 
 function Screenshot() {
   const { imageData, setImageData, cancelCurrentAction, mouseEventHandler, selectedBox } = useScreenshotOverlayStateInner;
+  const { refresh: refreshOverlayDefaults } = useOverlayDefaultsState;
   const mouseMovement = { x: 0, y: 0 };
   let movementTimer: ReturnType<typeof setTimeout> | undefined;
   let movementInterval = MOVE_START_INTERVAL_MS;
@@ -79,6 +81,7 @@ function Screenshot() {
 
     getCurrentWebviewWindow().listen("screenshot://data", (event: TauriEvent<Data>) => {
       setImageData(event.payload);
+      refreshOverlayDefaults();
     });
   })
 

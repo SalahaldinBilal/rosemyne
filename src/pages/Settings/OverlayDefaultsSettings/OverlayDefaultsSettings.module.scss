@@ -1,0 +1,51 @@
+.OverlayDefaultsSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 650px;
+  padding-right: 20px;
+  padding-bottom: 20px;
+
+  // The color picker's own popup (@thednp/color-picker) anchors its "picker"
+  // panel with `left: 0`, expanding rightward from its trigger , fine in the
+  // overlay's own (viewport-clamped, centrally-positioned) right-click menu,
+  // but here the swatch sits near the settings column's right edge with no
+  // room to expand into, so it runs off the actual window. Flip it to expand
+  // leftward instead, where this page actually has room.
+  :global(.color-dropdown.picker) {
+    left: auto;
+    right: 0;
+  }
+}
+
+.Intro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.Hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ToolSection {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+
+  .ToolHeader {
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+.ToolHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-color);
+}

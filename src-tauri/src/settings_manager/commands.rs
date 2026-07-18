@@ -1,6 +1,6 @@
 use crate::image_uploader::SavedUploader;
 use crate::settings_manager::SettingsError;
-use crate::settings_manager::settings::GeneralSettings;
+use crate::settings_manager::settings::{GeneralSettings, OverlayDefaultOverrides};
 use crate::settings_manager::shortcuts::ShortcutBinding;
 use crate::{HistoryStoreHandler, SettingsHandler};
 use tauri::{AppHandle, State};
@@ -118,4 +118,21 @@ pub async fn set_general_settings(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_overlay_defaults(
+    settings_handle: State<'_, SettingsHandler>,
+) -> Result<OverlayDefaultOverrides, ()> {
+    let settings = settings_handle.read().await;
+    Ok(settings.get_overlay_defaults().clone())
+}
+
+#[tauri::command]
+pub async fn set_overlay_defaults(
+    settings_handle: State<'_, SettingsHandler>,
+    overlay_defaults: OverlayDefaultOverrides,
+) -> Result<(), SettingsError> {
+    let mut settings = settings_handle.write().await;
+    settings.set_overlay_defaults(overlay_defaults)
 }

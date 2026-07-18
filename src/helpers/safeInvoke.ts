@@ -1,4 +1,4 @@
-import { DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageHistoryData, MigrationSummary, MonitorInfo, RecordingStatus, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, TagMetadata, TagValueSuggestion, VideoCodec } from "@core/types";
+import { DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, TagMetadata, TagValueSuggestion, VideoCodec } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -51,6 +51,8 @@ type Commands = {
   'set_default_uploader': Command<{ id: string | null }>,
   'get_general_settings': Command<undefined, GeneralSettings>,
   'set_general_settings': Command<{ general: GeneralSettings }>,
+  'get_overlay_defaults': Command<undefined, OverlayDefaultOverrides>,
+  'set_overlay_defaults': Command<{ overlayDefaults: OverlayDefaultOverrides }>,
   'migrate_from_sharex': Command<{ sharexPath: string, dryRun: boolean }, MigrationSummary>,
   'get_sound_settings': Command<undefined, SoundSettings>,
   'set_sound_enabled': Command<{ kind: SoundKind, enabled: boolean }>,

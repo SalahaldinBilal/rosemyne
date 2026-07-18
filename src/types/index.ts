@@ -1,5 +1,6 @@
 import type { clickOutside } from '../directives';
 import { Dimensions } from './screenshot';
+import { ImageOverlay } from './imageOverlay';
 
 export * from './componentProps'
 export * from './screenshot'
@@ -113,6 +114,21 @@ export type SoundSettings = {
   capture: SoundSetting,
   taskSuccess: SoundSetting,
 }
+
+// Real attribute map for one overlay type, e.g. OverlayAttributesFor<"box">
+// is BoxImageOverlay["attributes"] , see OVERLAY_DEFAULT_ATTRIBUTES, which
+// uses the same derivation.
+type OverlayAttributesFor<Type extends ImageOverlay["type"]> = Extract<ImageOverlay, { type: Type }>["attributes"];
+
+// User overrides for a new overlay item's starting attribute values. Keyed by
+// the real overlay type union and, per type, the real attribute names for
+// that type , only customized values are present, anything missing falls
+// back to the built-in `OVERLAY_DEFAULT_ATTRIBUTES`.
+export type OverlayDefaultOverrides = {
+  [Type in ImageOverlay["type"]]?: {
+    [Key in keyof OverlayAttributesFor<Type>]?: OverlayAttributesFor<Type>[Key] extends { value: infer Value } ? Value : never
+  }
+};
 
 export type MigrationSummary = {
   imported: number,

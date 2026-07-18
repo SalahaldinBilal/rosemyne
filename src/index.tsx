@@ -16,6 +16,7 @@ import UploaderSettings from "./pages/Settings/UploaderSettings/UploaderSettings
 import SoundSettings from "./pages/Settings/SoundSettings/SoundSettings";
 import ShareXImport from "./pages/Settings/ShareXImport/ShareXImport";
 import UpdateSettings from "./pages/Settings/UpdateSettings/UpdateSettings";
+import OverlayDefaultsSettings from "./pages/Settings/OverlayDefaultsSettings/OverlayDefaultsSettings";
 
 render(
   () => <Router root={App}>
@@ -30,6 +31,7 @@ render(
       <Route path="/shortcuts" component={ShortcutSettings}></Route>
       <Route path="/uploaders" component={UploaderSettings}></Route>
       <Route path="/sounds" component={SoundSettings}></Route>
+      <Route path="/overlay-defaults" component={OverlayDefaultsSettings}></Route>
       <Route path="/sharex" component={ShareXImport}></Route>
       <Route path="/updates" component={UpdateSettings}></Route>
     </Route>

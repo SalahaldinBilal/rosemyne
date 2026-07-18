@@ -22,8 +22,9 @@ use screenshot_window::{
     SCREENSHOT_WINDOW_LABEL, WindowManager, manager_trait::ScreenshotWindowManager,
 };
 use settings_manager::commands::{
-    add_shortcut, delete_uploader, get_default_uploader, get_general_settings, get_shortcuts,
-    get_uploaders, remove_shortcut, save_uploader, set_default_uploader, set_general_settings,
+    add_shortcut, delete_uploader, get_default_uploader, get_general_settings, get_overlay_defaults,
+    get_shortcuts, get_uploaders, remove_shortcut, save_uploader, set_default_uploader,
+    set_general_settings, set_overlay_defaults,
 };
 use settings_manager::settings::Settings;
 use settings_manager::shortcuts::shortcut_handler;
@@ -714,6 +715,8 @@ pub fn run() {
             set_default_uploader,
             get_general_settings,
             set_general_settings,
+            get_overlay_defaults,
+            set_overlay_defaults,
             migrate_from_sharex,
             get_sound_settings,
             set_sound_enabled,

@@ -6,7 +6,7 @@ export const TEXT_FONT_OPTIONS: string[] = ["serif", "sans-serif", "monospace", 
 
 export const OVERLAY_DEFAULT_ATTRIBUTES: { [Type in ImageOverlay["type"]]: Extract<ImageOverlay, { type: Type }>["attributes"] } = {
   box: {
-    color: { type: "color", value: "#ff0000" },
+    color: { type: "color", value: "#ff000000" },
     borderColor: { type: "color", value: "#ff0000" },
     borderThickness: { type: "number", value: 1 },
   },
