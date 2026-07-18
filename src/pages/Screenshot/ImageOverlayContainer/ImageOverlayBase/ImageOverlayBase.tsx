@@ -62,6 +62,10 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
           use:draggable
           onContextMenu={ev => {
             ev.preventDefault();
+            // Without this, the window-level contextmenu listener in
+            // Screenshot.tsx (right-click = cancel/close) also sees this
+            // event and closes the overlay right after opening the menu.
+            ev.stopPropagation();
             showContextMenu(ev);
           }}
         >
