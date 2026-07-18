@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use super::{SettingsError, shortcuts::ShortcutBinding};
+use crate::capture_preview::CapturePreviewSettings;
 use crate::image_uploader::SavedUploader;
 use crate::recording::recorder_trait::VideoCodec;
 use crate::screen_manager::screenshot_manager::ScreenshotImageFormat;
@@ -89,6 +90,7 @@ pub struct UserSettings {
     general: GeneralSettings,
     sound: SoundSettings,
     overlay_defaults: OverlayDefaultOverrides,
+    capture_preview: CapturePreviewSettings,
 }
 
 #[derive(Debug)]
@@ -222,6 +224,15 @@ impl Settings {
 
     pub fn set_overlay_defaults(&mut self, overlay_defaults: OverlayDefaultOverrides) -> Result<(), SettingsError> {
         self.user_settings.overlay_defaults = overlay_defaults;
+        self.save_settings()
+    }
+
+    pub fn get_capture_preview(&self) -> &CapturePreviewSettings {
+        &self.user_settings.capture_preview
+    }
+
+    pub fn set_capture_preview(&mut self, capture_preview: CapturePreviewSettings) -> Result<(), SettingsError> {
+        self.user_settings.capture_preview = capture_preview;
         self.save_settings()
     }
 

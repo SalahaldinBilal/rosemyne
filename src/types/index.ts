@@ -130,6 +130,36 @@ export type OverlayDefaultOverrides = {
   }
 };
 
+export type PreviewCorner = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+export type PreviewClickAction = "nothing" | "close" | "openFile" | "openFolder" | "copyFile" | "copyLink";
+
+export type CapturePreviewSettings = {
+  enabled: boolean,
+  monitorId: string | null,
+  corner: PreviewCorner,
+  marginX: number,
+  marginY: number,
+  maxWidth: number,
+  maxHeight: number,
+  autoDismissMs: number,
+  leftClickAction: PreviewClickAction,
+  rightClickAction: PreviewClickAction,
+}
+
+// Emitted as "capture-preview://show"; the settings fields are handed along
+// with the payload so the preview reflects whatever was configured at the
+// moment it was triggered, not whatever the page happens to have cached.
+export type CapturePreviewPayload = {
+  fileName: string,
+  itemType: "image" | "video" | "file",
+  url: string | null,
+  maxWidth: number,
+  maxHeight: number,
+  autoDismissMs: number,
+  leftClickAction: PreviewClickAction,
+  rightClickAction: PreviewClickAction,
+}
+
 export type MigrationSummary = {
   imported: number,
   skippedNonImage: number,

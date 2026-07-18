@@ -192,9 +192,7 @@ async fn try_upload(
     Ok(UploadResult { url, copied })
 }
 
-/// Uploads a freshly-saved file with the default uploader, if one is set and
-/// has auto-upload enabled. Called right after a screenshot/recording/import
-/// is persisted, regardless of whether any window is open.
+/// Uploads a freshly-saved file with the default uploader, if one is set and has auto-upload enabled.
 pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String) {
     let settings_handle = app_handle.state::<SettingsHandler>();
     let uploader = {

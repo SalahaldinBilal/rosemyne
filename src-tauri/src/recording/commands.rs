@@ -464,7 +464,7 @@ fn hide_recording_windows(app_handle: &AppHandle) {
 }
 
 #[cfg(target_os = "windows")]
-fn exclude_from_capture(window: &tauri::WebviewWindow) {
+pub(crate) fn exclude_from_capture(window: &tauri::WebviewWindow) {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
         SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE,
@@ -481,4 +481,4 @@ fn exclude_from_capture(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn exclude_from_capture(_window: &tauri::WebviewWindow) {}
+pub(crate) fn exclude_from_capture(_window: &tauri::WebviewWindow) {}

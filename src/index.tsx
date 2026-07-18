@@ -6,6 +6,7 @@ import Main from "./pages/Main/Main";
 import Onboarding from "./pages/Onboarding/Onboarding";
 import RecordingBorder from "./pages/RecordingBorder/RecordingBorder";
 import RecordingHud from "./pages/RecordingHud/RecordingHud";
+import CapturePreview from "./pages/CapturePreview/CapturePreview";
 import Screenshot from "./pages/Screenshot/Screenshot";
 import '@fontsource-variable/inter/index.css';
 import '@thednp/solid-color-picker/style.css';
@@ -17,6 +18,7 @@ import SoundSettings from "./pages/Settings/SoundSettings/SoundSettings";
 import ShareXImport from "./pages/Settings/ShareXImport/ShareXImport";
 import UpdateSettings from "./pages/Settings/UpdateSettings/UpdateSettings";
 import OverlayDefaultsSettings from "./pages/Settings/OverlayDefaultsSettings/OverlayDefaultsSettings";
+import CapturePreviewSettings from "./pages/Settings/CapturePreviewSettings/CapturePreviewSettings";
 
 render(
   () => <Router root={App}>
@@ -25,6 +27,7 @@ render(
     <Route path="/screenshot" component={Screenshot} />
     <Route path="/recording-hud" component={RecordingHud} />
     <Route path="/recording-border" component={RecordingBorder} />
+    <Route path="/capture-preview" component={CapturePreview} />
     <Route path="/settings" component={Settings}>
       <Route path="/" component={() => <Navigate href="/settings/general" />} />
       <Route path="/general" component={GeneralSettings}></Route>
@@ -32,6 +35,7 @@ render(
       <Route path="/uploaders" component={UploaderSettings}></Route>
       <Route path="/sounds" component={SoundSettings}></Route>
       <Route path="/overlay-defaults" component={OverlayDefaultsSettings}></Route>
+      <Route path="/capture-preview" component={CapturePreviewSettings}></Route>
       <Route path="/sharex" component={ShareXImport}></Route>
       <Route path="/updates" component={UpdateSettings}></Route>
     </Route>

@@ -1,3 +1,7 @@
+use capture_preview::CAPTURE_PREVIEW_LABEL;
+use capture_preview::commands::{
+    create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
+};
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
 use history_store::commands::{
@@ -22,9 +26,10 @@ use screenshot_window::{
     SCREENSHOT_WINDOW_LABEL, WindowManager, manager_trait::ScreenshotWindowManager,
 };
 use settings_manager::commands::{
-    add_shortcut, delete_uploader, get_default_uploader, get_general_settings, get_overlay_defaults,
-    get_shortcuts, get_uploaders, remove_shortcut, save_uploader, set_default_uploader,
-    set_general_settings, set_overlay_defaults,
+    add_shortcut, delete_uploader, get_capture_preview_settings, get_default_uploader,
+    get_general_settings, get_overlay_defaults, get_shortcuts, get_uploaders, remove_shortcut,
+    save_uploader, set_capture_preview_settings, set_default_uploader, set_general_settings,
+    set_overlay_defaults,
 };
 use settings_manager::settings::Settings;
 use settings_manager::shortcuts::shortcut_handler;
@@ -48,6 +53,7 @@ use tauri::{
 };
 use tauri::{Emitter, State};
 pub mod capture;
+pub mod capture_preview;
 pub mod dimensions;
 pub mod error_serializers;
 pub mod file_clipboard;
@@ -74,16 +80,18 @@ macro_rules! emit_on_main_thread {
     }};
 }
 
-/// Shared tail for every path that adds a row to history (a rendered capture, a
-/// finished recording, or a drag-dropped import): tells the main window about
-/// it, then kicks off auto-upload if it applies , independent of whether the
-/// window is even open.
+/// Shared tail for every history-adding path; waits on auto-upload (a no-op unless one applies) before showing the capture preview, so its link is already included.
 pub fn notify_history_saved(app_handle: &AppHandle, entry: &ImageHistoryData) {
     emit_on_main_thread!(app_handle, "screenshot://new-saved-image", entry.clone());
-    tauri::async_runtime::spawn(maybe_auto_upload(
-        app_handle.clone(),
-        entry.file_name.clone(),
-    ));
+
+    let app_handle = app_handle.clone();
+    let file_name = entry.file_name.clone();
+    tauri::async_runtime::spawn(async move {
+        maybe_auto_upload(app_handle.clone(), file_name.clone()).await;
+
+        let history_store = app_handle.state::<HistoryStoreHandler>().inner().clone();
+        capture_preview::commands::trigger(&app_handle, &history_store, &file_name).await;
+    });
 }
 
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
@@ -717,6 +725,10 @@ pub fn run() {
             set_general_settings,
             get_overlay_defaults,
             set_overlay_defaults,
+            get_capture_preview_settings,
+            set_capture_preview_settings,
+            show_capture_preview_window,
+            hide_capture_preview_window,
             migrate_from_sharex,
             get_sound_settings,
             set_sound_enabled,
@@ -784,6 +796,7 @@ async fn run_callback(
         tauri::RunEvent::Ready => {
             create_screenshot_window(app_handle, screenshot_window).await;
             create_recording_windows(app_handle);
+            create_capture_preview_window(app_handle);
         }
         tauri::RunEvent::WindowEvent {
             label,
@@ -814,6 +827,17 @@ async fn run_callback(
 
             // Keep the chrome pre-created so the next recording shows it instantly.
             create_recording_windows(app_handle);
+        }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Destroyed,
+            ..
+        } if label == CAPTURE_PREVIEW_LABEL => {
+            if APP_EXITING.load(Ordering::SeqCst) {
+                return;
+            }
+
+            create_capture_preview_window(app_handle);
         }
         _ => {}
     }

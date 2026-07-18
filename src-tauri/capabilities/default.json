@@ -6,7 +6,8 @@
     "main",
     "screenshotter",
     "recording-hud",
-    "recording-border"
+    "recording-border",
+    "capture-preview"
   ],
   "permissions": [
     "core:default",

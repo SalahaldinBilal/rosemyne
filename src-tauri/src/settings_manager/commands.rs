@@ -1,3 +1,4 @@
+use crate::capture_preview::CapturePreviewSettings;
 use crate::image_uploader::SavedUploader;
 use crate::settings_manager::SettingsError;
 use crate::settings_manager::settings::{GeneralSettings, OverlayDefaultOverrides};
@@ -135,4 +136,21 @@ pub async fn set_overlay_defaults(
 ) -> Result<(), SettingsError> {
     let mut settings = settings_handle.write().await;
     settings.set_overlay_defaults(overlay_defaults)
+}
+
+#[tauri::command]
+pub async fn get_capture_preview_settings(
+    settings_handle: State<'_, SettingsHandler>,
+) -> Result<CapturePreviewSettings, ()> {
+    let settings = settings_handle.read().await;
+    Ok(settings.get_capture_preview().clone())
+}
+
+#[tauri::command]
+pub async fn set_capture_preview_settings(
+    settings_handle: State<'_, SettingsHandler>,
+    capture_preview: CapturePreviewSettings,
+) -> Result<(), SettingsError> {
+    let mut settings = settings_handle.write().await;
+    settings.set_capture_preview(capture_preview)
 }
