@@ -1,6 +1,6 @@
 import styles from "./UpdateSettings.module.scss";
 import settingsStyles from "../GeneralSettings/GeneralSettings.module.scss";
-import { createSignal, Match, onMount, Show, Switch } from "solid-js";
+import { createMemo, createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { checkForUpdate, Update } from "@core/helpers/updater";
@@ -67,12 +67,12 @@ function UpdateSettings() {
     }
   }
 
-  const progressPercent = () => {
+  const progressPercent = createMemo(() => {
     const { downloaded, total } = progress();
     return total ? Math.round((downloaded / total) * 100) : null;
-  };
+  });
 
-  const showsUpdatePanel = () => phase() === "available" || phase() === "downloading" || phase() === "readyToRestart";
+  const showsUpdatePanel = createMemo(() => phase() === "available" || phase() === "downloading" || phase() === "readyToRestart");
 
   // Dev-only: lets the "available"/"downloading"/"readyToRestart" states and
   // the release notes rendering be previewed without a real update server.
