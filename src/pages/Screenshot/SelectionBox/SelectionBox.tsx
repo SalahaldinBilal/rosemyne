@@ -36,6 +36,13 @@ function SelectionBox() {
     cleanup();
   })
 
+  createEffect(() => {
+    if (!imageData() || currentTool() !== Tools.Screenshot) return;
+
+    document.body.style.cursor = "crosshair";
+    onCleanup(() => { document.body.style.cursor = ""; });
+  })
+
   function mouseDownHandler(event: MouseEvent) {
     if (currentTool() !== Tools.Screenshot || event.button !== 0) return;
 
