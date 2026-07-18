@@ -296,6 +296,25 @@ impl HistoryStore {
         Ok(())
     }
 
+    /// File names of videos at least `min_size_bytes` large that don't have a
+    /// thumbnail on disk yet , lets the frontend backfill thumbnails for big
+    /// imported videos right after import instead of waiting for the user to
+    /// scroll past each one (thumbnail generation itself is client-side).
+    pub fn videos_missing_thumbnail(&self, min_size_bytes: u64) -> Result<Vec<String>, HistoryError> {
+        let inner = self.lock();
+        let mut stmt = inner
+            .conn
+            .prepare("SELECT file_name FROM history WHERE type = 'video' AND file_size >= ?1")?;
+        let names = stmt
+            .query_map(params![min_size_bytes as i64], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        Ok(names
+            .into_iter()
+            .filter(|name| !thumbnail_path_in(&inner.base_path, name).exists())
+            .collect())
+    }
+
     /// Renders a small (max 128px) PNG preview to use as a native drag-and-drop
     /// icon, so dragging a card out doesn't drag the full-resolution image as
     /// the cursor preview. Returns `None` when there's nothing to render from
@@ -1090,7 +1109,7 @@ const DEFAULT_SAVE_TEMPLATE: &str = "${year}-${month}";
 /// Resolves the destination directory for a saved/imported file. Always rooted
 /// at `<base>/files/`, with the (variable-expanded) template as a subpath;
 /// root/parent components are dropped so the template can't escape `files/`.
-fn expand_save_dir(
+pub(crate) fn expand_save_dir(
     base: &Path,
     template: Option<&str>,
     now_local: DateTime<Local>,

@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter};
 
 use super::error::MigrationError;
 use crate::emit_on_main_thread;
+use crate::history_store::store::expand_save_dir;
 use crate::screen_manager::screenshot_manager::{HistoryItemType, ImageHistoryData, TagValue};
 
 /// Snapshot of existing Rosemyne state needed to plan the import without holding
@@ -65,6 +66,7 @@ pub fn run_migration(
     base_path: PathBuf,
     existing: ExistingHistory,
     sharex_path: &str,
+    upload_template: Option<&str>,
     dry_run: bool,
 ) -> Result<MigrationOutcome, MigrationError> {
     let sharex_root = PathBuf::from(sharex_path);
@@ -95,6 +97,7 @@ pub fn run_migration(
         &existing,
         &sharex_root,
         &staging_db,
+        upload_template,
         dry_run,
     );
 
@@ -109,6 +112,7 @@ fn process_database(
     existing: &ExistingHistory,
     sharex_root: &Path,
     staging_db: &Path,
+    upload_template: Option<&str>,
     dry_run: bool,
 ) -> Result<MigrationOutcome, MigrationError> {
     let conn = Connection::open_with_flags(staging_db, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
@@ -132,8 +136,6 @@ fn process_database(
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
-
-    let images_dir = base_path.join("files");
 
     let mut summary = MigrationSummary {
         imported: 0,
@@ -174,7 +176,18 @@ fn process_database(
             continue;
         };
 
-        let dest_name = unique_name(file_name, &mut used_names, &images_dir);
+        // Same destination layout as a fresh capture/import: organized under
+        // the configured save path template, keyed by each file's own (original
+        // ShareX) date rather than the migration's run time.
+        let dir = expand_save_dir(base_path, upload_template, date_time.with_timezone(&Local), item_type);
+        // A dry run must not touch the filesystem; the real run creates dirs
+        // lazily here since they can differ per row.
+        if !dry_run && std::fs::create_dir_all(&dir).is_err() {
+            summary.errors += 1;
+            continue;
+        }
+
+        let dest_name = unique_name(file_name, &mut used_names, &dir);
 
         // Remap ShareX's flat WindowTitle/ProcessName into our native `Windows`
         // tag shape; everything else migrates as-is.
@@ -206,7 +219,7 @@ fn process_database(
 
         let entry = ImageHistoryData {
             file_name: dest_name.clone(),
-            file_path: images_dir.join(&dest_name),
+            file_path: dir.join(&dest_name),
             item_type,
             date_time,
             tags: Some(tags),
@@ -232,13 +245,11 @@ fn process_database(
         });
     }
 
-    std::fs::create_dir_all(&images_dir)?;
-
     let required: u64 = planned
         .iter()
         .filter_map(|plan| std::fs::metadata(&plan.source).ok().map(|meta| meta.len()))
         .sum();
-    if let Some(available) = free_space_bytes(&images_dir) {
+    if let Some(available) = free_space_bytes(base_path) {
         if available < required {
             return Err(MigrationError::InsufficientSpace {
                 required,

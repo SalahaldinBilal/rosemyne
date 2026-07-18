@@ -1,6 +1,8 @@
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
-use history_store::commands::{get_drag_icon, get_tag_metadata, query_history, suggest_tag_values};
+use history_store::commands::{
+    get_drag_icon, get_tag_metadata, list_videos_missing_thumbnail, query_history, suggest_tag_values,
+};
 use image::RgbaImage;
 use image_uploader::commands::{is_uploader_valid, maybe_auto_upload, test_uploader, upload_image};
 use mouse_rs::Mouse;
@@ -691,6 +693,7 @@ pub fn run() {
             query_history,
             get_tag_metadata,
             get_drag_icon,
+            list_videos_missing_thumbnail,
             suggest_tag_values,
             delete_screenshot,
             copy_screenshot_to_clipboard,

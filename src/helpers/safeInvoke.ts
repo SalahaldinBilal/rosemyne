@@ -29,6 +29,7 @@ type Commands = {
   'query_history': Command<{ filter: FilterGroup, sort: HistorySort, cursor: HistoryCursor | null, limit: number }, HistoryPage>,
   'get_tag_metadata': Command<undefined, TagMetadata>,
   'get_drag_icon': Command<{ fileName: string }, string | null>,
+  'list_videos_missing_thumbnail': Command<{ minSizeBytes: number }, string[]>,
   'suggest_tag_values': Command<{ path: string[], query: string }, TagValueSuggestion[]>,
   'import_file': Command<{ path: string }, ImageHistoryData | null>,
   'delete_screenshot': Command<{ fileName: string }>,

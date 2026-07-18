@@ -19,7 +19,7 @@ import { UploaderCreationError } from "@core/types/request";
 import { Camera, CloudUpload, Copy, ExternalLink, File, FileSearch, FileSymlink, FolderOpen, FolderSymlink, Link, Play, RefreshCw, Settings2, Trash2, Video } from "lucide-solid";
 import pkg from "../../../package.json";
 import useToastState from "@core/states/toastState";
-import { saveVideoThumbnail } from "@core/helpers/saveVideoThumbnail";
+import { LARGE_VIDEO_BYTES, generateVideoThumbnail } from "@core/helpers/videoThumbnail";
 import { checkForUpdate } from "@core/helpers/updater";
 import { formatSystemDateTime, loadSystemDateTimePatterns } from "@core/helpers/systemDateFormat";
 import { useContextMenu } from "@core/components/ContextMenu/useContextMenu";
@@ -318,7 +318,7 @@ function Main() {
     }
 
     function videoFallbackAllowed() {
-      return (props.screenshot.fileSize ?? 0) <= VIDEO_CARD_FALLBACK_MAX_BYTES;
+      return (props.screenshot.fileSize ?? 0) <= LARGE_VIDEO_BYTES;
     }
 
     return <Switch>
@@ -594,7 +594,7 @@ function Main() {
                         <Switch>
                           <Match when={uploadProgress[screenshot.fileName]}>
                             {progress => {
-                              const percent = () => progress().total > 0 ? Math.round((progress().sent / progress().total) * 100) : null;
+                              const percent = createMemo(() => progress().total > 0 ? Math.round((progress().sent / progress().total) * 100) : null);
                               return <div class={styles.UploadBar}>
                                 <div class={styles.UploadTrack}>
                                   <div
@@ -716,74 +716,3 @@ function Main() {
 }
 
 export default Main;
-
-// Videos above this size never mount a <video> card while their thumbnail is
-// missing , they show a placeholder until lazy generation finishes.
-const VIDEO_CARD_FALLBACK_MAX_BYTES = 30 * 1024 * 1024;
-const GENERATE_THUMBNAIL_TIMEOUT_MS = 15_000;
-const inflightThumbnails = new Set<string>();
-
-// Recordings get a thumbnail at save time; this lazily covers imported videos.
-async function generateVideoThumbnail(fileName: string): Promise<boolean> {
-  if (inflightThumbnails.has(fileName)) return false;
-  inflightThumbnails.add(fileName);
-  try {
-    return await captureVideoFrame(fileName);
-  } finally {
-    inflightThumbnails.delete(fileName);
-  }
-}
-
-function captureVideoFrame(fileName: string): Promise<boolean> {
-  return new Promise(resolve => {
-    const video = document.createElement("video");
-    let done = false;
-
-    const finish = (ok: boolean) => {
-      if (done) return;
-      done = true;
-      window.clearTimeout(timeout);
-      video.removeAttribute("src");
-      video.load();
-      resolve(ok);
-    };
-
-    const timeout = window.setTimeout(() => finish(false), GENERATE_THUMBNAIL_TIMEOUT_MS);
-
-    video.muted = true;
-    video.preload = "auto";
-    video.crossOrigin = "anonymous";
-
-    video.addEventListener("error", () => finish(false), { once: true });
-    video.addEventListener("loadedmetadata", () => {
-      video.currentTime = Math.min(0.1, (video.duration || 0) / 2);
-    }, { once: true });
-    video.addEventListener("seeked", () => {
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-      if (!width || !height) return finish(false);
-
-      const scale = Math.min(1, 480 / width);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(width * scale));
-      canvas.height = Math.max(1, Math.round(height * scale));
-
-      const context = canvas.getContext("2d");
-      if (!context) return finish(false);
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob(async blob => {
-        if (!blob) return finish(false);
-        try {
-          await saveVideoThumbnail(fileName, blob);
-          finish(true);
-        } catch (error) {
-          console.error("Failed to save the video thumbnail", error);
-          finish(false);
-        }
-      }, "image/webp", 0.85);
-    }, { once: true });
-
-    video.src = `http://rosemyne-photo.localhost/saved/${fileName}`;
-  });
-}

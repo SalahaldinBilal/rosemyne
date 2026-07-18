@@ -53,3 +53,14 @@ pub async fn get_drag_icon(
 
     Ok(icon_path.map(|path| path.to_string_lossy().into_owned()))
 }
+
+#[tauri::command]
+pub async fn list_videos_missing_thumbnail(
+    store: State<'_, HistoryStoreHandler>,
+    min_size_bytes: u64,
+) -> Result<Vec<String>, HistoryError> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.videos_missing_thumbnail(min_size_bytes))
+        .await
+        .map_err(|err| HistoryError::Task(err.to_string()))?
+}
