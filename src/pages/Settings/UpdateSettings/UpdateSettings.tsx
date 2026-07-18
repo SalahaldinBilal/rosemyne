@@ -4,46 +4,23 @@ import { createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { checkForUpdate, Update } from "@core/helpers/updater";
-import { safeInvoke } from "@core/helpers/safeInvoke";
-import { GeneralSettings as GeneralSettingsData } from "@core/types";
+import { DownloadEvent } from "@tauri-apps/plugin-updater";
 import Button from "@core/components/Button/Button";
-import useToastState from "@core/states/toastState";
 import { CircleCheck, Download, RefreshCw, TriangleAlert } from "lucide-solid";
+import ReleaseNotes from "./ReleaseNotes";
 
 type Phase = "idle" | "checking" | "upToDate" | "available" | "downloading" | "readyToRestart" | "error";
 
 function UpdateSettings() {
-  const { pushToast } = useToastState;
   const [currentVersion, setCurrentVersion] = createSignal("");
   const [phase, setPhase] = createSignal<Phase>("idle");
   const [update, setUpdate] = createSignal<Update | null>(null);
   const [progress, setProgress] = createSignal<{ downloaded: number, total: number | null }>({ downloaded: 0, total: null });
   const [errorMessage, setErrorMessage] = createSignal("");
-  const [checkOnStartup, setCheckOnStartup] = createSignal(true);
 
   onMount(async () => {
     setCurrentVersion(await getVersion());
-
-    try {
-      const general = await safeInvoke("get_general_settings");
-      setCheckOnStartup(general.checkForUpdatesOnStartup);
-    } catch (error) {
-      console.error("Failed to load general settings", error);
-    }
   });
-
-  async function toggleCheckOnStartup(checked: boolean) {
-    setCheckOnStartup(checked);
-
-    try {
-      const general = await safeInvoke("get_general_settings");
-      const updated: GeneralSettingsData = { ...general, checkForUpdatesOnStartup: checked };
-      await safeInvoke("set_general_settings", { general: updated });
-    } catch (error) {
-      setCheckOnStartup(!checked);
-      pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
-    }
-  }
 
   async function runCheck() {
     setPhase("checking");
@@ -95,11 +72,39 @@ function UpdateSettings() {
     return total ? Math.round((downloaded / total) * 100) : null;
   };
 
-  return <div class={settingsStyles.GeneralSettings}>
-    <div class={settingsStyles.SettingRow}>
-      <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
+  const showsUpdatePanel = () => phase() === "available" || phase() === "downloading" || phase() === "readyToRestart";
+
+  // Dev-only: lets the "available"/"downloading"/"readyToRestart" states and
+  // the release notes rendering be previewed without a real update server.
+  function simulateMockUpdate() {
+    setErrorMessage("");
+    setUpdate({
+      version: "9.9.9",
+      body:
+        "### Added\n" +
+        "- A totally new feature that makes screenshots 20% snappier.\n" +
+        "- Support for dragging a screenshot card straight out to another app.\n" +
+        "### Fixed\n" +
+        "- The upload button no longer overwrites an existing link without asking first.\n" +
+        "- Context menu items now line up correctly on high-DPI displays.\n",
+      downloadAndInstall: async (onEvent?: (event: DownloadEvent) => void) => {
+        const contentLength = 5_000_000;
+        onEvent?.({ event: "Started", data: { contentLength } });
+        for (let sent = 0; sent < contentLength; sent += 500_000) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+          onEvent?.({ event: "Progress", data: { chunkLength: 500_000 } });
+        }
+        onEvent?.({ event: "Finished" });
+      },
+    } as unknown as Update);
+    setPhase("available");
+  }
+
+  return <div class={settingsStyles.GeneralSettings} style="max-width: 9999px">
+    <div class={styles.VersionRow}>
+      <div class={styles.VersionText}>
         <span>Current version</span>
-        <span class={settingsStyles.Hint}>v{currentVersion()}</span>
+        <span class={styles.Hint}>v{currentVersion()}</span>
         <div class={styles.CheckRow}>
           <Button
             disabled={phase() === "checking" || phase() === "downloading"}
@@ -108,6 +113,11 @@ function UpdateSettings() {
             <RefreshCw size={16} style={{ "margin-right": '6px' }} />
             Check for updates
           </Button>
+          <Show when={import.meta.env.DEV}>
+            <Button disabled={phase() === "downloading"} onClick={simulateMockUpdate}>
+              Preview mock update (dev)
+            </Button>
+          </Show>
           <Switch>
             <Match when={phase() === "checking"}>
               <span class={styles.StatusText}>Checking…</span>
@@ -125,57 +135,45 @@ function UpdateSettings() {
           </Switch>
         </div>
       </div>
+
+      <Show when={showsUpdatePanel()}>
+        <div class={styles.UpdatePanel}>
+          <div class={styles.UpdateHeading}>
+            <span>Update available</span>
+            <span class={styles.Hint}>v{update()?.version}</span>
+          </div>
+          <Switch>
+            <Match when={phase() === "available"}>
+              <Button filled color="var(--base-blue)" onClick={downloadAndInstall}>
+                <Download size={16} style={{ "margin-right": '6px' }} />
+                Download and install
+              </Button>
+            </Match>
+            <Match when={phase() === "downloading"}>
+              <div class={styles.ProgressBar}>
+                <div class={styles.ProgressTrack}>
+                  <div
+                    class={styles.ProgressFill}
+                    classList={{ [styles.Indeterminate]: progressPercent() === null }}
+                    style={progressPercent() !== null ? { width: `${progressPercent()}%` } : undefined}
+                  />
+                </div>
+                <span class={styles.StatusText}>{progressPercent() !== null ? `Downloading ${progressPercent()}%` : "Downloading…"}</span>
+              </div>
+            </Match>
+            <Match when={phase() === "readyToRestart"}>
+              <Button filled color="var(--success-color)" onClick={() => relaunch()}>
+                Restart to finish installing
+              </Button>
+            </Match>
+          </Switch>
+        </div>
+      </Show>
     </div>
 
-    <Show when={phase() === "available" || phase() === "downloading" || phase() === "readyToRestart"}>
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Update available , v{update()?.version}</span>
-          <Show when={update()?.body}>
-            <span class={settingsStyles.Hint}>{update()?.body}</span>
-          </Show>
-          <div class={styles.CheckRow}>
-            <Switch>
-              <Match when={phase() === "available"}>
-                <Button filled color="var(--base-blue)" onClick={downloadAndInstall}>
-                  <Download size={16} style={{ "margin-right": '6px' }} />
-                  Download and install
-                </Button>
-              </Match>
-              <Match when={phase() === "downloading"}>
-                <div class={styles.ProgressBar}>
-                  <div class={styles.ProgressTrack}>
-                    <div
-                      class={styles.ProgressFill}
-                      classList={{ [styles.Indeterminate]: progressPercent() === null }}
-                      style={progressPercent() !== null ? { width: `${progressPercent()}%` } : undefined}
-                    />
-                  </div>
-                  <span class={styles.StatusText}>{progressPercent() !== null ? `Downloading ${progressPercent()}%` : "Downloading…"}</span>
-                </div>
-              </Match>
-              <Match when={phase() === "readyToRestart"}>
-                <Button filled color="var(--success-color)" onClick={() => relaunch()}>
-                  Restart to finish installing
-                </Button>
-              </Match>
-            </Switch>
-          </div>
-        </div>
-      </div>
+    <Show when={showsUpdatePanel() && update()?.body}>
+      {body => <ReleaseNotes notes={body()} />}
     </Show>
-
-    <label class={settingsStyles.SettingRow}>
-      <input
-        type="checkbox"
-        checked={checkOnStartup()}
-        onChange={e => toggleCheckOnStartup(e.currentTarget.checked)}
-      />
-      <div class={settingsStyles.SettingText}>
-        <span>Check for updates on startup</span>
-        <span class={settingsStyles.Hint}>Silently checks when the app opens; you'll get a notification if one's found.</span>
-      </div>
-    </label>
   </div>;
 }
 

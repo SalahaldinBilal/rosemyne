@@ -1,3 +1,41 @@
+.VersionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+}
+
+// GeneralSettings.module.scss's .SettingText/.Hint only apply nested under its
+// own .SettingRow, which this page doesn't use , kept local and self-contained
+// instead of relying on that cross-module ancestor chain.
+.VersionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.Hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.UpdatePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.UpdateHeading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 .CheckRow {
   display: flex;
   align-items: center;

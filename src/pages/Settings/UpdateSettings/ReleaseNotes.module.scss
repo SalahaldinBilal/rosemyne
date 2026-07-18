@@ -1,0 +1,27 @@
+.Notes {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.Heading {
+  font-weight: 600;
+  color: var(--base-font-color);
+  margin-top: 10px;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.List {
+  margin: 4px 0 0;
+  padding-left: 18px;
+
+  li {
+    margin-top: 2px;
+  }
+}
+
+.Text {
+  margin: 4px 0 0;
+}

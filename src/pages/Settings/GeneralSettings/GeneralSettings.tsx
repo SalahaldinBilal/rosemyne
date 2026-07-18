@@ -119,6 +119,17 @@ function GeneralSettings() {
         <span class={styles.Hint}>Screen recordings include what you hear (speaker output). Applied when a recording starts.</span>
       </div>
     </label>
+    <label class={styles.SettingRow}>
+      <input
+        type="checkbox"
+        checked={general.checkForUpdatesOnStartup}
+        onChange={e => apply({ checkForUpdatesOnStartup: e.currentTarget.checked })}
+      />
+      <div class={styles.SettingText}>
+        <span>Check for updates on startup</span>
+        <span class={styles.Hint}>Silently checks when the app opens; you'll get a notification if one's found.</span>
+      </div>
+    </label>
     <div class={styles.SettingRow}>
       <div class={styles.SettingText} style={{ width: '100%' }}>
         <span>Recording video codec</span>
