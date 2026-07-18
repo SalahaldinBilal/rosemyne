@@ -181,19 +181,34 @@ fn strict_eq(actual: &Candidate, filter: &Value) -> bool {
     }
 }
 
-/// Injects the virtual `$file` tag (Name/Path/Type/DateTime, backed by table
-/// columns) into a row's tags so the evaluator can treat it like any other
-/// tag. `$`-prefixed top-level keys are reserved for such system fields , see
-/// CLAUDE.md.
-pub fn augment_tags(tags: Value, file_name: &str, file_path: &str, item_type: &str, date_time_ms: i64) -> Value {
+/// Injects the virtual `$file` tag (Name/Path/Type/DateTime/Size, backed by
+/// table columns) into a row's tags so the evaluator can treat it like any
+/// other tag. `$`-prefixed top-level keys are reserved for such system fields
+/// , see CLAUDE.md. `Size` is omitted (not written as `null`) when
+/// `file_size` is `None`, so `resolve_path` treats it as a missing key , same
+/// as any other optional tag , rather than a present-but-null value (which
+/// `resolve_path` drops instead of treating as missing).
+pub fn augment_tags(
+    tags: Value,
+    file_name: &str,
+    file_path: &str,
+    item_type: &str,
+    date_time_ms: i64,
+    file_size: Option<i64>,
+) -> Value {
     let mut map = match tags {
         Value::Object(map) => map,
         _ => serde_json::Map::new(),
     };
-    map.insert(
-        "$file".to_string(),
-        serde_json::json!({ "Name": file_name, "Path": file_path, "Type": item_type, "DateTime": date_time_ms }),
-    );
+    let mut file = serde_json::Map::new();
+    file.insert("Name".to_string(), Value::String(file_name.to_string()));
+    file.insert("Path".to_string(), Value::String(file_path.to_string()));
+    file.insert("Type".to_string(), Value::String(item_type.to_string()));
+    file.insert("DateTime".to_string(), Value::Number(date_time_ms.into()));
+    if let Some(size) = file_size {
+        file.insert("Size".to_string(), Value::Number(size.into()));
+    }
+    map.insert("$file".to_string(), Value::Object(file));
     Value::Object(map)
 }
 
@@ -201,13 +216,13 @@ pub fn augment_tags(tags: Value, file_name: &str, file_path: &str, item_type: &s
 /// `filter_match` on the same (Mutex-serialized) thread that set it.
 pub type FilterSlot = Arc<Mutex<Option<Arc<FilterNode>>>>;
 
-/// Registers `filter_match(tags, file_name, file_path, type, date_time_ms)`;
+/// Registers `filter_match(tags, file_name, file_path, type, date_time_ms, file_size)`;
 /// it evaluates the node currently in `slot` against the row's tags augmented
 /// with the `$file` columns. No active filter → matches every row.
 pub fn register_filter_match(conn: &Connection, slot: FilterSlot) -> rusqlite::Result<()> {
     conn.create_scalar_function(
         "filter_match",
-        5,
+        6,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         move |ctx| {
             let filter = slot.lock().expect("filter slot not poisoned").clone();
@@ -225,8 +240,12 @@ pub fn register_filter_match(conn: &Connection, slot: FilterSlot) -> rusqlite::R
             let file_path: String = ctx.get(2)?;
             let item_type: String = ctx.get(3)?;
             let date_time_ms: i64 = ctx.get(4)?;
+            let file_size: Option<i64> = ctx.get(5)?;
 
-            Ok(eval(&filter, &augment_tags(tags, &file_name, &file_path, &item_type, date_time_ms)))
+            Ok(eval(
+                &filter,
+                &augment_tags(tags, &file_name, &file_path, &item_type, date_time_ms, file_size),
+            ))
         },
     )
 }

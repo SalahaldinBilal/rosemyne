@@ -567,7 +567,7 @@ impl HistoryStore {
 
         let mut where_expr = compiled.expr;
         if !compiled.exact {
-            where_expr.push_str(" AND filter_match(tags, file_name, file_path, type, date_time_ms)");
+            where_expr.push_str(" AND filter_match(tags, file_name, file_path, type, date_time_ms, file_size)");
         }
 
         let total = match cursor {
@@ -709,6 +709,7 @@ impl HistoryStore {
                     "Path": { "type": "string", "isArray": false },
                     "Type": { "type": "string", "isArray": false },
                     "DateTime": { "type": "dateTime", "isArray": false },
+                    "Size": { "type": "byteSize", "isArray": false },
                 },
                 "isArray": false,
             }),
@@ -1393,6 +1394,7 @@ mod tests {
         assert_eq!(meta.schema["ProcessName"], json!({ "type": "string", "isArray": false }));
         // The virtual $file fields are always present in the schema.
         assert_eq!(meta.schema["$file"]["type"]["Type"], json!({ "type": "string", "isArray": false }));
+        assert_eq!(meta.schema["$file"]["type"]["Size"], json!({ "type": "byteSize", "isArray": false }));
 
         let suggestions = store.suggest_tag_values(&["ProcessName".to_string()], "").unwrap();
         assert_eq!(suggestions[0].value, json!("firefox"));
@@ -1518,14 +1520,14 @@ mod tests {
     fn compiled_queries_match_reference_eval() {
         let store = temp_store();
 
-        let rows: Vec<(String, Option<HashMap<String, TagValue>>)> = vec![
+        let rows: Vec<(String, Option<HashMap<String, TagValue>>, Option<u64>)> = vec![
             ("firefox.png".into(), Some(HashMap::from([
                 ("ProcessName".to_string(), TagValue::String("firefox".to_string())),
                 ("Timestamp".to_string(), TagValue::Int(1500)),
                 ("Focused".to_string(), TagValue::Bool(true)),
                 ("Duration".to_string(), TagValue::time_millis(5000)),
                 ("CapturedAt".to_string(), TagValue::date_time_millis(1_737_000_000_000)),
-            ]))),
+            ])), Some(1500)),
             ("code.png".into(), Some(HashMap::from([
                 ("ProcessName".to_string(), TagValue::String("Code".to_string())),
                 ("Timestamp".to_string(), TagValue::Int(900)),
@@ -1540,15 +1542,16 @@ mod tests {
                         ("Screenshot Percentage".to_string(), TagValue::Float(0.25)),
                     ]),
                 ])),
-            ]))),
-            ("empty.png".into(), Some(HashMap::new())),
-            ("untagged.png".into(), None),
+            ])), Some(3000)),
+            ("empty.png".into(), Some(HashMap::new()), Some(750)),
+            ("untagged.png".into(), None, Some(500)),
         ];
 
         let mut entries = Vec::new();
-        for (index, (name, tags)) in rows.iter().enumerate() {
+        for (index, (name, tags, file_size)) in rows.iter().enumerate() {
             let mut item = entry(name, 100 * (index as i64 + 1), HashMap::new());
             item.tags = tags.clone();
+            item.file_size = *file_size;
             entries.push(item);
         }
         store.insert_batch(entries).unwrap();
@@ -1595,6 +1598,10 @@ mod tests {
             condition(&["$file", "DateTime"], 1, vec![json!(100)]),
             condition(&["$file", "DateTime"], 2, vec![json!(200)]),
             condition(&["$file", "DateTime"], 5, vec![json!(200)]),
+            condition(&["$file", "Size"], 0, vec![json!(1500)]),
+            condition(&["$file", "Size"], 1, vec![json!(1500)]),
+            condition(&["$file", "Size"], 2, vec![json!(1000)]),
+            condition(&["$file", "Size"], 5, vec![json!(750)]),
             FilterNode::Group {
                 relation: 1,
                 children: vec![
@@ -1617,7 +1624,7 @@ mod tests {
                 .iter()
                 .enumerate()
                 .rev()
-                .filter(|(index, (name, tags))| {
+                .filter(|(index, (name, tags, file_size))| {
                     let tags_value = tags
                         .as_ref()
                         .map(|map| serde_json::to_value(map).unwrap())
@@ -1631,10 +1638,11 @@ mod tests {
                         &file_path.to_string_lossy(),
                         "image",
                         date_time_ms,
+                        file_size.map(|size| size as i64),
                     );
                     crate::history_store::filter::eval(&filter, &augmented)
                 })
-                .map(|(_, (name, _))| name.as_str())
+                .map(|(_, (name, _, _))| name.as_str())
                 .collect();
 
             let page = store.query(filter.clone(), None, None, 50).unwrap();

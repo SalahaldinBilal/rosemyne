@@ -6,6 +6,7 @@ import Button from "../../../../components/Button/Button";
 import Select from "../../../../components/Select/Select";
 import FilterValueField from "../controls/FilterValueField";
 import DurationField from "../controls/DurationField";
+import FileSizeField from "../controls/FileSizeField";
 import { Plus, Trash2, X } from "lucide-solid";
 
 type Level = { options: string[], selected: string | null, depth: number };
@@ -16,14 +17,15 @@ const BOOLEAN_ITEMS: SelectItem<boolean>[] = [
   { id: "false", value: false, label: "False" },
 ];
 
-// `boolean` and `time` are unused , those valueTypes render the `<Select>`/
-// `<DurationField>` branches below instead.
+// `boolean`, `time` and `byteSize` are unused , those valueTypes render the
+// `<Select>`/`<DurationField>`/`<FileSizeField>` branches below instead.
 const INPUT_TYPE: Record<FilterValueType, "number" | "string" | "datetime-local"> = {
   number: "number",
   string: "string",
   boolean: "string",
   time: "string",
   dateTime: "datetime-local",
+  byteSize: "string",
 };
 
 function pad(n: number): string {
@@ -127,6 +129,9 @@ function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTyp
                   </Match>
                   <Match when={props.node.valueType === "time"}>
                     <DurationField valueMs={value() as number} onChange={ms => setValue(props.node.id, index, ms)} />
+                  </Match>
+                  <Match when={props.node.valueType === "byteSize"}>
+                    <FileSizeField valueBytes={value() as number} onChange={bytes => setValue(props.node.id, index, bytes)} />
                   </Match>
                 </Switch>
                 <Show when={props.node.values.length > 1}>

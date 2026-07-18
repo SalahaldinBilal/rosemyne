@@ -100,7 +100,7 @@ export type TagValueTypeMap = {
 }
 
 export type FilterScalar = number | string | boolean;
-export type FilterValueType = "number" | "string" | "boolean" | "time" | "dateTime";
+export type FilterValueType = "number" | "string" | "boolean" | "time" | "dateTime" | "byteSize";
 
 // Wrapped-value convention for Time/DateTime tags , mirrors `TIME_TAG_KEY`/
 // `DATE_TIME_TAG_KEY` in `screen_manager::screenshot_manager` (Rust).
@@ -177,6 +177,14 @@ export const OPERATIONS_BY_TYPE: Record<FilterValueType, FilterOperations[]> = {
     FilterOperations.lessThanOrEqualTo,
   ],
   dateTime: [
+    FilterOperations.equals,
+    FilterOperations.notEquals,
+    FilterOperations.greaterThan,
+    FilterOperations.greaterThanOrEqualTo,
+    FilterOperations.lessThan,
+    FilterOperations.lessThanOrEqualTo,
+  ],
+  byteSize: [
     FilterOperations.equals,
     FilterOperations.notEquals,
     FilterOperations.greaterThan,

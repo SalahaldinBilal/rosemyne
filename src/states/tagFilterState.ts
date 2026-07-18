@@ -19,7 +19,7 @@ import fuzzysort from "fuzzysort";
 let nextId = 1;
 
 function defaultValueFor(type: FilterValueType): FilterScalar {
-  if (type === "number" || type === "time") return 0;
+  if (type === "number" || type === "time" || type === "byteSize") return 0;
   if (type === "boolean") return true;
   if (type === "dateTime") return Date.now();
   return "";
@@ -148,17 +148,23 @@ export default useTagFilterState;
 
 // Mirrors `augment_tags` in `history_store::filter` (Rust): injects the
 // virtual `$file` tag (backed by table columns, not the tags JSON) so a
-// filter referencing `$file.*` can be evaluated client-side.
+// filter referencing `$file.*` can be evaluated client-side. `fileSize` is
+// omitted (not set to `undefined`-as-a-value) when absent, so `resolvePath`
+// treats it as a genuinely missing key, same as any other optional tag.
 export function augmentTags(
   tags: { [key: string]: TagValue } | null,
   fileName: string,
   filePath: string,
   itemType: string,
   dateTimeMs: number,
+  fileSize?: number,
 ): { [key: string]: TagValue } {
+  const file: { [key: string]: TagValue } = { Name: fileName, Path: filePath, Type: itemType, DateTime: dateTimeMs };
+  if (fileSize !== undefined) file.Size = fileSize;
+
   return {
     ...(tags ?? {}),
-    "$file": { Name: fileName, Path: filePath, Type: itemType, DateTime: dateTimeMs },
+    "$file": file,
   };
 }
 

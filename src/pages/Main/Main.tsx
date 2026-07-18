@@ -181,8 +181,8 @@ function Main() {
     const unlistenSaved = await getCurrentWebview().listen("screenshot://new-saved-image", (event: TauriEvent<ImageHistoryData>) => {
       // A filter being active doesn't mean the new item is excluded , check
       // it against the current filter tree instead of always hiding it.
-      const { fileName, filePath, type, dateTime, tags } = event.payload;
-      const augmented = augmentTags(tags, fileName, filePath, type, new Date(dateTime).getTime());
+      const { fileName, filePath, type, dateTime, tags, fileSize } = event.payload;
+      const augmented = augmentTags(tags, fileName, filePath, type, new Date(dateTime).getTime(), fileSize);
       if (matchTagsToFilter(root, augmented)) {
         setItems(produce(screenshots => screenshots.unshift(event.payload)));
         setTotal(current => current + 1);

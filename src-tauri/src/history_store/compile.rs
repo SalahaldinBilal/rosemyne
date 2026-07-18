@@ -189,12 +189,17 @@ fn file_column(path: &[String]) -> Option<(&'static str, FileColumnKind)> {
         "Path" => Some(("h.file_path", FileColumnKind::Text)),
         "Type" => Some(("h.type", FileColumnKind::Text)),
         "DateTime" => Some(("h.date_time_ms", FileColumnKind::Number)),
+        "Size" => Some(("h.file_size", FileColumnKind::Number)),
         _ => None,
     }
 }
 
-/// Conditions on a numeric `$file` column (currently just `DateTime`): exactly
-/// one number candidate, always present, so every comparison compiles exactly.
+/// Conditions on a numeric `$file` column (`DateTime`, `Size`): treated as
+/// always present, same as `DateTime` , `file_size` can in rare cases (a
+/// failed `stat` when saving a recording) be NULL, which would make a
+/// `notEquals` compiled here diverge from the reference evaluator (which
+/// treats a missing key as satisfying `notEquals`) for that one row. Accepted
+/// as a known, narrow edge case rather than special-cased.
 fn compile_file_number_condition(column: &str, operation: u8, values: &[Value]) -> CompiledFilter {
     let mut preds: Vec<String> = Vec::new();
     let mut params: Vec<SqlValue> = Vec::new();
