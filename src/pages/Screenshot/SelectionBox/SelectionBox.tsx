@@ -70,17 +70,18 @@ function SelectionBox() {
   }
 
   function mouseUpHandler(event: MouseEvent) {
-    // `cleanup()` must run on every path , it's what un-registers this very
-    // listener and resets `hasMovedOnce`/`isMouseDown`. SelectionBox never
-    // unmounts between capture sessions, so skipping it on the "no movement"
-    // or "successful save" paths (as this used to) left both stuck from a
-    // prior session; a plain click, or the drag saving, both call it now.
+    // Ignore other buttons , a right-click's own mouseup fires before its
+    // contextmenu event and would otherwise cancel the drag state too early.
+    if (event.button !== 0) return;
+
+    // SelectionBox never unmounts between sessions, so cleanup() must run on
+    // every remaining path or state/listeners leak into the next one.
     const moved = hasMovedOnce();
     cleanup();
 
     if (!moved) return;
 
-    if (selectedBox.width > 5 && selectedBox.height > 5 && event.button === 0) {
+    if (selectedBox.width > 5 && selectedBox.height > 5) {
       closeOverlay(imageData()!.imageId);
     }
   }
