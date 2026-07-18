@@ -162,23 +162,6 @@
           }
         }
 
-        .HoverActions {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          display: flex;
-          justify-content: center;
-          gap: 4px;
-          padding: 4px;
-          background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
-          opacity: 0;
-          transition: opacity 0.15s ease;
-        }
-
-        &:hover .HoverActions {
-          opacity: 1;
-        }
       }
 
       .Meta {
@@ -191,6 +174,18 @@
         flex: 1;
         min-height: 0;
         overflow: hidden;
+
+        .NameRow {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+
+          .FileName {
+            flex: 1;
+            min-width: 0;
+          }
+        }
 
         .FileName {
           font-weight: 600;

@@ -41,6 +41,7 @@ function Main() {
   const [metadata, setMetadata] = createSignal<TagMetadata | null>(null);
   const [preview, setPreview] = createSignal<ImageHistoryData | null>(null);
   const [pendingDelete, setPendingDelete] = createSignal<ImageHistoryData | null>(null);
+  const [pendingReupload, setPendingReupload] = createSignal<ImageHistoryData | null>(null);
   const [viewingUploadError, setViewingUploadError] = createSignal<UploaderCreationError | null>(null);
   const [cardStatus, setCardStatus] = createStore<{ [fileName: string]: string | undefined }>({});
   const statusTimers: { [fileName: string]: number } = {};
@@ -387,6 +388,16 @@ function Main() {
     safeInvoke("upload_image", { fileName: screenshot.fileName }).catch(() => { });
   }
 
+  // Uploading again would overwrite the previously saved link, so confirm first
+  // when one already exists.
+  function requestUpload(screenshot: ImageHistoryData) {
+    if (screenshot.url) {
+      setPendingReupload(screenshot);
+    } else {
+      uploadImage(screenshot);
+    }
+  }
+
   async function openFolder(screenshot: ImageHistoryData) {
     try {
       await safeInvoke("show_in_folder", { fileName: screenshot.fileName });
@@ -529,29 +540,19 @@ function Main() {
                             <img src={savedUrl(screenshot.fileName)} loading="lazy" />
                           </Match>
                         </Switch>
-                        <div class={styles.HoverActions} onClick={event => event.stopPropagation()}>
-                          <Show when={screenshot.type === "image"} fallback={
-                            <Button isIcon tooltip="Copy file" onClick={() => copyFile(screenshot)}>
-                              <Copy size={18} />
-                            </Button>
-                          }>
-                            <Button isIcon tooltip="Copy image" onClick={() => copyImage(screenshot)}>
-                              <Copy size={18} />
-                            </Button>
-                          </Show>
-                          <Button isIcon tooltip="Upload" onClick={() => uploadImage(screenshot)}>
-                            <CloudUpload size={18} />
-                          </Button>
-                          <Button isIcon tooltip="Show in folder" onClick={() => openFolder(screenshot)}>
-                            <FolderOpen size={18} />
-                          </Button>
-                          <Button isIcon tooltip="Delete" onClick={() => setPendingDelete(screenshot)}>
-                            <Trash2 size={18} />
-                          </Button>
-                        </div>
                       </div>
                       <div class={styles.Meta}>
-                        <div class={styles.FileName} title={screenshot.fileName}>{screenshot.fileName}</div>
+                        <div class={styles.NameRow}>
+                          <div class={styles.FileName} title={screenshot.fileName}>{screenshot.fileName}</div>
+                          <Button
+                            isIcon
+                            tooltip={screenshot.type === "image" ? "Copy image" : "Copy file"}
+                            style={{ height: '22px', width: '22px', 'min-width': '22px' }}
+                            onClick={() => screenshot.type === "image" ? copyImage(screenshot) : copyFile(screenshot)}
+                          >
+                            <Copy size={14} />
+                          </Button>
+                        </div>
                         <div class={styles.Date}>{formatSystemDateTime(new Date(screenshot.dateTime))}</div>
                         <Show when={sourceWindow(screenshot)}>
                           {name => <div class={styles.Tag} title={name()}>{name()}</div>}
@@ -628,12 +629,15 @@ function Main() {
                         <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyImage(screenshot)}>Copy Image</ContextMenuItem>
                       </Show>
                       <ContextMenuItem icon={{ icon: Link }} disabled={!screenshot.url} onClick={() => copyLink(screenshot)}>Copy Link</ContextMenuItem>
+                      <ContextMenuItem icon={{ icon: CloudUpload }} onClick={() => requestUpload(screenshot)}>{screenshot.url ? "Re-upload" : "Upload"}</ContextMenuItem>
                       <div class={styles.Divider} />
                       <ContextMenuItem icon={{ icon: ExternalLink }} onClick={() => openFile(screenshot)}>Open File</ContextMenuItem>
                       <ContextMenuItem icon={{ icon: FolderOpen }} onClick={() => openFolder(screenshot)}>Open Containing Folder</ContextMenuItem>
                       <div class={styles.Divider} />
                       <ContextMenuItem icon={{ icon: FileSymlink }} onClick={() => copyFullPath(screenshot)}>Copy Full Path</ContextMenuItem>
                       <ContextMenuItem icon={{ icon: FolderSymlink }} onClick={() => copyFolderPath(screenshot)}>Copy Folder Path</ContextMenuItem>
+                      <div class={styles.Divider} />
+                      <ContextMenuItem icon={{ icon: Trash2 }} danger onClick={() => setPendingDelete(screenshot)}>Delete</ContextMenuItem>
                     </ContextMenu>
                   </>;
                 }}
@@ -673,6 +677,15 @@ function Main() {
         <div class={styles.ConfirmActions}>
           <Button color="var(--danger-color)" onClick={() => deleteImage(pendingDelete()!)}>Delete</Button>
           <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+        </div>
+      </div>
+    </Modal>
+    <Modal show={!!pendingReupload()} onHide={() => setPendingReupload(null)} title="Upload again?" width={420}>
+      <div class={styles.ConfirmBody}>
+        <p>"{pendingReupload()?.fileName}" already has an uploaded link. Uploading again will replace it.</p>
+        <div class={styles.ConfirmActions}>
+          <Button color="var(--base-blue)" onClick={() => { uploadImage(pendingReupload()!); setPendingReupload(null); }}>Upload</Button>
+          <Button onClick={() => setPendingReupload(null)}>Cancel</Button>
         </div>
       </div>
     </Modal>
