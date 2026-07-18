@@ -40,3 +40,16 @@ pub async fn get_tag_metadata(
         .await
         .map_err(|err| HistoryError::Task(err.to_string()))?
 }
+
+#[tauri::command]
+pub async fn get_drag_icon(
+    store: State<'_, HistoryStoreHandler>,
+    file_name: String,
+) -> Result<Option<String>, HistoryError> {
+    let store = store.inner().clone();
+    let icon_path = tauri::async_runtime::spawn_blocking(move || store.drag_icon_path(&file_name))
+        .await
+        .map_err(|err| HistoryError::Task(err.to_string()))??;
+
+    Ok(icon_path.map(|path| path.to_string_lossy().into_owned()))
+}

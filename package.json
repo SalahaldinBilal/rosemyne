@@ -14,6 +14,7 @@
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
+    "@crabnebula/tauri-plugin-drag": "^2.1.0",
     "@fontsource-variable/inter": "^5.2.8",
     "@solid-primitives/deep": "^0.3.5",
     "@solid-primitives/destructure": "^0.2.3",

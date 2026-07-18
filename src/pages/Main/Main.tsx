@@ -25,6 +25,7 @@ import { formatSystemDateTime, loadSystemDateTimePatterns } from "@core/helpers/
 import { useContextMenu } from "@core/components/ContextMenu/useContextMenu";
 import ContextMenu from "@core/components/ContextMenu/ContextMenu";
 import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/ContextMenuItem";
+import { startDrag } from "@crabnebula/tauri-plugin-drag";
 
 const PAGE_SIZE = 60;
 const CARD_HEIGHT = 230;
@@ -388,6 +389,18 @@ function Main() {
     safeInvoke("upload_image", { fileName: screenshot.fileName }).catch(() => { });
   }
 
+  // Skip the browser's own HTML5 drag ghost and hand the OS a real native file
+  // drag instead, so dropping onto Explorer/Discord/etc. drops the actual file.
+  async function startFileDrag(event: DragEvent, screenshot: ImageHistoryData) {
+    event.preventDefault();
+
+    // The backend renders a small preview from the actual image/thumbnail;
+    // fall back to the raw file (no custom preview, just the OS default
+    // cursor) for videos without a thumbnail yet or plain imported files.
+    const icon = await safeInvoke("get_drag_icon", { fileName: screenshot.fileName }).catch(() => null);
+    startDrag({ item: [screenshot.filePath], icon: icon ?? screenshot.filePath }).catch(() => { });
+  }
+
   // Uploading again would overwrite the previously saved link, so confirm first
   // when one already exists.
   function requestUpload(screenshot: ImageHistoryData) {
@@ -524,7 +537,12 @@ function Main() {
                       class={styles.Screenshot}
                       onContextMenu={event => { event.preventDefault(); showContextMenu(event); }}
                     >
-                      <div class={styles.ImageWrap} onClick={() => setPreview(screenshot)}>
+                      <div
+                        class={styles.ImageWrap}
+                        draggable="true"
+                        onDragStart={event => startFileDrag(event, screenshot)}
+                        onClick={() => setPreview(screenshot)}
+                      >
                         <Switch>
                           <Match when={screenshot.type === "video"}>
                             <VideoCard screenshot={screenshot} />

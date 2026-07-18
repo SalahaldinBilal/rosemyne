@@ -296,13 +296,64 @@ impl HistoryStore {
         Ok(())
     }
 
+    /// Renders a small (max 128px) PNG preview to use as a native drag-and-drop
+    /// icon, so dragging a card out doesn't drag the full-resolution image as
+    /// the cursor preview. Returns `None` when there's nothing to render from
+    /// (a generic imported file, or a video whose thumbnail hasn't been
+    /// generated yet) , the caller should fall back to no custom icon then.
+    pub fn drag_icon_path(&self, file_name: &str) -> Result<Option<PathBuf>, HistoryError> {
+        let entry = match self.get_by_file_name(file_name)? {
+            Some(entry) => entry,
+            None => return Ok(None),
+        };
+
+        let source_bytes = match entry.item_type {
+            HistoryItemType::Image => std::fs::read(&entry.file_path).ok(),
+            HistoryItemType::Video => self
+                .thumbnail_path(file_name)
+                .and_then(|path| std::fs::read(path).ok()),
+            HistoryItemType::File => None,
+        };
+
+        let Some(bytes) = source_bytes else {
+            return Ok(None);
+        };
+
+        let image =
+            image::load_from_memory(&bytes).map_err(|err| HistoryError::Encode(err.to_string()))?;
+        let icon = image.thumbnail(128, 128);
+
+        let mut png_bytes = Vec::new();
+        icon.write_to(&mut std::io::Cursor::new(&mut png_bytes), ImageFormat::Png)
+            .map_err(|err| HistoryError::Encode(err.to_string()))?;
+
+        let icon_path = std::env::temp_dir().join(format!("rosemyne-drag-icon-{file_name}.png"));
+        std::fs::write(&icon_path, &png_bytes)?;
+
+        Ok(Some(icon_path))
+    }
+
     /// Copies a user-provided file into storage (under the templated `files/`
-    /// dir), classifying it by extension, and records a history row.
+    /// dir), classifying it by extension, and records a history row. Returns
+    /// `None` without copying/recording anything when `source` already lives
+    /// under our own storage tree (e.g. a card's native OS drag dropped back
+    /// onto this window) , that's not a new file, so re-importing it would
+    /// just duplicate it.
     pub fn import_file(
         &self,
         source: &Path,
         upload_template: Option<&str>,
-    ) -> Result<ImageHistoryData, HistoryError> {
+    ) -> Result<Option<ImageHistoryData>, HistoryError> {
+        let inner = self.lock();
+        if let (Ok(canonical_source), Ok(canonical_base)) = (
+            std::fs::canonicalize(source),
+            std::fs::canonicalize(&inner.base_path),
+        ) {
+            if canonical_source.starts_with(&canonical_base) {
+                return Ok(None);
+            }
+        }
+
         let item_type = source
             .extension()
             .and_then(|ext| ext.to_str())
@@ -315,7 +366,6 @@ impl HistoryStore {
             .map(|name| name.to_string())
             .unwrap_or_else(|| "imported-file".to_string());
 
-        let inner = self.lock();
         let date_time = Utc::now();
         let dir = expand_save_dir(
             &inner.base_path,
@@ -340,7 +390,7 @@ impl HistoryStore {
             Some(file_size),
         )?;
 
-        Ok(ImageHistoryData {
+        Ok(Some(ImageHistoryData {
             file_name,
             file_path,
             item_type,
@@ -351,7 +401,7 @@ impl HistoryStore {
             url: None,
             deletion_url: None,
             upload_error: None,
-        })
+        }))
     }
 
     /// Bulk insert (ShareX import) in a single transaction.
@@ -1719,7 +1769,7 @@ mod tests {
         let zip = std::env::temp_dir().join(format!("rosemyne-import-{}.zip", rand::random::<u64>()));
         std::fs::write(&zip, b"zip-bytes").unwrap();
 
-        let video = store.import_file(&mp4, Some("vids")).unwrap();
+        let video = store.import_file(&mp4, Some("vids")).unwrap().unwrap();
         assert_eq!(video.item_type, HistoryItemType::Video);
         assert_eq!(std::fs::read(&video.file_path).unwrap(), b"video-bytes");
         assert!(video.file_path.to_string_lossy().replace('\\', "/").contains("/files/vids/"));
@@ -1728,11 +1778,33 @@ mod tests {
             HistoryItemType::Video
         );
 
-        let file = store.import_file(&zip, None).unwrap();
+        let file = store.import_file(&zip, None).unwrap().unwrap();
         assert_eq!(file.item_type, HistoryItemType::File);
 
         std::fs::remove_file(&mp4).ok();
         std::fs::remove_file(&zip).ok();
+    }
+
+    #[test]
+    fn import_file_skips_files_already_in_storage() {
+        let store = temp_store();
+
+        let mp4 = std::env::temp_dir().join(format!("rosemyne-import-{}.mp4", rand::random::<u64>()));
+        std::fs::write(&mp4, b"video-bytes").unwrap();
+
+        let video = store.import_file(&mp4, None).unwrap().unwrap();
+        let count_after_first_import = store.query(empty_filter(), None, None, 50).unwrap().items.len();
+
+        // Re-"importing" the file we just copied in (e.g. a native drag of one
+        // of our own cards dropped back onto the window) must be a no-op.
+        let reimported = store.import_file(&video.file_path, None).unwrap();
+        assert!(reimported.is_none());
+        assert_eq!(
+            store.query(empty_filter(), None, None, 50).unwrap().items.len(),
+            count_after_first_import
+        );
+
+        std::fs::remove_file(&mp4).ok();
     }
 }
 

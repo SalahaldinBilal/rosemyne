@@ -1,6 +1,6 @@
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
-use history_store::commands::{get_tag_metadata, query_history, suggest_tag_values};
+use history_store::commands::{get_drag_icon, get_tag_metadata, query_history, suggest_tag_values};
 use image::RgbaImage;
 use image_uploader::commands::{is_uploader_valid, maybe_auto_upload, test_uploader, upload_image};
 use mouse_rs::Mouse;
@@ -195,7 +195,7 @@ async fn import_file(
     settings_handle: State<'_, SettingsHandler>,
     app_handle: AppHandle,
     path: String,
-) -> Result<ImageHistoryData, String> {
+) -> Result<Option<ImageHistoryData>, String> {
     let template = settings_handle
         .read()
         .await
@@ -211,7 +211,9 @@ async fn import_file(
     .map_err(|err| err.to_string())?
     .map_err(|err| err.to_string())?;
 
-    notify_history_saved(&app_handle, &entry);
+    if let Some(entry) = &entry {
+        notify_history_saved(&app_handle, entry);
+    }
     Ok(entry)
 }
 
@@ -508,6 +510,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             focus_or_open_config_window(app, "main");
         }))
+        .plugin(tauri_plugin_drag::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -687,6 +690,7 @@ pub fn run() {
             import_file,
             query_history,
             get_tag_metadata,
+            get_drag_icon,
             suggest_tag_values,
             delete_screenshot,
             copy_screenshot_to_clipboard,
