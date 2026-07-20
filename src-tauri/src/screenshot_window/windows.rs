@@ -45,6 +45,14 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
         apply_physical_bounds(&window, bounds);
         window.set_ignore_cursor_events(true).ok();
 
+        // The builder's `.position(...)` isn't reliably applied yet at this point; re-assert it.
+        window
+            .set_position(PhysicalPosition::new(
+                bounds.left + OFFSCREEN_HIDE_OFFSET,
+                bounds.top + OFFSCREEN_HIDE_OFFSET,
+            ))
+            .ok();
+
         Ok(window)
     }
 

@@ -15,6 +15,7 @@ pub type WindowManager = windows::WindowsScreenshotWindowManager;
 pub type WindowManager = linux::LinuxScreenshotWindowManager;
 
 pub const SCREENSHOT_WINDOW_LABEL: &str = "screenshotter";
+pub const SCREENSHOT_WINDOW_TITLE: &str = "Rosemyne screenshotter";
 
 pub(crate) fn base_window_builder<'a, R: Runtime>(
     app_handle: &'a AppHandle<R>,
@@ -25,7 +26,7 @@ pub(crate) fn base_window_builder<'a, R: Runtime>(
         SCREENSHOT_WINDOW_LABEL,
         WebviewUrl::App("/screenshot".into()),
     )
-    .title("Rosemyne screenshotter")
+    .title(SCREENSHOT_WINDOW_TITLE)
     .skip_taskbar(true)
     .shadow(false)
     .decorations(false)

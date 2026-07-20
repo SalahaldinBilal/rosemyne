@@ -28,12 +28,12 @@ use windows::Win32::{
 use crate::{
     dimensions::{impls::DimensionsWithOrder, traits::DimensionsTrait},
     screen_manager::window::{WindowBounds, WindowInfo, calculate_visible_bounds},
-    screenshot_window::windows::OFFSCREEN_HIDE_OFFSET,
+    screenshot_window::{SCREENSHOT_WINDOW_TITLE, windows::OFFSCREEN_HIDE_OFFSET},
 };
 
 use super::capture_trait::CaptureManager;
 
-const CLASS_IGNORE_LIST: [&'static str; 1] = ["Progman"];
+const CLASS_IGNORE_LIST: [&'static str; 2] = ["Progman", "WorkerW"];
 
 pub struct WindowsCaptureManager;
 
@@ -190,6 +190,12 @@ impl CaptureManager for WindowsCaptureManager {
                 let name = String::from_utf16(&name).ok()?;
                 let name = name.trim_end_matches(char::from(0));
 
+                let mut owner_pid: u32 = 0;
+                unsafe { GetWindowThreadProcessId(handle, Some(&mut owner_pid)) };
+                if owner_pid == std::process::id() && name == SCREENSHOT_WINDOW_TITLE {
+                    return None;
+                }
+
                 let mut children: Vec<DimensionsWithOrder> = vec![];
 
                 let process_name = get_process_name_from_hwnd(handle).ok()?;
@@ -205,7 +211,7 @@ impl CaptureManager for WindowsCaptureManager {
                         return true;
                     }
 
-                    let child_rect = match get_window_rect_without_drop_shadow(child_handle) {
+                    let child_rect = match get_window_rect_via_style(child_handle) {
                         Ok(rect) => rect,
                         Err(_) => return true,
                     };
@@ -241,9 +247,9 @@ impl CaptureManager for WindowsCaptureManager {
     }
 }
 
+/// Top-level windows only; children have no drop shadow to trim and always reject this, so use `get_window_rect_via_style` for those instead.
 fn get_window_rect_without_drop_shadow(hwnd: HWND) -> Result<RECT, String> {
     unsafe {
-        // Try getting extended frame bounds using DWM (for windows with Aero/DWM effects)
         let mut extended_frame_bounds = RECT::default();
         let hr = DwmGetWindowAttribute(
             hwnd,
@@ -253,32 +259,39 @@ fn get_window_rect_without_drop_shadow(hwnd: HWND) -> Result<RECT, String> {
         );
 
         if hr.is_ok() {
-            // DWM successfully provided extended frame bounds, use these
             return Ok(extended_frame_bounds);
-        } else {
-            let mut adjusted_rect = RECT::default();
-            if GetWindowRect(hwnd, &mut adjusted_rect).is_err() {
-                return Err("GetWindowRect failed".into());
-            }
-
-            // DWM failed (likely on older Windows versions or if DWM is disabled)
-            // Fallback to AdjustWindowRectEx
-
-            // Get window styles and extended styles
-            let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
-            let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
-
-            if let Err(err) = AdjustWindowRectEx(
-                &mut adjusted_rect,
-                WINDOW_STYLE(style),
-                false,
-                WINDOW_EX_STYLE(ex_style),
-            ) {
-                eprintln!("AdjustWindowRectEx failed, frame bounds may be off: {err}");
-            }
-
-            Ok(adjusted_rect)
         }
+
+        eprintln!(
+            "DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) failed for top-level window {:?}: {:?}, falling back to GetWindowRect (shadow margin included)",
+            hwnd, hr
+        );
+
+        get_window_rect_via_style(hwnd)
+    }
+}
+
+/// Plain frame-adjusted `GetWindowRect`, no DWM shadow trimming; the correct choice for child windows, which have none to trim.
+fn get_window_rect_via_style(hwnd: HWND) -> Result<RECT, String> {
+    unsafe {
+        let mut adjusted_rect = RECT::default();
+        if GetWindowRect(hwnd, &mut adjusted_rect).is_err() {
+            return Err("GetWindowRect failed".into());
+        }
+
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+
+        if let Err(err) = AdjustWindowRectEx(
+            &mut adjusted_rect,
+            WINDOW_STYLE(style),
+            false,
+            WINDOW_EX_STYLE(ex_style),
+        ) {
+            eprintln!("AdjustWindowRectEx failed, frame bounds may be off: {err}");
+        }
+
+        Ok(adjusted_rect)
     }
 }
 
