@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicIsize, Ordering};
 use tauri::{AppHandle, PhysicalPosition, PhysicalSize, Runtime, Webview, WebviewWindow};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
@@ -6,8 +7,8 @@ use windows::Win32::UI::HiDpi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowThreadProcessId, STYLESTRUCT,
-    SetWindowLongPtrW, WM_STYLECHANGING, WS_EX_TOOLWINDOW,
+    GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowThreadProcessId, IsWindow,
+    STYLESTRUCT, SetForegroundWindow, SetWindowLongPtrW, WM_STYLECHANGING, WS_EX_TOOLWINDOW,
 };
 
 use super::{base_window_builder, manager_trait::ScreenshotWindowManager};
@@ -61,6 +62,8 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
     }
 
     fn show<R: Runtime>(webview: &ScreenshotWebview<R>) {
+        remember_previous_focus(&webview.window);
+
         webview
             .window
             .set_position(PhysicalPosition::new(
@@ -87,6 +90,37 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
             .ok();
 
         webview.window.set_ignore_cursor_events(true).ok();
+        restore_previous_focus();
+    }
+}
+
+static PREVIOUS_FOCUS: AtomicIsize = AtomicIsize::new(0);
+
+fn remember_previous_focus<R: Runtime>(window: &WebviewWindow<R>) {
+    let Ok(raw_hwnd) = window.hwnd() else { return };
+    let our_hwnd = HWND(raw_hwnd.0 as _);
+
+    unsafe {
+        let foreground = GetForegroundWindow();
+        if foreground.0.is_null() || foreground == our_hwnd {
+            return;
+        }
+
+        PREVIOUS_FOCUS.store(foreground.0 as isize, Ordering::SeqCst);
+    }
+}
+
+fn restore_previous_focus() {
+    let raw = PREVIOUS_FOCUS.swap(0, Ordering::SeqCst);
+    if raw == 0 {
+        return;
+    }
+
+    let hwnd = HWND(raw as _);
+    unsafe {
+        if IsWindow(Some(hwnd)).as_bool() {
+            let _ = SetForegroundWindow(hwnd);
+        }
     }
 }
 
