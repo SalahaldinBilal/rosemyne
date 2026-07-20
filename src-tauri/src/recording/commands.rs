@@ -344,6 +344,7 @@ fn create_border_window(app_handle: &AppHandle) -> Option<WebviewWindow> {
     };
 
     exclude_from_capture(&window);
+    disable_window_dragging(&window);
     let _ = window.set_ignore_cursor_events(true);
     Some(window)
 }
@@ -401,6 +402,7 @@ fn create_hud_window(app_handle: &AppHandle) -> Option<WebviewWindow> {
     };
 
     exclude_from_capture(&window);
+    disable_window_dragging(&window);
     Some(window)
 }
 
@@ -482,3 +484,42 @@ pub(crate) fn exclude_from_capture(window: &tauri::WebviewWindow) {
 
 #[cfg(not(target_os = "windows"))]
 pub(crate) fn exclude_from_capture(_window: &tauri::WebviewWindow) {}
+
+/// Blocks tools like AltSnap that move/resize arbitrary windows by sending `WM_SYSCOMMAND` `SC_MOVE`/`SC_SIZE` directly, bypassing any title bar.
+#[cfg(target_os = "windows")]
+pub(crate) fn disable_window_dragging<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::Shell::SetWindowSubclass;
+
+    match window.hwnd() {
+        Ok(hwnd) => unsafe {
+            let _ = SetWindowSubclass(HWND(hwnd.0 as _), Some(no_drag_subclass_proc), 1, 0);
+        },
+        Err(err) => eprintln!("Failed to get the window handle to disable dragging: {}", err),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn disable_window_dragging<R: tauri::Runtime>(_window: &tauri::WebviewWindow<R>) {}
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn no_drag_subclass_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    msg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+    _subclass_id: usize,
+    _ref_data: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::UI::Shell::DefSubclassProc;
+    use windows::Win32::UI::WindowsAndMessaging::{SC_MOVE, SC_SIZE, WM_SYSCOMMAND};
+
+    if msg == WM_SYSCOMMAND {
+        let command = (wparam.0 as u32) & 0xFFF0;
+        if command == SC_MOVE || command == SC_SIZE {
+            return windows::Win32::Foundation::LRESULT(0);
+        }
+    }
+
+    unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+}

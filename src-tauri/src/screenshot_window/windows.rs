@@ -11,7 +11,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use super::{base_window_builder, manager_trait::ScreenshotWindowManager};
-use crate::{ScreenshotWebview, screen_manager::window::WindowBounds};
+use crate::{
+    ScreenshotWebview, recording::commands::disable_window_dragging,
+    screen_manager::window::WindowBounds,
+};
 
 /// Offset used to move the screenshotter window off-screen instead of hiding it
 /// (avoids a hide/show flicker); also used to recognize windows parked there by
@@ -43,6 +46,7 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
 
         mark_as_tool_window(&window);
         apply_physical_bounds(&window, bounds);
+        disable_window_dragging(&window);
         window.set_ignore_cursor_events(true).ok();
 
         // The builder's `.position(...)` isn't reliably applied yet at this point; re-assert it.

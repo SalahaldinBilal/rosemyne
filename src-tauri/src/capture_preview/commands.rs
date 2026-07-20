@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 
 use crate::{
     HistoryStoreHandler, SettingsHandler, emit_on_main_thread,
-    recording::commands::exclude_from_capture,
+    recording::commands::{disable_window_dragging, exclude_from_capture},
     screen_manager::{commands::monitor_identity, screenshot_manager::HistoryItemType, window::WindowBounds},
 };
 
@@ -60,6 +60,7 @@ fn create_window(app_handle: &AppHandle) -> Option<WebviewWindow> {
     };
 
     exclude_from_capture(&window);
+    disable_window_dragging(&window);
     Some(window)
 }
 
