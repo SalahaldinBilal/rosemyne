@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-20
+
+### Added
+
+- The window that was focused before taking a screenshot is now refocused again once the capture overlay closes.
+
+### Fixed
+
+- The capture overlay's window borders/highlight boxes could be wrong on the very first screenshot taken after launching the app.
+- Pressing Escape (and other keyboard input) in the capture overlay could fail to register until the mouse was clicked first.
+- The capture overlay and other Rosemyne windows (recording HUD/border, capture preview) could be dragged or resized by external window-management tools like AltSnap.
+
 ## [0.1.3] - 2026-07-20
 
 ### Fixed
