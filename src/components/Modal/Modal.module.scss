@@ -48,8 +48,17 @@
       margin-bottom: 10px;
       flex-shrink: 0;
 
+      .Title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .Close {
         margin-left: auto;
+        flex-shrink: 0;
       }
     }
 
