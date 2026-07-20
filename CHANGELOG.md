@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-20
+
+### Fixed
+
+- Long file names in the screenshot/video preview modal no longer overflow past the close button.
+- Improved window detection reliability so captured window/tag data and the window snap-to-select are less likely to intermittently miss windows.
+- The capture preview popup no longer briefly flashes the previous screenshot before showing the new one.
+
 ## [0.1.2] - 2026-07-18
 
 ### Added
