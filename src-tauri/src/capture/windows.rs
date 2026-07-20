@@ -114,7 +114,7 @@ impl CaptureManager for WindowsCaptureManager {
         let mut windows = Vec::<HWND>::with_capacity(50);
         enumerate_windows(|id| {
             if id.is_invalid() {
-                return false;
+                return true;
             }
 
             windows.push(id);
@@ -196,7 +196,13 @@ impl CaptureManager for WindowsCaptureManager {
 
                 enumerate_child_windows(&handle, |child_handle| {
                     if child_handle.is_invalid() {
-                        return false;
+                        return true;
+                    }
+
+                    if !unsafe { IsWindowVisible(child_handle) }.as_bool()
+                        || is_window_cloaked(child_handle)
+                    {
+                        return true;
                     }
 
                     let child_rect = match get_window_rect_without_drop_shadow(child_handle) {
@@ -331,9 +337,7 @@ where
     let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
 
     let lparam = LPARAM(closure_pointer_pointer as isize);
-    if !unsafe { EnumChildWindows(Some(*parent), Some(enumerate_callback), lparam) }.as_bool() {
-        eprintln!("EnumChildWindows failed");
-    }
+    let _ = unsafe { EnumChildWindows(Some(*parent), Some(enumerate_callback), lparam) };
 }
 
 unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> windows_core::BOOL {
