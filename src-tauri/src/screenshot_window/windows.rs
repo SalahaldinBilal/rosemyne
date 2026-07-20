@@ -1,4 +1,4 @@
-use tauri::{AppHandle, PhysicalPosition, PhysicalSize, Runtime, WebviewWindow};
+use tauri::{AppHandle, PhysicalPosition, PhysicalSize, Runtime, Webview, WebviewWindow};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::HiDpi::{
@@ -97,7 +97,7 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
 /// as one input context and the foreground-lock restriction doesn't apply.
 fn force_focus<R: Runtime>(window: &WebviewWindow<R>) {
     let Ok(raw_hwnd) = window.hwnd() else {
-        let _ = window.set_focus();
+        focus_window_and_webview(window);
         return;
     };
     let target_hwnd = HWND(raw_hwnd.0 as _);
@@ -105,7 +105,7 @@ fn force_focus<R: Runtime>(window: &WebviewWindow<R>) {
     unsafe {
         let foreground_hwnd = GetForegroundWindow();
         if foreground_hwnd.0.is_null() || foreground_hwnd == target_hwnd {
-            let _ = window.set_focus();
+            focus_window_and_webview(window);
             return;
         }
 
@@ -113,14 +113,20 @@ fn force_focus<R: Runtime>(window: &WebviewWindow<R>) {
         let current_thread = GetCurrentThreadId();
 
         if foreground_thread == 0 || foreground_thread == current_thread {
-            let _ = window.set_focus();
+            focus_window_and_webview(window);
             return;
         }
 
         let _ = AttachThreadInput(current_thread, foreground_thread, true);
-        let _ = window.set_focus();
+        focus_window_and_webview(window);
         let _ = AttachThreadInput(current_thread, foreground_thread, false);
     }
+}
+
+// `WebviewWindow::set_focus` only focuses the top-level window; the embedded WebView2 control needs its own separate focus call to actually receive keyboard input.
+fn focus_window_and_webview<R: Runtime>(window: &WebviewWindow<R>) {
+    let _ = window.set_focus();
+    let _ = AsRef::<Webview<R>>::as_ref(window).set_focus();
 }
 
 /// Chromium/Firefox track native-window occlusion and stop rendering when they
