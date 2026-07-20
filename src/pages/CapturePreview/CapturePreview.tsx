@@ -37,7 +37,7 @@ function CapturePreview() {
   });
 
   function showPlaceholder() {
-    safeInvoke("show_capture_preview_window", { width: PLACEHOLDER_SIZE, height: PLACEHOLDER_SIZE }).catch(() => {});
+    safeInvoke("show_capture_preview_window", { width: PLACEHOLDER_SIZE, height: PLACEHOLDER_SIZE }).catch(() => { });
   }
 
   function onImageLoad(image: HTMLImageElement) {
@@ -49,12 +49,12 @@ function CapturePreview() {
     const width = Math.max(1, Math.round(image.naturalWidth * scale * ratio));
     const height = Math.max(1, Math.round(image.naturalHeight * scale * ratio));
 
-    safeInvoke("show_capture_preview_window", { width, height }).catch(() => {});
+    safeInvoke("show_capture_preview_window", { width, height }).catch(() => { });
   }
 
   function close() {
     window.clearTimeout(dismissTimer);
-    safeInvoke("hide_capture_preview_window").catch(() => {});
+    safeInvoke("hide_capture_preview_window").catch(() => { }).finally(() => setCurrent(null));
   }
 
   async function performAction(action: PreviewClickAction) {
@@ -65,36 +65,36 @@ function CapturePreview() {
       case "close":
         return close();
       case "openFile":
-        return safeInvoke("open_file", { fileName: item.fileName }).catch(() => {});
+        return safeInvoke("open_file", { fileName: item.fileName }).catch(() => { });
       case "openFolder":
-        return safeInvoke("show_in_folder", { fileName: item.fileName }).catch(() => {});
+        return safeInvoke("show_in_folder", { fileName: item.fileName }).catch(() => { });
       case "copyFile":
         return (item.itemType === "image"
           ? safeInvoke("copy_screenshot_to_clipboard", { fileName: item.fileName })
           : safeInvoke("copy_file_to_clipboard", { fileName: item.fileName })
-        ).catch(() => {});
+        ).catch(() => { });
       case "copyLink":
-        return item.url ? safeInvoke("copy_text_to_clipboard", { text: item.url }).catch(() => {}) : undefined;
+        return item.url ? safeInvoke("copy_text_to_clipboard", { text: item.url }).catch(() => { }) : undefined;
       case "nothing":
         return;
     }
   }
 
-  return <Show when={current()}>
+  return <Show when={current()} keyed>
     {item => <div
       class={styles.CapturePreview}
-      onClick={() => performAction(item().leftClickAction)}
-      onContextMenu={event => { event.preventDefault(); performAction(item().rightClickAction); }}
+      onClick={() => performAction(item.leftClickAction)}
+      onContextMenu={event => { event.preventDefault(); performAction(item.rightClickAction); }}
     >
       <Switch>
-        <Match when={item().itemType === "file" || thumbnailFailed()}>
+        <Match when={item.itemType === "file" || thumbnailFailed()}>
           <div class={styles.Placeholder}>
-            {item().itemType === "video" ? <Play size={32} /> : <File size={32} />}
+            {item.itemType === "video" ? <Play size={32} /> : <File size={32} />}
           </div>
         </Match>
         <Match when={true}>
           <img
-            src={mediaUrl(item().fileName, item().itemType)}
+            src={mediaUrl(item.fileName, item.itemType)}
             onLoad={e => onImageLoad(e.currentTarget)}
             onError={() => { setThumbnailFailed(true); showPlaceholder(); }}
           />
