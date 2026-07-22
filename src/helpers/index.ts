@@ -133,6 +133,22 @@ export function* windowDimsIter(windows: Iterable<WindowInfo>) {
   }
 }
 
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+// `<input type="datetime-local">` reads/writes local wall-clock time as a
+// plain (timezone-less) string; `Date`'s local getters/constructor do the ms conversion.
+export function msToDateTimeLocal(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+export function dateTimeLocalToMs(value: string): number {
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
 export function loadImage(url: string): Promise<HTMLImageElement> {
   const image = new Image();
   const promise = new Promise<HTMLImageElement>((res) => image.addEventListener("load", () => res(image)));

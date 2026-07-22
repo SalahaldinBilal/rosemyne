@@ -5,16 +5,25 @@ import Modal from "../../../components/Modal/Modal";
 import Button from "../../../components/Button/Button";
 import Select from "../../../components/Select/Select";
 import Input from "../../../components/Input/Input";
+import DurationField from "../TagFilter/controls/DurationField";
+import FilterValueField from "../TagFilter/controls/FilterValueField";
 import { safeInvoke } from "../../../helpers/safeInvoke";
+import { dateTimeLocalToMs, msToDateTimeLocal } from "../../../helpers";
 import { describeUploaderError } from "../../../components/UploaderCreator/UploaderCreator";
 import { ImageHistoryData, TagValue } from "../../../types";
-import { BOOLEAN_ITEMS, collectKeyErrors, entriesToObject, findEntry, findParentList, KIND_ITEMS, makeEntry, TagEntry, TagKind, tagsToEntries } from "./tagEntry";
+import { BOOLEAN_ITEMS, collectKeyErrors, defaultScalarFor, entriesToObject, findEntry, findParentList, KIND_ITEMS, makeEntry, TagEntry, TagKind, tagsToEntries } from "./tagEntry";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-solid";
+
+// FilterValueField only fetches suggestions for number/string paths , inert for datetime-local, so no real path is needed.
+const NO_SUGGESTION_PATH: string[] = [];
 
 const ICON_STYLE = { height: "28px", width: "28px", "min-width": "28px" } as const;
 const KEY_STYLE = { flex: "0 1 160px", "min-width": "100px" } as const;
 const KIND_STYLE = { flex: "0 0 120px" } as const;
 const VALUE_STYLE = { flex: "1 1 auto", "min-width": "100px" } as const;
+// Past this, the value overflows to Infinity, which JSON serializes as null , silently turning the tag empty.
+const NUMBER_MIN = -Number.MAX_VALUE;
+const NUMBER_MAX = Number.MAX_VALUE;
 
 type Actions = {
   setKey: (id: number, key: string) => void,
@@ -50,10 +59,25 @@ function TagEntryRow(props: { entry: TagEntry, showKey: boolean, topLevel: boole
           <Input style={VALUE_STYLE} value={props.entry.scalar as string} onChange={event => props.actions.setScalar(props.entry.id, event.currentTarget.value)} />
         </Match>
         <Match when={props.entry.kind === "number"}>
-          <Input style={VALUE_STYLE} type="number" value={props.entry.scalar as number} onChange={event => props.actions.setScalar(props.entry.id, Number(event.currentTarget.value))} />
+          <Input style={VALUE_STYLE} type="number" min={NUMBER_MIN} max={NUMBER_MAX} value={props.entry.scalar as number} onChange={event => props.actions.setScalar(props.entry.id, Number(event.currentTarget.value))} />
         </Match>
         <Match when={props.entry.kind === "boolean"}>
           <Select style={VALUE_STYLE} value={String(props.entry.scalar)} items={BOOLEAN_ITEMS} onItemClick={item => props.actions.setScalar(props.entry.id, item.value)} />
+        </Match>
+        <Match when={props.entry.kind === "time"}>
+          <div style={VALUE_STYLE}>
+            <DurationField valueMs={props.entry.scalar as number} onChange={ms => props.actions.setScalar(props.entry.id, ms)} />
+          </div>
+        </Match>
+        <Match when={props.entry.kind === "dateTime"}>
+          <div style={VALUE_STYLE}>
+            <FilterValueField
+              type="datetime-local"
+              path={NO_SUGGESTION_PATH}
+              value={msToDateTimeLocal(props.entry.scalar as number)}
+              onChange={raw => props.actions.setScalar(props.entry.id, dateTimeLocalToMs(raw))}
+            />
+          </div>
         </Match>
         <Match when={props.entry.kind === "null"}>
           <span class={styles.NullLabel} style={VALUE_STYLE}>null</span>
@@ -118,7 +142,7 @@ function TagEditorModal(props: {
     toggleExpanded: id => edit(id, entry => { entry.expanded = !entry.expanded; }),
     setKind: (id, kind) => edit(id, entry => {
       entry.kind = kind;
-      entry.scalar = kind === "number" ? 0 : kind === "boolean" ? false : "";
+      entry.scalar = defaultScalarFor(kind);
       entry.children = [];
       if (kind === "object" || kind === "array") entry.expanded = true;
     }),
@@ -141,7 +165,7 @@ function TagEditorModal(props: {
 
   const errors = createMemo(() => {
     const out = new Map<number, string>();
-    collectKeyErrors(entries, true, true, out);
+    collectKeyErrors(entries, true, out);
     return out;
   });
   const hasErrors = createMemo(() => errors().size > 0);

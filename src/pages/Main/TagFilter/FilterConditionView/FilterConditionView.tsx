@@ -1,6 +1,7 @@
 import { createMemo, For, Index, Match, Show, Switch } from "solid-js";
 import styles from "./FilterConditionView.module.scss";
 import { FilterCondition, FilterOperations, FilterValueType, OPERATION_LABELS, OPERATIONS_BY_TYPE, SelectItem, TagValueTypeMap } from "../../../../types";
+import { dateTimeLocalToMs, msToDateTimeLocal } from "../../../../helpers";
 import useTagFilterState from "../../../../states/tagFilterState";
 import Button from "../../../../components/Button/Button";
 import Select from "../../../../components/Select/Select";
@@ -27,22 +28,6 @@ const INPUT_TYPE: Record<FilterValueType, "number" | "string" | "datetime-local"
   dateTime: "datetime-local",
   byteSize: "string",
 };
-
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-// `<input type="datetime-local">` reads/writes local wall-clock time as a
-// plain (timezone-less) string; `Date`'s local getters/constructor do the ms conversion.
-function msToDateTimeLocal(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-function dateTimeLocalToMs(value: string): number {
-  const ms = new Date(value).getTime();
-  return Number.isNaN(ms) ? 0 : ms;
-}
 
 function formatFieldValue(type: FilterValueType, value: string | number): string | number {
   if (type === "dateTime") return msToDateTimeLocal(value as number);
