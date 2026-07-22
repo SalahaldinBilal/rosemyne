@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-22
+
+### Added
+
+- Screenshots, videos, and files in the history list now have an "Edit Tags" option in their right-click menu, letting you add, edit, or remove tags , including nested/structured ones , directly from the item. Newly added tags immediately become available in the filter panel.
+
+### Changed
+
+- Window snap-to-select in the screenshot overlay now tracks the cursor continuously , including the instant the overlay opens , and always highlights the nearest window instead of only updating when the cursor is directly over one.
+
 ## [0.1.5] - 2026-07-22
 
 ### Fixed
