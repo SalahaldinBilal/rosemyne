@@ -16,7 +16,7 @@ import { safeInvoke } from "@core/helpers/safeInvoke";
 import { describeUploaderError } from "@core/components/UploaderCreator/UploaderCreator";
 import UploadErrorDetailsModal, { errorHasRequestDetails } from "@core/components/UploadErrorDetailsModal/UploadErrorDetailsModal";
 import { UploaderCreationError } from "@core/types/request";
-import { Camera, CloudUpload, Copy, ExternalLink, File, FileSearch, FileSymlink, FolderOpen, FolderSymlink, Link, Play, RefreshCw, Settings2, Trash2, Video } from "lucide-solid";
+import { Camera, CloudUpload, Copy, ExternalLink, File, FileSearch, FileSymlink, FolderOpen, FolderSymlink, Link, Play, RefreshCw, Settings2, Tag, Trash2, Video } from "lucide-solid";
 import pkg from "../../../package.json";
 import useToastState from "@core/states/toastState";
 import { LARGE_VIDEO_BYTES, generateVideoThumbnail } from "@core/helpers/videoThumbnail";
@@ -26,6 +26,7 @@ import { useContextMenu } from "@core/components/ContextMenu/useContextMenu";
 import ContextMenu from "@core/components/ContextMenu/ContextMenu";
 import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/ContextMenuItem";
 import { startDrag } from "@crabnebula/tauri-plugin-drag";
+import TagEditorModal from "./TagEditor/TagEditorModal";
 
 const PAGE_SIZE = 60;
 const CARD_HEIGHT = 230;
@@ -43,6 +44,7 @@ function Main() {
   const [preview, setPreview] = createSignal<ImageHistoryData | null>(null);
   const [pendingDelete, setPendingDelete] = createSignal<ImageHistoryData | null>(null);
   const [pendingReupload, setPendingReupload] = createSignal<ImageHistoryData | null>(null);
+  const [editingTags, setEditingTags] = createSignal<ImageHistoryData | null>(null);
   const [viewingUploadError, setViewingUploadError] = createSignal<UploaderCreationError | null>(null);
   const [cardStatus, setCardStatus] = createStore<{ [fileName: string]: string | undefined }>({});
   const statusTimers: { [fileName: string]: number } = {};
@@ -174,9 +176,7 @@ function Main() {
 
     // Tag metadata is a full-table scan; load it in parallel so it never blocks
     // the (fast, indexed) first page of screenshots or the filter-less initial paint.
-    safeInvoke("get_tag_metadata")
-      .then(setMetadata)
-      .catch(error => console.error("Failed to load tag metadata", error));
+    refreshTagMetadata();
 
     const unlistenSaved = await getCurrentWebview().listen("screenshot://new-saved-image", (event: TauriEvent<ImageHistoryData>) => {
       // A filter being active doesn't mean the new item is excluded , check
@@ -263,6 +263,12 @@ function Main() {
 
   function errorText(error: unknown): string {
     return typeof error === "string" ? error : describeUploaderError(error);
+  }
+
+  function refreshTagMetadata() {
+    safeInvoke("get_tag_metadata")
+      .then(setMetadata)
+      .catch(error => console.error("Failed to load tag metadata", error));
   }
 
   function sourceWindow(screenshot: ImageHistoryData): string | null {
@@ -655,6 +661,8 @@ function Main() {
                       <ContextMenuItem icon={{ icon: FileSymlink }} onClick={() => copyFullPath(screenshot)}>Copy Full Path</ContextMenuItem>
                       <ContextMenuItem icon={{ icon: FolderSymlink }} onClick={() => copyFolderPath(screenshot)}>Copy Folder Path</ContextMenuItem>
                       <div class={styles.Divider} />
+                      <ContextMenuItem icon={{ icon: Tag }} onClick={() => setEditingTags(screenshot)}>Edit Tags</ContextMenuItem>
+                      <div class={styles.Divider} />
                       <ContextMenuItem icon={{ icon: Trash2 }} danger onClick={() => setPendingDelete(screenshot)}>Delete</ContextMenuItem>
                     </ContextMenu>
                   </>;
@@ -711,6 +719,14 @@ function Main() {
       show={!!viewingUploadError()}
       onHide={() => setViewingUploadError(null)}
       error={viewingUploadError() ?? undefined}
+    />
+    <TagEditorModal
+      screenshot={editingTags()}
+      onHide={() => setEditingTags(null)}
+      onSaved={(fileName, tags) => {
+        updateItem(fileName, entry => { entry.tags = tags; });
+        refreshTagMetadata();
+      }}
     />
   </div>
 }

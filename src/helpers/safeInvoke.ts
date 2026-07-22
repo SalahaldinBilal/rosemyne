@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, TagMetadata, TagValueSuggestion, VideoCodec } from "@core/types";
+import { CapturePreviewSettings, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -31,6 +31,7 @@ type Commands = {
   'get_drag_icon': Command<{ fileName: string }, string | null>,
   'list_videos_missing_thumbnail': Command<{ minSizeBytes: number }, string[]>,
   'suggest_tag_values': Command<{ path: string[], query: string }, TagValueSuggestion[]>,
+  'update_history_tags': Command<{ fileName: string, tags: { [key: string]: TagValue } | null }, ImageHistoryData>,
   'import_file': Command<{ path: string }, ImageHistoryData | null>,
   'delete_screenshot': Command<{ fileName: string }>,
   'copy_screenshot_to_clipboard': Command<{ fileName: string }>,

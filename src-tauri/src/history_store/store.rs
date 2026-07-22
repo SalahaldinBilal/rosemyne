@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::error_serializers::error_serialize;
-use crate::screen_manager::screenshot_manager::{HistoryItemType, ImageHistoryData, encode_image_as};
+use crate::screen_manager::screenshot_manager::{HistoryItemType, ImageHistoryData, TagValue, encode_image_as};
 
 use super::compile::{collect_index_entries, compile};
 use super::filter::{FilterNode, FilterSlot, register_filter_match};
@@ -512,10 +512,70 @@ impl HistoryStore {
         if let Some(raw) = tags_raw {
             if let Ok(tags_value) = serde_json::from_str::<Value>(&raw) {
                 unrecord_tags(&inner.conn, &tags_value)?;
+                // A path can lose its last use here, so recompute rather than merge.
+                let schema = rebuild_schema(&inner.conn)?;
+                save_schema(&inner.conn, &schema)?;
             }
         }
 
         Ok(())
+    }
+
+    /// Replaces a row's tags wholesale, keeping the derived tag tables in sync.
+    pub fn update_tags(
+        &self,
+        file_name: &str,
+        tags: Option<HashMap<String, TagValue>>,
+    ) -> Result<ImageHistoryData, HistoryError> {
+        // Frontend already blocks this; enforced here too since `$` is reserved for `$file`.
+        if let Some(map) = &tags {
+            if map.keys().any(|key| key.starts_with('$')) {
+                return Err(HistoryError::Task(
+                    "Tag names can't start with \"$\" (reserved)".to_string(),
+                ));
+            }
+        }
+
+        let inner = self.lock();
+        let row: Option<(i64, Option<String>)> = inner
+            .conn
+            .query_row(
+                "SELECT id, tags FROM history WHERE file_name = ?1",
+                [file_name],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+
+        let Some((history_id, old_tags_raw)) = row else {
+            return Err(HistoryError::Task(format!("{file_name} is not in the history")));
+        };
+
+        if let Some(raw) = old_tags_raw {
+            if let Ok(old_tags_value) = serde_json::from_str::<Value>(&raw) {
+                unrecord_tags(&inner.conn, &old_tags_value)?;
+            }
+        }
+        inner.conn.execute("DELETE FROM tag_index WHERE history_id = ?1", [history_id])?;
+
+        let tags = tags.filter(|map| !map.is_empty());
+        let tags_value = tags.as_ref().map(|map| serde_json::to_value(map).unwrap_or(Value::Null));
+        let tags_json = tags_value.as_ref().map(|value| value.to_string());
+
+        inner.conn.execute("UPDATE history SET tags = ?1 WHERE id = ?2", params![tags_json, history_id])?;
+
+        if let Some(tags_value) = &tags_value {
+            record_tag_index_and_counts(&inner.conn, history_id, tags_value)?;
+        }
+
+        // A tag can drop out of use entirely here, so recompute rather than merge.
+        let schema = rebuild_schema(&inner.conn)?;
+        save_schema(&inner.conn, &schema)?;
+
+        inner
+            .conn
+            .prepare_cached(&format!("SELECT {COLUMNS} FROM history WHERE file_name = ?1"))?
+            .query_row([file_name], row_to_entry)
+            .map_err(HistoryError::from)
     }
 
     pub fn set_upload_result(&self, file_name: &str, host: &str, url: &str) -> Result<(), HistoryError> {
@@ -820,15 +880,8 @@ fn save_schema(conn: &Connection, schema: &Map<String, Value>) -> rusqlite::Resu
     set_meta(conn, "tag_schema", &json)
 }
 
-/// Updates the derived tag tables for one inserted row: merges the schema,
-/// increments the cached value counts, and adds the row's `tag_index` entries.
-fn record_tags(
-    conn: &Connection,
-    history_id: i64,
-    tags: &Value,
-    schema: &mut Map<String, Value>,
-) -> rusqlite::Result<()> {
-    merge_schema(tags, schema);
+/// Counts + `tag_index` only; callers rebuild the schema separately (`rebuild_schema`).
+fn record_tag_index_and_counts(conn: &Connection, history_id: i64, tags: &Value) -> rusqlite::Result<()> {
     for (path, scalar) in collect_scalars(tags) {
         conn.execute(
             "INSERT INTO tag_value_counts (path, value, count) VALUES (?1, ?2, 1) \
@@ -841,6 +894,31 @@ fn record_tags(
         index_insert.execute(params![history_id, entry.path, entry.kind, entry.text, entry.num])?;
     }
     Ok(())
+}
+
+/// Merges the schema and updates counts/`tag_index` for one newly inserted row.
+fn record_tags(
+    conn: &Connection,
+    history_id: i64,
+    tags: &Value,
+    schema: &mut Map<String, Value>,
+) -> rusqlite::Result<()> {
+    merge_schema(tags, schema);
+    record_tag_index_and_counts(conn, history_id, tags)
+}
+
+/// Recomputes the schema from every tagged row, so unused paths drop out.
+fn rebuild_schema(conn: &Connection) -> rusqlite::Result<Map<String, Value>> {
+    let mut schema = Map::new();
+    let mut stmt = conn.prepare("SELECT tags FROM history WHERE tags IS NOT NULL")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let raw: String = row.get(0)?;
+        if let Ok(value) = serde_json::from_str::<Value>(&raw) {
+            merge_schema(&value, &mut schema);
+        }
+    }
+    Ok(schema)
 }
 
 /// Shared tail for every "add a row to history" path (`save_rendered`,
@@ -885,8 +963,7 @@ fn insert_history_row(
     Ok(())
 }
 
-/// Decrements the cached value counts for a deleted row's tags (schema is left
-/// as-is , a stale path is harmless).
+/// Decrements the cached value counts for a deleted row's tags; callers rebuild the schema separately.
 fn unrecord_tags(conn: &Connection, tags: &Value) -> rusqlite::Result<()> {
     for (path, scalar) in collect_scalars(tags) {
         conn.execute(
