@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-22
+
+### Fixed
+
+- The capture overlay could occasionally show up behind other always-on-top windows instead of above them.
+
 ## [0.1.4] - 2026-07-20
 
 ### Added
