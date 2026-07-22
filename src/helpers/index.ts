@@ -1,4 +1,4 @@
-import { Dimensions, WindowInfo } from "../types/screenshot";
+import { Dimensions, DimensionsWithOrder, WindowInfo } from "../types/screenshot";
 import { Position } from '../types';
 
 export function isNotNullish<T>(val: T | null | undefined): val is T {
@@ -98,6 +98,29 @@ export function getDimensionFromPoints<T extends Dimensions | { dimensions: Dime
   }
 
   return null;
+}
+
+function squaredDistanceToBox(point: Position, box: Dimensions): number {
+  const dx = Math.max(box.x - point.x, 0, point.x - (box.x + box.width));
+  const dy = Math.max(box.y - point.y, 0, point.y - (box.y + box.height));
+  return dx * dx + dy * dy;
+}
+
+// Prefers the topmost box the point is actually inside; falls back to the nearest box otherwise.
+export function findClosestWindowAtPoint(windows: Iterable<WindowInfo>, point: Position): { window: WindowInfo, box: DimensionsWithOrder } | null {
+  const candidates = Array.from(windows).flatMap(window =>
+    [window.dimensions, ...window.subDimensions].map(box => ({ window, box }))
+  );
+  if (candidates.length === 0) return null;
+
+  const containing = candidates.filter(({ box }) => squaredDistanceToBox(point, box) === 0);
+  if (containing.length > 0) {
+    return containing.reduce((topmost, current) => current.box.zOrder > topmost.box.zOrder ? current : topmost);
+  }
+
+  return candidates.reduce((closest, current) =>
+    squaredDistanceToBox(point, current.box) < squaredDistanceToBox(point, closest.box) ? current : closest
+  );
 }
 
 export function* windowDimsIter(windows: Iterable<WindowInfo>) {

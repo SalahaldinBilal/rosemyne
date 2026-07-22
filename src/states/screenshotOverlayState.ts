@@ -112,17 +112,10 @@ function useScreenshotOverlayStateInner() {
     }
   }
 
-  // Right-click and Escape both go through this. An actual region drag in
-  // progress, or a tool actively creating/moving an overlay item, gets
-  // cleared on its own so the user can try again; a window merely being
-  // hover-highlighted isn't an action to cancel , it's passive, and clearing
-  // it would just get immediately replaced by the next mouse move anyway.
-  // The whole overlay only closes when there's nothing actually in progress.
+  // Right-click and Escape both go through this; SelectionBox's own `cancelDrag` handler owns re-selecting the hovered window. Only closes the overlay when nothing's in progress.
   function cancelCurrentAction() {
     if (isSelectingRegion() || isOverlayInteracting()) {
       mouseEventHandler.emit("cancelDrag");
-      setSelectedBox({ x: 0, y: 0, width: 0, height: 0 });
-      setSelectedWindow(null);
       return;
     }
 

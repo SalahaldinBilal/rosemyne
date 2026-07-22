@@ -4,12 +4,14 @@ import useScreenshotOverlayStateInner from "../../../states/screenshotOverlaySta
 import WindowSelectionBox from "./WindowSelectionBox/WindowSelectionBox";
 import { Tools } from "../../../types";
 import { createStore } from "solid-js/store";
+import { findClosestWindowAtPoint } from "../../../helpers";
 
 function SelectionBox() {
-  const { imageData, selectedBox, previewUrl, currentTool, setSelectedBox, closeOverlay, mouseEventHandler, suppressNextClick, setIsSelectingRegion } = useScreenshotOverlayStateInner;
+  const { imageData, selectedBox, previewUrl, currentTool, setSelectedBox, setSelectedWindow, closeOverlay, mouseEventHandler, suppressNextClick, setIsSelectingRegion } = useScreenshotOverlayStateInner;
   const [isMouseDown, setIsMouseDown] = createSignal<boolean>(false);
   const [hasMovedOnce, setHasMovedOnce] = createSignal<boolean>(false);
   const [mouseDownLocation, setMouseDownLocation] = createStore<{ x: number, y: number }>({ x: 0, y: 0 });
+  let lastMousePosition = { x: 0, y: 0 };
 
   onMount(() => {
     mouseEventHandler.on("mouseDown", mouseDownHandler)
@@ -30,6 +32,7 @@ function SelectionBox() {
   function handleCancelDrag() {
     if (isMouseDown()) suppressNextClick();
     cleanup();
+    if (currentTool() === Tools.Screenshot) selectWindowAtPoint(lastMousePosition);
   }
   createEffect(() => {
     if (currentTool() === Tools.Screenshot) return;
@@ -42,6 +45,43 @@ function SelectionBox() {
     document.body.style.cursor = "crosshair";
     onCleanup(() => { document.body.style.cursor = ""; });
   })
+
+  // Seeds from the cursor position Rust captured at open time, so nothing waits on a mousemove.
+  createEffect(() => {
+    const data = imageData();
+    if (!data || currentTool() !== Tools.Screenshot) return;
+
+    lastMousePosition = data.mousePosition;
+    selectWindowAtPoint(lastMousePosition);
+  })
+
+  // Position-driven, not mouseenter/leave, which won't refire without a new box boundary crossing.
+  createEffect(() => {
+    if (!imageData() || currentTool() !== Tools.Screenshot) return;
+
+    window.addEventListener("mousemove", passiveMouseMoveHandler);
+    onCleanup(() => window.removeEventListener("mousemove", passiveMouseMoveHandler));
+  })
+
+  function passiveMouseMoveHandler(event: MouseEvent) {
+    lastMousePosition = { x: event.clientX, y: event.clientY };
+    if (isMouseDown()) return;
+
+    selectWindowAtPoint(lastMousePosition);
+  }
+
+  function selectWindowAtPoint(point: { x: number, y: number }) {
+    const match = findClosestWindowAtPoint(imageData()!.windows.filter(window => window.visiblePercentage > 0), point);
+
+    if (!match) {
+      setSelectedBox({ x: 0, y: 0, width: 0, height: 0 });
+      setSelectedWindow(null);
+      return;
+    }
+
+    setSelectedBox({ x: match.box.x, y: match.box.y, width: match.box.width, height: match.box.height });
+    setSelectedWindow(match.window);
+  }
 
   function mouseDownHandler(event: MouseEvent) {
     if (currentTool() !== Tools.Screenshot || event.button !== 0) return;
