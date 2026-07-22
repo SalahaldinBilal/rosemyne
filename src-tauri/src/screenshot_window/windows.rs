@@ -77,6 +77,10 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
         apply_physical_bounds(&webview.window, &webview.position);
 
         webview.window.set_ignore_cursor_events(false).ok();
+
+        let _ = webview.window.set_always_on_top(false);
+        let _ = webview.window.set_always_on_top(true);
+
         force_focus(&webview.window);
     }
 
