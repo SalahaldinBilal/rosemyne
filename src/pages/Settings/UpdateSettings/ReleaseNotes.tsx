@@ -1,7 +1,7 @@
 import styles from "./ReleaseNotes.module.scss";
 import { createMemo, For } from "solid-js";
 
-type NotesBlock =
+export type NotesBlock =
   | { type: "heading", text: string }
   | { type: "list", items: string[] }
   | { type: "text", text: string };
@@ -9,7 +9,7 @@ type NotesBlock =
 // CHANGELOG.md entries follow Keep a Changelog: "### " subheadings and "- "
 // bullet lists: this file is our own generated changelog notes (see
 // scripts/deploy.ts), not arbitrary markdown, so a full parser is overkill.
-function parseReleaseNotes(notes: string): NotesBlock[] {
+export function parseReleaseNotes(notes: string): NotesBlock[] {
   const blocks: NotesBlock[] = [];
   let currentList: string[] | null = null;
 
@@ -39,12 +39,10 @@ function parseReleaseNotes(notes: string): NotesBlock[] {
   return blocks;
 }
 
-function ReleaseNotes(props: { notes: string }) {
-  const blocks = createMemo(() => parseReleaseNotes(props.notes));
-
+export function NotesBlocks(props: { blocks: NotesBlock[] }) {
   return (
     <div class={styles.Notes}>
-      <For each={blocks()}>{block => {
+      <For each={props.blocks}>{block => {
         switch (block.type) {
           case "heading": return <div class={styles.Heading}>{block.text}</div>;
           case "list": return (
@@ -57,6 +55,11 @@ function ReleaseNotes(props: { notes: string }) {
       }}</For>
     </div>
   );
+}
+
+function ReleaseNotes(props: { notes: string }) {
+  const blocks = createMemo(() => parseReleaseNotes(props.notes));
+  return <NotesBlocks blocks={blocks()} />;
 }
 
 export default ReleaseNotes;

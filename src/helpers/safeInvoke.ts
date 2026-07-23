@@ -42,6 +42,7 @@ type Commands = {
   'move_mouse_by': Command<{ x?: number, y?: number }>,
   'get_system_datetime_patterns': Command<undefined, DateTimePatterns | null>,
   'was_launched_via_autostart': Command<undefined, boolean>,
+  'fetch_changelog': Command<undefined, string>,
   'is_uploader_valid': Command<{ uploader: UploaderOptions }, UploaderValidation>,
   'upload_image': Command<{ fileName: string, uploaderId?: string }, UploadResult>,
   'test_uploader': Command<{ uploader: UploaderOptions }, UploadResult>,

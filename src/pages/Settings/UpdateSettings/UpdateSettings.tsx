@@ -5,9 +5,12 @@ import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { checkForUpdate, Update } from "@core/helpers/updater";
 import { DownloadEvent } from "@tauri-apps/plugin-updater";
+import { safeInvoke } from "@core/helpers/safeInvoke";
 import Button from "@core/components/Button/Button";
-import { CircleCheck, Download, RefreshCw, TriangleAlert } from "lucide-solid";
+import Modal from "@core/components/Modal/Modal";
+import { CircleCheck, Download, RefreshCw, ScrollText, TriangleAlert } from "lucide-solid";
 import ReleaseNotes from "./ReleaseNotes";
+import FullChangelog from "./FullChangelog";
 
 type Phase = "idle" | "checking" | "upToDate" | "available" | "downloading" | "readyToRestart" | "error";
 
@@ -18,9 +21,30 @@ function UpdateSettings() {
   const [progress, setProgress] = createSignal<{ downloaded: number, total: number | null }>({ downloaded: 0, total: null });
   const [errorMessage, setErrorMessage] = createSignal("");
 
+  const [showChangelog, setShowChangelog] = createSignal(false);
+  const [changelogText, setChangelogText] = createSignal<string | null>(null);
+  const [changelogLoading, setChangelogLoading] = createSignal(false);
+  const [changelogError, setChangelogError] = createSignal("");
+
   onMount(async () => {
     setCurrentVersion(await getVersion());
   });
+
+  // Fetched once and cached , re-opening the modal doesn't re-fetch.
+  async function openChangelog() {
+    setShowChangelog(true);
+    if (changelogText() || changelogLoading()) return;
+
+    setChangelogLoading(true);
+    setChangelogError("");
+    try {
+      setChangelogText(await safeInvoke("fetch_changelog"));
+    } catch (error) {
+      setChangelogError(typeof error === "string" ? error : JSON.stringify(error));
+    } finally {
+      setChangelogLoading(false);
+    }
+  }
 
   async function runCheck() {
     setPhase("checking");
@@ -113,6 +137,10 @@ function UpdateSettings() {
             <RefreshCw size={16} style={{ "margin-right": '6px' }} />
             Check for updates
           </Button>
+          <Button onClick={openChangelog}>
+            <ScrollText size={16} style={{ "margin-right": '6px' }} />
+            View full changelog
+          </Button>
           <Show when={import.meta.env.DEV}>
             <Button disabled={phase() === "downloading"} onClick={simulateMockUpdate}>
               Preview mock update (dev)
@@ -174,6 +202,22 @@ function UpdateSettings() {
     <Show when={showsUpdatePanel() && update()?.body}>
       {body => <ReleaseNotes notes={body()} />}
     </Show>
+
+    <Modal show={showChangelog()} onHide={() => setShowChangelog(false)} title="Changelog" width={640} height="75%">
+      <Switch>
+        <Match when={changelogLoading()}>
+          <span class={styles.StatusText}>Loading…</span>
+        </Match>
+        <Match when={changelogError()}>
+          <span class={styles.StatusText} classList={{ [styles.Error]: true }}>
+            <TriangleAlert size={14} /> {changelogError()}
+          </span>
+        </Match>
+        <Match when={changelogText()}>
+          {text => <FullChangelog text={text()} />}
+        </Match>
+      </Switch>
+    </Modal>
   </div>;
 }
 

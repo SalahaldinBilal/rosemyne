@@ -504,6 +504,21 @@ fn was_launched_via_autostart() -> bool {
     std::env::args().any(|arg| arg == AUTOSTART_ARG)
 }
 
+const CHANGELOG_URL: &str = "https://raw.githubusercontent.com/SalahaldinBilal/rosemyne/main/CHANGELOG.md";
+
+#[tauri::command]
+async fn fetch_changelog(http_client: State<'_, HttpClientHandler>) -> Result<String, String> {
+    http_client
+        .get(CHANGELOG_URL)
+        .send()
+        .await
+        .and_then(|response| response.error_for_status())
+        .map_err(|err| err.to_string())?
+        .text()
+        .await
+        .map_err(|err| err.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_path = default_app_path();
@@ -715,6 +730,7 @@ pub fn run() {
             move_mouse_by,
             get_system_datetime_patterns,
             was_launched_via_autostart,
+            fetch_changelog,
             is_uploader_valid,
             upload_image,
             test_uploader,
