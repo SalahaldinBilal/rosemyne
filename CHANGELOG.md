@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-23
+
+### Added
+
+- The Updates settings page now has a "View full changelog" button to read every past release's notes, not just the pending update's.
+
+### Fixed
+
+- The tag editor now shows Duration and Date/Time tags (e.g. every screenshot's "Timestamp", every recording's "Duration") with proper duration/date-time pickers.
+
 ## [0.1.6] - 2026-07-22
 
 ### Added
