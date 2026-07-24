@@ -122,7 +122,7 @@ pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind) {
     }
 }
 
-/// Plays `kind` immediately regardless of its enabled setting , used by the
+/// Plays `kind` immediately regardless of its enabled setting, used by the
 /// settings UI to audition a sound.
 pub fn play_now(kind: SoundKind, custom_file: Option<String>, volume: u8) {
     std::thread::spawn(move || {
@@ -130,7 +130,7 @@ pub fn play_now(kind: SoundKind, custom_file: Option<String>, volume: u8) {
             return;
         };
         // The stream only drops after `sleep_until_end` returns, i.e. once
-        // playback has already finished , rodio's default drop log implies
+        // playback has already finished, rodio's default drop log implies
         // truncated audio, which isn't the case here.
         stream_handle.log_on_drop(false);
         let sink = rodio::Sink::connect_new(stream_handle.mixer());

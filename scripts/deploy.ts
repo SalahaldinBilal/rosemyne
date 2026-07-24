@@ -5,7 +5,7 @@
 // links to it. Expects `tauri build` to have already run with
 // `bundle.createUpdaterArtifacts: true` (see src-tauri/tauri.conf.json), and
 // CHANGELOG.md to already have a `## [<version>]` section (bump-version.ts
-// cuts "Unreleased" into one) , that section's body is used as the release notes.
+// cuts "Unreleased" into one), that section's body is used as the release notes.
 //
 // Required env vars: B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, GH_TOKEN
 // (the `gh` CLI reads GH_TOKEN itself; it's preinstalled on GitHub-hosted runners).
@@ -49,7 +49,7 @@ function readChangelogNotes(version: string): string {
   const heading = `## [${version}]`;
   const headingStart = contents.indexOf(heading);
   if (headingStart === -1) {
-    throw new Error(`Could not find a "${heading}" section in CHANGELOG.md , did you run \`npm run version:bump\` before tagging?`);
+    throw new Error(`Could not find a "${heading}" section in CHANGELOG.md, did you run \`npm run version:bump\` before tagging?`);
   }
 
   const sectionStart = contents.indexOf("\n", headingStart) + 1;

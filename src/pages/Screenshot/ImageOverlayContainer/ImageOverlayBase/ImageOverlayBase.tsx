@@ -3,7 +3,7 @@ import styles from "./ImageOverlayBase.module.scss";
 import { ImageOverlay } from "../../../../types/imageOverlay";
 import { createDraggable } from "@thisbeyond/solid-dnd";
 import ResizableBox from "../../../../components/ResizableBox/ResizableBox";
-import useScreenshotOverlayStateInner from "../../../../states/screenshotOverlayState";
+import { useAnnotationState } from "../../../../states/annotationContext";
 import { Dimensions, Tools } from "../../../../types";
 import { useContextMenu } from "../../../../components/ContextMenu/useContextMenu";
 import { beautifyCamelOrPascalCase } from "../../../../helpers";
@@ -13,8 +13,11 @@ import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/Contex
 import { CircleX } from "lucide-solid";
 import OverlayAttributeList from "@core/components/OverlayAttributeList/OverlayAttributeList";
 
-function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragged?: boolean, renderOrder?: number, children: JSX.Element }) {
-  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting } = useScreenshotOverlayStateInner;
+// Large enough to always outrank any realistic item.order.
+const HANDLES_ON_TOP_BOOST = 100_000;
+
+function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragged?: boolean, handlesOnTop?: boolean, children: JSX.Element }) {
+  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, toImageCoords } = useAnnotationState();
   const { show: showContextMenu, id: menuId } = useContextMenu();
   const draggable = createDraggable(props.index, { item: props.item });
   const isBeingDragged = createMemo(() => draggable.isActiveDraggable);
@@ -28,7 +31,9 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
     return {
       left: (props.beingDragged ? 0 : dims.x.toString()) + "px", top: (props.beingDragged ? 0 : dims.y.toString()) + "px",
       width: dims.width.toString() + "px", height: dims.height.toString() + "px",
-      'z-index': 30001 + (props.renderOrder ?? props.item.order)
+      // Strict creation order, always: renderFinalImage composites in this same
+      // order, so anything else here would desync the preview from the save.
+      'z-index': 30001 + props.item.order
     }
   })
 
@@ -48,6 +53,10 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
       onResizeStart={() => setIsOverlayInteracting(true)}
       onResizeEnd={() => setIsOverlayInteracting(false)}
       show={canBeEdited() && !isBeingDragged()}
+      toContainerCoords={toImageCoords}
+      // Only the resize border/handles are lifted above whatever is covering this
+      // item; the overlay's own pixels stay in creation order (see the style memo).
+      zIndexBoost={props.handlesOnTop ? HANDLES_ON_TOP_BOOST : 0}
     >
       {ref => <>
         <div

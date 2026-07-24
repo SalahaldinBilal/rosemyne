@@ -49,7 +49,7 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
         return literal("1", false);
     }
     // Virtual `$file` paths are backed by always-present table columns, so
-    // every operation except fuzzy compiles exactly , including notEquals.
+    // every operation except fuzzy compiles exactly, including notEquals.
     if let Some((column, kind)) = file_column(path) {
         return match kind {
             FileColumnKind::Text => compile_file_text_condition(column, operation, values),
@@ -195,7 +195,7 @@ fn file_column(path: &[String]) -> Option<(&'static str, FileColumnKind)> {
 }
 
 /// Conditions on a numeric `$file` column (`DateTime`, `Size`): treated as
-/// always present, same as `DateTime` , `file_size` can in rare cases (a
+/// always present, same as `DateTime`, `file_size` can in rare cases (a
 /// failed `stat` when saving a recording) be NULL, which would make a
 /// `notEquals` compiled here diverge from the reference evaluator (which
 /// treats a missing key as satisfying `notEquals`) for that one row. Accepted
@@ -239,7 +239,7 @@ fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) ->
 
     for value in values {
         match operation {
-            // notEquals with a non-string filter is `string !== other` , true.
+            // notEquals with a non-string filter is `string !== other`, true.
             NOT_EQUALS => match value {
                 Value::String(s) => {
                     preds.push(format!("{column} <> ?"));
@@ -506,7 +506,7 @@ mod tests {
         assert_eq!(find("[\"Duration\"]").len(), 1);
         assert_eq!(find("[\"Duration\"]")[0].kind, "n");
         assert_eq!(find("[\"Duration\"]")[0].num, Some(5000.0));
-        // No entry at the marker's inner key , it's a leaf, not a nested path.
+        // No entry at the marker's inner key, it's a leaf, not a nested path.
         assert!(find("[\"Duration\",\"$time\"]").is_empty());
         assert_eq!(find("[\"CapturedAt\"]")[0].num, Some(1_737_000_000_000.0));
     }

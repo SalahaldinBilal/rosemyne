@@ -7,7 +7,7 @@
 }
 
 // GeneralSettings.module.scss's .SettingText/.Hint only apply nested under its
-// own .SettingRow, which this page doesn't use , kept local and self-contained
+// own .SettingRow, which this page doesn't use, kept local and self-contained
 // instead of relying on that cross-module ancestor chain.
 .VersionText {
   display: flex;

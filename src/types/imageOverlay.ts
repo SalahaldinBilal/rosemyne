@@ -56,7 +56,7 @@ export type PixelateImageOverlay = ImageOverlayBase<"pixelate", {
   "intensity": { type: "number", value: 24, min: 0 },
 }>;
 
-// Freehand strokes painted straight onto a persistent full-capture layer , see
+// Freehand strokes painted straight onto a persistent full-capture layer, see
 // DrawLayer.tsx. Unlike every other overlay type it has no meaningful editable
 // box: `dimensions` always covers the whole capture and `attributes` is empty,
 // since brush color/size are global tool settings, not per-item.
@@ -65,4 +65,4 @@ export type DrawImageOverlay = ImageOverlayBase<"draw", {}>;
 export type ImageOverlay = BoxImageOverlay | TextImageOverlay | BlurImageOverlay | PixelateImageOverlay | DrawImageOverlay;
 
 export type ImageOverlayElem = (props: { item: ImageOverlay, onChange: SetStoreFunction<ImageOverlay> }) => JSX.Element;
-export type ImageOverlayProps<T extends ImageOverlay> = { index: number, item: T, beingDragged?: boolean, renderOrder?: number };
+export type ImageOverlayProps<T extends ImageOverlay> = { index: number, item: T, beingDragged?: boolean, handlesOnTop?: boolean };

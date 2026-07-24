@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
+import { CapturePreviewSettings, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, RestitchResult, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -26,6 +26,16 @@ type Commands = {
   'cancel_recording': Command,
   'get_recording_status': Command<undefined, RecordingStatus | null>,
   'get_available_video_codecs': Command<undefined, VideoCodec[]>,
+  'scrolling_capture_screen': Command,
+  'start_scrolling_capture': Command<{ region: Dimensions, id?: number, overrides: ScrollCaptureOverrides }>,
+  'stop_scrolling_capture': Command,
+  'cancel_scrolling_capture': Command,
+  'get_scrolling_capture_settings': Command<undefined, ScrollingCaptureSettings>,
+  'set_scrolling_capture_settings': Command<{ scrollingCapture: ScrollingCaptureSettings }>,
+  'get_scroll_capture_session': Command<undefined, ScrollCaptureSession | null>,
+  'restitch_scroll_capture': Command<{ sessionId: number, params: StitchParams, excludedFrames: number[] }, RestitchResult>,
+  'cancel_scroll_capture_review': Command<{ sessionId: number }>,
+  'finish_scroll_capture_review': Command<{ sessionId: number }>,
   'query_history': Command<{ filter: FilterGroup, sort: HistorySort, cursor: HistoryCursor | null, limit: number }, HistoryPage>,
   'get_tag_metadata': Command<undefined, TagMetadata>,
   'get_drag_icon': Command<{ fileName: string }, string | null>,
@@ -34,6 +44,8 @@ type Commands = {
   'update_history_tags': Command<{ fileName: string, tags: { [key: string]: TagValue } | null }, ImageHistoryData>,
   'import_file': Command<{ path: string }, ImageHistoryData | null>,
   'delete_screenshot': Command<{ fileName: string }>,
+  'begin_image_edit': Command<{ fileName: string }, ImageEditSession>,
+  'cancel_image_edit': Command<{ imageId: number }>,
   'copy_screenshot_to_clipboard': Command<{ fileName: string }>,
   'copy_file_to_clipboard': Command<{ fileName: string }>,
   'copy_text_to_clipboard': Command<{ text: string }>,
@@ -69,4 +81,4 @@ type Commands = {
 };
 
 // `hide_and_save_screenshot` is intentionally absent: it takes a raw binary
-// body, which this JSON-typed wrapper can't express , see helpers/saveScreenshot.ts.
+// body, which this JSON-typed wrapper can't express, see helpers/saveScreenshot.ts.

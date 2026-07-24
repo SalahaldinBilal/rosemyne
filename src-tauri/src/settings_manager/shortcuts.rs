@@ -12,7 +12,7 @@ use tauri_plugin_global_shortcut::{
 
 use crate::{
     HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWindowHandler, SettingsHandler,
-    screen_manager::commands::{open_record_overlay, take_screenshot},
+    screen_manager::commands::{open_record_overlay, open_scroll_capture_overlay, take_screenshot},
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -41,6 +41,8 @@ pub enum ShortcutMethod {
     /// Toggles screen recording: opens the region-select overlay when idle,
     /// stops and saves the active recording otherwise.
     Record,
+    /// Opens the region-select overlay in scrolling-capture mode.
+    ScrollingCapture,
 }
 
 /// Where an instant (no-overlay) capture grabs its pixels from.
@@ -192,6 +194,11 @@ pub fn shortcut_handler(app_handle: &AppHandle, shortcut: &Shortcut, event: Shor
                     let window_handler = app_handle.state::<ScreenshotWindowHandler>();
                     let _ = open_record_overlay(window_handler.inner(), &app_handle).await;
                 }
+                return;
+            }
+            ShortcutMethod::ScrollingCapture => {
+                let window_handler = app_handle.state::<ScreenshotWindowHandler>();
+                let _ = open_scroll_capture_overlay(window_handler.inner(), &app_handle).await;
                 return;
             }
         };

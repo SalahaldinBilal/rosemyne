@@ -12,6 +12,7 @@ use crate::capture_preview::CapturePreviewSettings;
 use crate::image_uploader::SavedUploader;
 use crate::recording::recorder_trait::VideoCodec;
 use crate::screen_manager::screenshot_manager::ScreenshotImageFormat;
+use crate::scrolling_capture::ScrollingCaptureSettings;
 use crate::sound_manager::{SoundKind, SoundSettings};
 
 /// Tolerant per-element parse: a binding whose shape no longer fits (e.g. a
@@ -76,7 +77,7 @@ impl GeneralSettings {
 /// overlay type ("box"/"text"/"blur"/"pixelate") then attribute name. Only
 /// customized values are stored; anything missing falls back to the
 /// frontend's built-in defaults (`OVERLAY_DEFAULT_ATTRIBUTES`). The value
-/// shape (string/number/bool) is opaque to Rust , the frontend owns and
+/// shape (string/number/bool) is opaque to Rust, the frontend owns and
 /// validates it against its own attribute schema.
 pub type OverlayDefaultOverrides = HashMap<String, HashMap<String, serde_json::Value>>;
 
@@ -91,6 +92,7 @@ pub struct UserSettings {
     sound: SoundSettings,
     overlay_defaults: OverlayDefaultOverrides,
     capture_preview: CapturePreviewSettings,
+    scrolling_capture: ScrollingCaptureSettings,
 }
 
 #[derive(Debug)]
@@ -233,6 +235,15 @@ impl Settings {
 
     pub fn set_capture_preview(&mut self, capture_preview: CapturePreviewSettings) -> Result<(), SettingsError> {
         self.user_settings.capture_preview = capture_preview;
+        self.save_settings()
+    }
+
+    pub fn get_scrolling_capture(&self) -> &ScrollingCaptureSettings {
+        &self.user_settings.scrolling_capture
+    }
+
+    pub fn set_scrolling_capture(&mut self, scrolling_capture: ScrollingCaptureSettings) -> Result<(), SettingsError> {
+        self.user_settings.scrolling_capture = scrolling_capture;
         self.save_settings()
     }
 

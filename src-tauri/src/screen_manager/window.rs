@@ -128,7 +128,7 @@ pub fn calculate_visible_bounds(windows: Vec<WindowInfo>) -> Vec<WindowInfo> {
 }
 
 /// Per-window "Window Name"/"Process Name"/"Screenshot Percentage" tag maps
-/// for the windows whose visible area intersects the captured region , the
+/// for the windows whose visible area intersects the captured region, the
 /// shape stored under the `Windows` tag of saved captures.
 pub fn window_coverage_tags(
     windows: &[WindowInfo],

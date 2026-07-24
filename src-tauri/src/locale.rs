@@ -1,10 +1,10 @@
 //! The user's actual date/time formatting preference, which can differ from
-//! their UI language , Windows lets "Regional format" be set independently
+//! their UI language, Windows lets "Regional format" be set independently
 //! of display language, and Linux's `LC_TIME` does the same independently of
 //! `LANG`. The frontend can't get this itself: WebView2/browsers only expose
 //! the UI language via `navigator.language`, not the format override, and a
 //! locale tag alone (e.g. "en-GB") wouldn't capture further user
-//! customization like a hand-edited short date pattern , so this returns the
+//! customization like a hand-edited short date pattern, so this returns the
 //! OS's own literal format pattern instead.
 //!
 //! Normalized to Windows' custom-format-picture token syntax (`yyyy`, `MM`,
@@ -37,7 +37,7 @@ pub fn system_datetime_patterns() -> Option<DateTimePatterns> {
     }
 
     // Windows' own pattern syntax already matches what this module standardizes
-    // on, so these are returned as-is , no translation needed.
+    // on, so these are returned as-is, no translation needed.
     Some(DateTimePatterns {
         short_date: query(LOCALE_SSHORTDATE)?,
         time: query(LOCALE_STIMEFORMAT)?,
@@ -49,11 +49,15 @@ pub fn system_datetime_patterns() -> Option<DateTimePatterns> {
     use std::process::Command;
 
     // `locale -k LC_TIME` prints the active LC_TIME category's keywords,
-    // including `d_fmt`/`t_fmt` (strftime pictures) , shelling out avoids a
+    // including `d_fmt`/`t_fmt` (strftime pictures), shelling out avoids a
     // libc FFI dependency for something only queried once per session,
     // matching this codebase's existing convention of shelling out to small
     // system utilities on Linux (see file_clipboard/linux.rs).
-    let output = Command::new("locale").arg("-k").arg("LC_TIME").output().ok()?;
+    let output = Command::new("locale")
+        .arg("-k")
+        .arg("LC_TIME")
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -105,7 +109,7 @@ fn strftime_to_pattern(strftime: &str) -> String {
             Some('b') | Some('h') => result.push_str("MMM"),
             Some('B') => result.push_str("MMMM"),
             Some('%') => result.push('%'),
-            // Unrecognized specifier , pass through verbatim rather than
+            // Unrecognized specifier, pass through verbatim rather than
             // silently dropping it.
             Some(other) => {
                 result.push('%');

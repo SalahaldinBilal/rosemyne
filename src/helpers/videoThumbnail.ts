@@ -1,7 +1,7 @@
 import { saveVideoThumbnail } from "./saveVideoThumbnail";
 
 // Videos above this size never mount a <video> card while their thumbnail is
-// missing , they show a placeholder until lazy generation finishes. Also the
+// missing, they show a placeholder until lazy generation finishes. Also the
 // cutoff for which imported videos are worth proactively backfilling a
 // thumbnail for after a bulk import (small ones already preview fine as a
 // <video> fallback).

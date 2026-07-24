@@ -1,8 +1,9 @@
 import { onMount } from "solid-js";
 
 // Click-through, capture-excluded window inflated by the border width around
-// the recorded region , the stroke sits entirely outside the recorded pixels.
-function RecordingBorder() {
+// the active region (recording or scrolling capture), the stroke sits
+// entirely outside the captured pixels.
+function CaptureBorder() {
   onMount(() => {
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
@@ -17,4 +18,4 @@ function RecordingBorder() {
   }} />;
 }
 
-export default RecordingBorder;
+export default CaptureBorder;

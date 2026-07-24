@@ -1,12 +1,14 @@
-import { createEffect, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, onCleanup, onMount, Show } from "solid-js";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
 import { Data } from "../../types/screenshot";
 import useScreenshotOverlayStateInner from "../../states/screenshotOverlayState";
+import AnnotationContext from "../../states/annotationContext";
 import useOverlayDefaultsState from "../../states/overlayDefaultsState";
 import ImageOverlayContainer from "./ImageOverlayContainer/ImageOverlayContainer";
 import DrawLayer from "./DrawLayer/DrawLayer";
 import ToolBox from "./ToolBox/ToolBox";
 import SelectionBox from "./SelectionBox/SelectionBox";
+import ScrollCaptureLiveParams from "./ScrollCaptureLiveParams/ScrollCaptureLiveParams";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { safeInvoke } from "@core/helpers/safeInvoke";
@@ -50,7 +52,7 @@ function Screenshot() {
 
   // Native keydown auto-repeat only reliably repeats one key at a time (so
   // holding e.g. Right then also holding Down would stall or drop the
-  // diagonal) and fires at a fixed OS rate from the start , this instead
+  // diagonal) and fires at a fixed OS rate from the start, this instead
   // drives continuous movement from its own timer, starting at
   // `MOVE_START_INTERVAL_MS` and accelerating the longer a direction stays held.
   function scheduleNextMove() {
@@ -142,7 +144,7 @@ function Screenshot() {
   return (<>
     <Show when={imageData()}>
       {imageData => {
-        const liveSelect = () => imageData().pickRegion || imageData().record;
+        const liveSelect = createMemo(() => imageData().pickRegion || imageData().record || imageData().scrollCapture);
 
         return <>
           <Show
@@ -178,11 +180,13 @@ function Screenshot() {
           </Show>
           <SelectionBox />
           <Show when={!liveSelect()}>
-            <ImageOverlayContainer />
-            <DrawLayer />
-            <ToolBox />
+            <AnnotationContext.Provider value={useScreenshotOverlayStateInner}>
+              <ImageOverlayContainer />
+              <DrawLayer />
+              <ToolBox />
+            </AnnotationContext.Provider>
           </Show>
-          <Show when={imageData().record}>
+          <Show when={imageData().record || imageData().scrollCapture}>
             {(() => {
               const monitor = getDimensionFromPoints(imageData().mousePosition, imageData().monitorPositions) ?? imageData().monitorPositions[0];
               return <div style={{
@@ -190,14 +194,30 @@ function Screenshot() {
                 left: `${monitor.x + monitor.width / 2}px`,
                 top: `${monitor.y + 16}px`,
                 transform: "translateX(-50%)",
-                padding: "6px 14px",
-                "border-radius": "8px",
-                background: "rgba(20, 20, 24, 0.85)",
-                color: "#eee",
-                "font-size": "13px",
-                "pointer-events": "none",
+                display: "flex",
+                "flex-direction": "column",
+                "align-items": "center",
+                gap: "8px",
+                // Above SelectionBox's per-window boxes (z-index: box.zOrder,
+                // uncapped and otherwise on top of everything here since this
+                // wrapper has no z-index of its own to compete with them).
+                "z-index": 40000,
               }}>
-                Drag or click a window to record · Esc to cancel
+                <div style={{
+                  padding: "6px 14px",
+                  "border-radius": "8px",
+                  background: "rgba(20, 20, 24, 0.85)",
+                  color: "#eee",
+                  "font-size": "13px",
+                  "pointer-events": "none",
+                }}>
+                  {imageData().scrollCapture
+                    ? "Drag or click a scrollable region to capture · Esc to cancel"
+                    : "Drag or click a window to record · Esc to cancel"}
+                </div>
+                <Show when={imageData().scrollCapture}>
+                  <ScrollCaptureLiveParams />
+                </Show>
               </div>;
             })()}
           </Show>

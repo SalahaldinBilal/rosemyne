@@ -37,6 +37,23 @@
         image-rendering: pixelated;
       }
     }
+
+    // Same base position as img above, so a caller's `overlay` content stays pixel-aligned with it.
+    .OverlayLayer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform-origin: center;
+
+      // Every child here (overlay items, the draw canvas, the crop box) is
+      // position:absolute, contributing nothing to normal flow, so without an
+      // explicit size this collapses to ~0 height and most clicks on the
+      // image miss its onMouseDown entirely instead of reaching the tools.
+      .EditLayer {
+        position: absolute;
+        inset: 0;
+      }
+    }
   }
 
   .Toolbar {
@@ -52,7 +69,18 @@
     background-color: rgba(20, 20, 20, 0.85);
     border: 1px solid var(--border-color);
     box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.5);
-    z-index: 1;
+    // Above the highest z-index any `overlay` content uses (AnnotationToolBar's brush cursor tops out at 40000).
+    z-index: 41000;
+  }
+
+  // Top-center, mirroring the screenshotter's own ToolBox.tsx anchoring, so it
+  // never collides with the bottom-center pan/zoom .Toolbar above.
+  .AnnotationToolbar {
+    position: absolute;
+    left: 50%;
+    top: 12px;
+    transform: translateX(-50%);
+    z-index: 41000;
   }
 
   .ZoomLabel {

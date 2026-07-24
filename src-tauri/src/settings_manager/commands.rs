@@ -1,5 +1,6 @@
 use crate::capture_preview::CapturePreviewSettings;
 use crate::image_uploader::SavedUploader;
+use crate::scrolling_capture::ScrollingCaptureSettings;
 use crate::settings_manager::SettingsError;
 use crate::settings_manager::settings::{GeneralSettings, OverlayDefaultOverrides};
 use crate::settings_manager::shortcuts::ShortcutBinding;
@@ -153,4 +154,21 @@ pub async fn set_capture_preview_settings(
 ) -> Result<(), SettingsError> {
     let mut settings = settings_handle.write().await;
     settings.set_capture_preview(capture_preview)
+}
+
+#[tauri::command]
+pub async fn get_scrolling_capture_settings(
+    settings_handle: State<'_, SettingsHandler>,
+) -> Result<ScrollingCaptureSettings, ()> {
+    let settings = settings_handle.read().await;
+    Ok(settings.get_scrolling_capture().clone())
+}
+
+#[tauri::command]
+pub async fn set_scrolling_capture_settings(
+    settings_handle: State<'_, SettingsHandler>,
+    scrolling_capture: ScrollingCaptureSettings,
+) -> Result<(), SettingsError> {
+    let mut settings = settings_handle.write().await;
+    settings.set_scrolling_capture(scrolling_capture)
 }

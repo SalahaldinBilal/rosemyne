@@ -48,6 +48,9 @@ function Modal(props: ModalProps) {
           <div class={styles.Body} role="dialog" aria-modal="true" style={extraStyles()} onClick={event => event.stopPropagation()}>
             <div class={styles.Header}>
               <div class={styles.Title}>{props.title ?? ""}</div>
+              <Show when={props.headerActions}>
+                <div class={styles.HeaderActions}>{props.headerActions}</div>
+              </Show>
               <div class={styles.Close}>
                 <Button
                   isIcon

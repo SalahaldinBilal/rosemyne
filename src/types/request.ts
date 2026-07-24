@@ -27,7 +27,7 @@ export type UploaderResponseHandler =
   BaseUploaderType<"text", { start?: number, end?: number }> |
   BaseUploaderType<"json", { path: string }>
 
-// Exactly what was sent for a failed upload request , `body` is a
+// Exactly what was sent for a failed upload request, `body` is a
 // human-readable summary (the real text for JSON/form bodies; a byte-count/
 // mime description for binary and multipart file parts).
 export type RequestSnapshot = {

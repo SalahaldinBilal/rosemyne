@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 
 use crate::{
     HistoryStoreHandler, SettingsHandler, emit_on_main_thread,
-    recording::commands::{disable_window_dragging, exclude_from_capture},
+    capture_overlay::{disable_window_dragging, exclude_from_capture},
     screen_manager::{commands::monitor_identity, screenshot_manager::HistoryItemType, window::WindowBounds},
 };
 

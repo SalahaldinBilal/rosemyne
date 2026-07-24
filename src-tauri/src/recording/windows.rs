@@ -229,7 +229,7 @@ impl ScreenRecorder for WindowsRecorder {
     }
 
     /// Probes each codec by actually creating (and immediately dropping) an
-    /// encoder for it , the only reliable way to know whether the running
+    /// encoder for it, the only reliable way to know whether the running
     /// hardware/drivers support it, since Media Foundation doesn't expose
     /// that up front.
     fn available_codecs() -> Vec<VideoCodec> {

@@ -20,7 +20,7 @@ pub struct PlacedRect {
     pub height: u32,
 }
 
-/// What the frontend sends per overlay , descriptors only, in stacking order.
+/// What the frontend sends per overlay, descriptors only, in stacking order.
 /// Each is composited onto the current image state, so effects apply to the
 /// overlays beneath them, and the crop to the selection happens afterwards.
 #[derive(Debug, Deserialize)]

@@ -30,7 +30,7 @@ function UpdateSettings() {
     setCurrentVersion(await getVersion());
   });
 
-  // Fetched once and cached , re-opening the modal doesn't re-fetch.
+  // Fetched once and cached, re-opening the modal doesn't re-fetch.
   async function openChangelog() {
     setShowChangelog(true);
     if (changelogText() || changelogLoading()) return;

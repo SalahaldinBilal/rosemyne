@@ -184,9 +184,9 @@ fn strict_eq(actual: &Candidate, filter: &Value) -> bool {
 /// Injects the virtual `$file` tag (Name/Path/Type/DateTime/Size, backed by
 /// table columns) into a row's tags so the evaluator can treat it like any
 /// other tag. `$`-prefixed top-level keys are reserved for such system fields
-/// , see CLAUDE.md. `Size` is omitted (not written as `null`) when
-/// `file_size` is `None`, so `resolve_path` treats it as a missing key , same
-/// as any other optional tag , rather than a present-but-null value (which
+///, see CLAUDE.md. `Size` is omitted (not written as `null`) when
+/// `file_size` is `None`, so `resolve_path` treats it as a missing key, same
+/// as any other optional tag, rather than a present-but-null value (which
 /// `resolve_path` drops instead of treating as missing).
 pub fn augment_tags(
     tags: Value,

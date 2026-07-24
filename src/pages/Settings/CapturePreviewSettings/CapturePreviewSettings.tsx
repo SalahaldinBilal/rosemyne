@@ -67,7 +67,7 @@ function CapturePreviewSettings() {
 
   const monitorItems = createMemo(() => [
     { id: PRIMARY_MONITOR_ID, value: null as string | null, label: "Primary monitor" },
-    ...monitors().map(m => ({ id: m.id, value: m.id as string | null, label: `${m.name} , ${m.width}×${m.height}` })),
+    ...monitors().map(m => ({ id: m.id, value: m.id as string | null, label: `${m.name}, ${m.width}×${m.height}` })),
   ]);
 
   return <div class={settingsStyles.GeneralSettings}>

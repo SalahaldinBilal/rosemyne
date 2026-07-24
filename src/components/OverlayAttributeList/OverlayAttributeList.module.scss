@@ -33,7 +33,7 @@
   display: flex;
   // Matches .btn-appearance's own radius so the backdrop below doesn't show
   // square corners peeking past the swatch's rounded ones. Not
-  // `overflow: hidden` , that would also clip the color-picker's popup panel,
+  // `overflow: hidden`, that would also clip the color-picker's popup panel,
   // which needs to render past this box's bounds.
   border-radius: 0.25rem;
 
@@ -43,7 +43,7 @@
   // accordingly. We render no backdrop of our own, so at low alpha the
   // hex text sits directly on our dark theme and the black text disappears.
   // A checkerboard (the "correct" way to show translucency) made this worse,
-  // not better , alternating light/dark squares directly behind small text
+  // not better, alternating light/dark squares directly behind small text
   // is illegible regardless of which text color gets picked. A single flat
   // mid-tone gives reasonable contrast for both black and white text without
   // being fought or being visually busy; it's fully hidden behind any opaque

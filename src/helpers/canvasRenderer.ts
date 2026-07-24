@@ -244,7 +244,7 @@ export function renderFinalImage(base: HTMLImageElement, box: Dimensions, overla
         drawTextOverlay(ctx, overlay, sceneLeft, sceneTop);
         break;
       case "draw":
-        // Painted pixels only exist in their layer canvas , unlike blur/pixelate
+        // Painted pixels only exist in their layer canvas, unlike blur/pixelate
         // there are no parameters to recompute them from, so blit instead of filtering.
         drawOverlayOnto(ctx, overlay, sceneLeft, sceneTop, effectLayers);
         break;

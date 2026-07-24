@@ -9,7 +9,7 @@ use windows::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, Glo
 use windows::Win32::System::Ole::{CF_HDROP, CF_UNICODETEXT};
 use windows::Win32::UI::Shell::DROPFILES;
 
-/// Writes a CF_HDROP list , the same payload Explorer puts up on Ctrl+C.
+/// Writes a CF_HDROP list, the same payload Explorer puts up on Ctrl+C.
 pub fn copy_file(path: &Path) -> Result<(), String> {
     let mut list: Vec<u16> = path.as_os_str().encode_wide().collect();
     if list.contains(&0) {

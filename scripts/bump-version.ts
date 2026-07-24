@@ -2,7 +2,7 @@
 // Node 24 strips the type annotations natively, no build step.
 //
 // Keeps package.json, src-tauri/Cargo.toml and src-tauri/tauri.conf.json in
-// sync , nothing else does this automatically, so they'd otherwise drift.
+// sync, nothing else does this automatically, so they'd otherwise drift.
 // Also cuts CHANGELOG.md's "Unreleased" section into a dated release section,
 // which deploy.ts later reads as the release notes.
 
@@ -59,7 +59,7 @@ function cutChangelog() {
   const sectionBody = contents.slice(sectionStart, sectionEnd).trim();
 
   if (!sectionBody) {
-    console.warn(`Warning: the "${unreleasedHeading}" section in ${relativePath} is empty , this release's notes will be blank.`);
+    console.warn(`Warning: the "${unreleasedHeading}" section in ${relativePath} is empty, this release's notes will be blank.`);
   }
 
   const date = new Date().toISOString().slice(0, 10);

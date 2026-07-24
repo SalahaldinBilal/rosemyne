@@ -13,7 +13,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use super::{base_window_builder, manager_trait::ScreenshotWindowManager};
 use crate::{
-    ScreenshotWebview, recording::commands::disable_window_dragging,
+    ScreenshotWebview, capture_overlay::disable_window_dragging,
     screen_manager::window::WindowBounds,
 };
 
@@ -129,7 +129,7 @@ fn restore_previous_focus() {
 }
 
 /// `.set_focus()` (`SetForegroundWindow`) is silently ignored by Windows when
-/// the calling process isn't already the foreground one , exactly the case
+/// the calling process isn't already the foreground one, exactly the case
 /// here, since the overlay is normally raised by a global hotkey while some
 /// other app is focused. Without this, the window can appear on top yet
 /// never actually receive keyboard input, so Esc/right-click-to-cancel (and
@@ -172,13 +172,13 @@ fn focus_window_and_webview<R: Runtime>(window: &WebviewWindow<R>) {
 }
 
 /// Chromium/Firefox track native-window occlusion and stop rendering when they
-/// think they're fully covered , behind the live-desktop pick/record overlay
+/// think they're fully covered, behind the live-desktop pick/record overlay
 /// that pauses pages and blanks hardware-overlay video (e.g. YouTube goes
 /// black). Both trackers skip WS_EX_TOOLWINDOW windows, so mark the overlay
 /// as one; its only other effect is Alt-Tab exclusion, fine for an overlay.
 /// tao rewrites GWL_EXSTYLE wholesale from its own flags on every window-state
 /// change (the set_ignore_cursor_events toggles around show/hide do exactly
-/// that), which would strip a bit set only once , so a subclass re-injects it
+/// that), which would strip a bit set only once, so a subclass re-injects it
 /// into every incoming style change instead.
 fn mark_as_tool_window<R: Runtime>(window: &WebviewWindow<R>) {
     let Ok(hwnd) = window.hwnd() else { return };

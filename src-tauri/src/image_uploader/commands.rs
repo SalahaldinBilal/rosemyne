@@ -100,7 +100,7 @@ pub async fn upload_image(
 
 /// Uploads with the given uploader if there's an image to upload, emitting
 /// `upload://started`, `upload://progress`, and `upload://finished`/`failed`
-/// events throughout , the UI reflects these whether it was open when the
+/// events throughout, the UI reflects these whether it was open when the
 /// upload was triggered or not. Persists the outcome (url or error) either way,
 /// so a closed/reopened window still shows the right status.
 pub async fn run_upload(

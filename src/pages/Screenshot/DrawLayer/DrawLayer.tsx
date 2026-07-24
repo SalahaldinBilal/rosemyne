@@ -1,25 +1,17 @@
 import { createMemo, onCleanup, onMount } from "solid-js";
-import useScreenshotOverlayStateInner from "../../../states/screenshotOverlayState";
+import { useAnnotationState } from "../../../states/annotationContext";
 import { Tools } from "../../../types";
 import { DrawImageOverlay } from "../../../types/imageOverlay";
 
 const MIN_STROKE_WIDTH = 1;
 
-/**
- * Freehand draw/erase , unlike every other overlay tool this paints directly
- * onto one persistent full-capture canvas instead of placing a resizable box,
- * so the user can draw or erase anywhere without first carving out a region.
- * Reuses the same `effectLayers` registry blur/pixelate use to publish their
- * rendered canvas, since a draw layer is exactly that: a canvas other layers
- * (and the final save) can composite , it just gets painted into imperatively
- * instead of being recomputed from parameters.
- */
+// Paints directly onto one persistent canvas, published through the same effectLayers registry blur/pixelate use.
 function DrawLayer() {
   const {
     image, overlayItems, addOverlayItem, effectLayers, bumpLayerVersion,
     mouseEventHandler, currentTool, setIsOverlayInteracting,
-    drawColor, brushSize, eraserSize,
-  } = useScreenshotOverlayStateInner;
+    drawColor, brushSize, eraserSize, toImageCoords,
+  } = useAnnotationState();
 
   let canvas: HTMLCanvasElement | undefined;
   let isDrawing = false;
@@ -52,7 +44,7 @@ function DrawLayer() {
     if (event.button !== 0 || (tool !== Tools.DrawOverlay && !isErase) || !image()) return;
 
     let item = drawItem();
-    // Nothing drawn yet , nothing to erase.
+    // Nothing drawn yet, nothing to erase.
     if (isErase && !item) return;
 
     if (!item) {
@@ -67,7 +59,7 @@ function DrawLayer() {
     activeItem = item;
     isDrawing = true;
     isErasing = isErase;
-    lastPoint = { x: event.clientX, y: event.clientY };
+    lastPoint = toImageCoords(event.clientX, event.clientY);
     setIsOverlayInteracting(true);
     paintSegment(lastPoint, lastPoint);
 
@@ -78,7 +70,7 @@ function DrawLayer() {
   function mouseMoveHandler(event: MouseEvent) {
     if (!isDrawing) return;
 
-    const point = { x: event.clientX, y: event.clientY };
+    const point = toImageCoords(event.clientX, event.clientY);
     paintSegment(lastPoint!, point);
     lastPoint = point;
   }

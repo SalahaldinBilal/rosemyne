@@ -8,7 +8,8 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{
-    HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWindowHandler, SettingsHandler,
+    HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWebview, ScreenshotWindowHandler,
+    SettingsHandler,
     capture::{CapManager, capture_trait::CaptureManager},
     dimensions::impls::{Dimensions, Position},
     emit_on_main_thread,
@@ -39,7 +40,7 @@ pub async fn full_screenshot(
     .await
 }
 
-/// Shows the overlay in region-pick mode: no capture is taken , the transparent
+/// Shows the overlay in region-pick mode: no capture is taken, the transparent
 /// window is shown with a CSS dim layer, and the user drags a rectangle whose
 /// absolute coords are reported back via `finish_region_pick`. Used by the
 /// settings UI to define an instant-capture region.
@@ -68,9 +69,27 @@ pub async fn open_record_overlay(
     show_live_overlay(window_handler, app_handle, OverlayMode::Record).await
 }
 
+/// Shows the overlay in scroll-capture mode: the same live region selection as
+/// a region pick, but completing it starts a scrolling capture of the rectangle.
+#[tauri::command]
+pub async fn scrolling_capture_screen(
+    window_handler: State<'_, ScreenshotWindowHandler>,
+    app_handle: AppHandle,
+) -> Result<(), ()> {
+    open_scroll_capture_overlay(window_handler.inner(), &app_handle).await
+}
+
+pub async fn open_scroll_capture_overlay(
+    window_handler: &ScreenshotWindowHandler,
+    app_handle: &AppHandle,
+) -> Result<(), ()> {
+    show_live_overlay(window_handler, app_handle, OverlayMode::ScrollCapture).await
+}
+
 enum OverlayMode {
     PickRegion,
     Record,
+    ScrollCapture,
 }
 
 /// Shows the transparent overlay over the live desktop (no pixel capture) for
@@ -105,6 +124,7 @@ async fn show_live_overlay(
         image_id: 0,
         pick_region: matches!(mode, OverlayMode::PickRegion),
         record: matches!(mode, OverlayMode::Record),
+        scroll_capture: matches!(mode, OverlayMode::ScrollCapture),
         monitor_positions: webview
             .monitor_positions
             .iter()
@@ -183,7 +203,64 @@ pub async fn copy_screenshot_to_clipboard(
         .map_err(|err| err.to_string())
 }
 
-/// Copies plain text , used by the UI for already-uploaded entries' URLs.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageEditSession {
+    image_id: u16,
+    width: u32,
+    height: u32,
+}
+
+/// Loads a saved history image back into `ScreenshotManager` as an ordinary
+/// temp capture, so the main window's viewer can annotate it through the exact
+/// same `preview/<id>` + `hide_and_save_screenshot` path a fresh capture uses.
+/// The save that follows writes a *new* history entry, it never overwrites the
+/// original. Empty (not `None`) windows: no snap-to-window targets apply to an
+/// already-saved image, and `None` would make the eventual save silently drop.
+#[tauri::command]
+pub async fn begin_image_edit(
+    history_store: State<'_, HistoryStoreHandler>,
+    screenshot_manager: State<'_, ScreenshotManagerHandler>,
+    file_name: String,
+) -> Result<ImageEditSession, String> {
+    let entry = history_store
+        .get_by_file_name(&file_name)
+        .map_err(|err| err.to_string())?
+        .ok_or("Image not found in history")?;
+
+    // Inherited from the original: an edit is derived from that capture, and
+    // there's no live window layout to re-derive them from now.
+    let window_tags = match entry.tags.as_ref().and_then(|tags| tags.get("Windows")) {
+        Some(TagValue::MapArray(windows)) => windows.clone(),
+        _ => Vec::new(),
+    };
+
+    let image = image::open(&entry.file_path)
+        .map_err(|err| err.to_string())?
+        .into_rgba8();
+    let (width, height) = (image.width(), image.height());
+
+    let image_id = screenshot_manager
+        .write()
+        .await
+        .add_screenshot_with_window_tags(image, window_tags)
+        .map_err(|err| err.to_string())?;
+
+    Ok(ImageEditSession { image_id, width, height })
+}
+
+/// Drops the temp image `begin_image_edit` staged, for an edit the user
+/// abandoned instead of saving (a save consumes it itself).
+#[tauri::command]
+pub async fn cancel_image_edit(
+    screenshot_manager: State<'_, ScreenshotManagerHandler>,
+    image_id: u16,
+) -> Result<(), String> {
+    screenshot_manager.write().await.remove_image(&image_id);
+    Ok(())
+}
+
+/// Copies plain text, used by the UI for already-uploaded entries' URLs.
 #[tauri::command]
 pub async fn copy_text_to_clipboard(text: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || crate::file_clipboard::copy_text(&text))
@@ -264,7 +341,7 @@ pub async fn open_file(
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct Data {
+pub(crate) struct Data {
     pub image_id: u16,
     pub windows: Vec<WindowInfo>,
     pub monitor_positions: Vec<Dimensions>,
@@ -275,6 +352,9 @@ struct Data {
     /// When true the overlay picks a region live (like `pick_region`) and
     /// starts a screen recording of it on selection.
     pub record: bool,
+    /// When true the overlay picks a region live (like `pick_region`) and
+    /// starts a scrolling capture of it on selection.
+    pub scroll_capture: bool,
 }
 
 /// Absolute virtual-desktop rectangle chosen by the region picker, reported to
@@ -329,33 +409,7 @@ pub async fn take_screenshot(
                 let id = screenshot_manager.add_screenshot(image, Some(windows.clone()))?;
                 drop(screenshot_manager);
 
-                WindowManager::show(window_handler);
-
-                // Normalized the same way monitor_positions is below: relative to the
-                // screenshotter window's own top-left, not the raw (possibly negative,
-                // if a monitor sits left of/above the primary) virtual-desktop origin.
-                let mouse_position = match app_handle.cursor_position() {
-                    Ok(pos) => Position {
-                        x: (pos.x as i32 - window_handler.position.left).max(0) as u32,
-                        y: (pos.y as i32 - window_handler.position.top).max(0) as u32,
-                    },
-                    Err(_) => Position { x: 0, y: 0 },
-                };
-
-                let data = Data {
-                    mouse_position: mouse_position,
-                    windows,
-                    image_id: id,
-                    pick_region: false,
-                    record: false,
-                    monitor_positions: window_handler
-                        .monitor_positions
-                        .iter()
-                        .filter_map(|a| a.to_normalized_dimensions(&window_handler.position))
-                        .collect(),
-                };
-
-                emit_on_main_thread!(window_handler.window, "screenshot://data", data);
+                emit_editor_data(window_handler, app_handle, id, windows);
 
                 return Ok(());
             }
@@ -367,6 +421,45 @@ pub async fn take_screenshot(
     }
 
     Ok(())
+}
+
+/// Shows the screenshotter window and (re)opens its normal edit view on an
+/// already in-memory temp image. Used by a fresh capture (`take_screenshot`,
+/// which already holds the read lock this needs).
+fn emit_editor_data<R: tauri::Runtime>(
+    webview: &ScreenshotWebview<R>,
+    app_handle: &AppHandle,
+    image_id: u16,
+    windows: Vec<WindowInfo>,
+) {
+    WindowManager::show(webview);
+
+    // Normalized the same way monitor_positions is below: relative to the
+    // screenshotter window's own top-left, not the raw (possibly negative,
+    // if a monitor sits left of/above the primary) virtual-desktop origin.
+    let mouse_position = match app_handle.cursor_position() {
+        Ok(pos) => Position {
+            x: (pos.x as i32 - webview.position.left).max(0) as u32,
+            y: (pos.y as i32 - webview.position.top).max(0) as u32,
+        },
+        Err(_) => Position { x: 0, y: 0 },
+    };
+
+    let data = Data {
+        mouse_position,
+        windows,
+        image_id,
+        pick_region: false,
+        record: false,
+        scroll_capture: false,
+        monitor_positions: webview
+            .monitor_positions
+            .iter()
+            .filter_map(|a| a.to_normalized_dimensions(&webview.position))
+            .collect(),
+    };
+
+    emit_on_main_thread!(webview.window, "screenshot://data", data);
 }
 
 /// Immediate capture with no overlay: grab the target's bounds, tag the windows
@@ -402,8 +495,8 @@ async fn instant_capture(
         history_store,
         settings_handle,
         &image,
-        &windows,
-        &region,
+        window_coverage_tags(&windows, &region),
+        true,
     )
     .await;
 
@@ -480,8 +573,8 @@ pub(crate) async fn persist_capture(
     history_store: &HistoryStoreHandler,
     settings_handle: &SettingsHandler,
     image: &RgbaImage,
-    windows: &[WindowInfo],
-    region: &Dimensions,
+    window_tags: Vec<HashMap<String, TagValue>>,
+    play_sound: bool,
 ) {
     let (copy_to_clipboard, upload_template, file_name_template, screenshot_format) = {
         let settings = settings_handle.read().await;
@@ -494,10 +587,8 @@ pub(crate) async fn persist_capture(
         )
     };
 
-    let window_info = window_coverage_tags(windows, region);
-
     let tags = HashMap::from([
-        ("Windows".to_owned(), TagValue::MapArray(window_info)),
+        ("Windows".to_owned(), TagValue::MapArray(window_tags)),
         ("Timestamp".to_owned(), TagValue::date_time_millis(now_ms())),
     ]);
 
@@ -521,6 +612,8 @@ pub(crate) async fn persist_capture(
         }
     }
 
-    crate::sound_manager::play_sound(app_handle, crate::sound_manager::SoundKind::Capture).await;
+    if play_sound {
+        crate::sound_manager::play_sound(app_handle, crate::sound_manager::SoundKind::Capture).await;
+    }
     crate::notify_history_saved(app_handle, &saved_image);
 }

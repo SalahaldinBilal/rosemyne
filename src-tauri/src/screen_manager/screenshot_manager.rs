@@ -11,7 +11,8 @@ use chrono::{DateTime, Utc};
 use image::{DynamicImage, ImageError, ImageFormat, RgbaImage};
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::window::WindowInfo;
+use super::window::{WindowInfo, window_coverage_tags};
+use crate::dimensions::impls::Dimensions;
 
 /// Holds the in-memory captures being edited in the overlay. Saved history now
 /// lives in `HistoryStore` (SQLite); this only tracks transient temp images.
@@ -30,6 +31,27 @@ impl ScreenshotManager {
         image: RgbaImage,
         windows: Option<Vec<WindowInfo>>,
     ) -> Result<u16, EncodeError> {
+        self.insert(image, windows, None)
+    }
+
+    /// For captures whose output has its own coordinate space (a stitched
+    /// scrolling capture), where coverage of the save crop would be meaningless:
+    /// the windows under the captured *screen* region are resolved once, at
+    /// capture time, and used verbatim. No snap-to-window targets either way.
+    pub fn add_screenshot_with_window_tags(
+        &mut self,
+        image: RgbaImage,
+        window_tags: Vec<HashMap<String, TagValue>>,
+    ) -> Result<u16, EncodeError> {
+        self.insert(image, Some(Vec::new()), Some(window_tags))
+    }
+
+    fn insert(
+        &mut self,
+        image: RgbaImage,
+        windows: Option<Vec<WindowInfo>>,
+        fixed_window_tags: Option<Vec<HashMap<String, TagValue>>>,
+    ) -> Result<u16, EncodeError> {
         let webp_review = encode_image_as(&image, ImageFormat::WebP)?;
 
         let id = loop {
@@ -46,6 +68,7 @@ impl ScreenshotManager {
                 webp_review,
                 rgba_data: image,
                 image_windows: windows,
+                fixed_window_tags,
             },
         );
 
@@ -56,6 +79,23 @@ impl ScreenshotManager {
         self.images
             .get(id)
             .and_then(|img| img.image_windows.as_ref())
+    }
+
+    /// The `Windows` tag values to save this capture with: the ones fixed at
+    /// capture time if it has them, otherwise how much of `region` each of its
+    /// windows covers. `None` means the capture is gone (or was never saveable),
+    /// which the save path treats as a cancellation.
+    pub fn window_tags_for(
+        &self,
+        id: &u16,
+        region: &Dimensions,
+    ) -> Option<Vec<HashMap<String, TagValue>>> {
+        let image = self.images.get(id)?;
+
+        match &image.fixed_window_tags {
+            Some(tags) => Some(tags.clone()),
+            None => Some(window_coverage_tags(image.image_windows.as_ref()?, region)),
+        }
     }
 
     /// Removes image and returns it if it exists
@@ -80,7 +120,7 @@ impl ScreenshotManager {
         self.images.get(id)
     }
 
-    /// True while a temp capture with this id is still being edited , used by the
+    /// True while a temp capture with this id is still being edited, used by the
     /// save flow to confirm the capture wasn't cancelled before persisting it.
     pub fn contains(&self, id: &u16) -> bool {
         self.images.contains_key(id)
@@ -103,7 +143,7 @@ pub fn encode_image_as(image: &RgbaImage, format: ImageFormat) -> Result<Vec<u8>
     Ok(bytes.into_inner())
 }
 
-/// Format a saved screenshot is encoded as, user-selectable in settings , every
+/// Format a saved screenshot is encoded as, user-selectable in settings, every
 /// format the `image` crate can actually encode under this project's enabled
 /// features (`Dds` and the deprecated `Pcx` are decode-only/unimplemented and
 /// excluded; see `image::io::free_functions::write_buffer_with_format`).
@@ -172,6 +212,9 @@ pub struct TemporaryImage {
     pub rgba_data: RgbaImage,
     pub webp_review: Vec<u8>,
     pub image_windows: Option<Vec<WindowInfo>>,
+    /// Set when the capture's window tags were resolved up front instead of
+    /// being derived from the save crop, see `add_screenshot_with_window_tags`.
+    pub fixed_window_tags: Option<Vec<HashMap<String, TagValue>>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -232,7 +275,7 @@ pub struct ImageHistoryData {
     pub item_type: HistoryItemType,
     pub date_time: DateTime<Utc>,
     pub tags: Option<HashMap<String, TagValue>>,
-    /// Size on disk, stat'ed at query time (not stored) , the frontend uses it
+    /// Size on disk, stat'ed at query time (not stored), the frontend uses it
     /// to decide whether a video may load without a thumbnail.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_size: Option<u64>,

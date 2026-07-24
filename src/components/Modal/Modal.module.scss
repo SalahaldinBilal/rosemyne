@@ -56,8 +56,16 @@
         white-space: nowrap;
       }
 
+      .HeaderActions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 12px;
+        flex-shrink: 0;
+      }
+
       .Close {
-        margin-left: auto;
+        margin-left: 12px;
         flex-shrink: 0;
       }
     }

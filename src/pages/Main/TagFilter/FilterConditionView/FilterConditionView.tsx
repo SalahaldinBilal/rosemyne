@@ -18,7 +18,7 @@ const BOOLEAN_ITEMS: SelectItem<boolean>[] = [
   { id: "false", value: false, label: "False" },
 ];
 
-// `boolean`, `time` and `byteSize` are unused , those valueTypes render the
+// `boolean`, `time` and `byteSize` are unused, those valueTypes render the
 // `<Select>`/`<DurationField>`/`<FileSizeField>` branches below instead.
 const INPUT_TYPE: Record<FilterValueType, "number" | "string" | "datetime-local"> = {
   number: "number",

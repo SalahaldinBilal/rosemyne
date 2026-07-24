@@ -94,8 +94,8 @@ pub enum UploaderResponseHandler {
         end: Option<isize>,
     },
     /// Treats the response as JSON. `path` is either a dot-separated path
-    /// whose value becomes the URL (`data.url`, `files.0.link`), or , when it
-    /// contains `${…}` placeholders , a template mixing literal text with
+    /// whose value becomes the URL (`data.url`, `files.0.link`), or, when it
+    /// contains `${…}` placeholders, a template mixing literal text with
     /// extracted values (`https://files.example.com/${data.id}`).
     ///
     /// A path that doesn't exist in the response JSON fails the upload.
@@ -147,7 +147,7 @@ impl UploaderResponseHandler {
     }
 }
 
-/// Walks a dot-separated path , object keys by name, array items by index ,
+/// Walks a dot-separated path, object keys by name, array items by index ,
 /// and returns the value at it as a string.
 fn json_value_at(json: &serde_json::Value, path: &str) -> Result<String, UploaderError> {
     let mut current = json;
@@ -262,7 +262,7 @@ pub type ProgressCallback = Box<dyn FnMut(u64, u64) + Send + Sync>;
 
 /// Wraps `bytes` in a chunked stream so reqwest reports progress as it's sent,
 /// instead of handing over the whole buffer as one opaque body. Only used for
-/// the real upload path , validation/test requests have nothing to track.
+/// the real upload path, validation/test requests have nothing to track.
 fn chunked_progress_body(bytes: Vec<u8>, mut on_progress: ProgressCallback) -> reqwest::Body {
     const CHUNK_SIZE: usize = 64 * 1024;
     let total = bytes.len() as u64;
@@ -426,7 +426,7 @@ impl UploaderOptions {
 }
 
 /// Builds, snapshots, and sends a request, returning the response body text
-/// on a successful status , or an `UploaderError` (`RequestFailed`/`HttpError`)
+/// on a successful status, or an `UploaderError` (`RequestFailed`/`HttpError`)
 /// carrying the exact request that was sent (and, for `HttpError`, the
 /// response headers) so a failure can actually be diagnosed. The single place
 /// both the real upload and "Test upload" execute a request from.

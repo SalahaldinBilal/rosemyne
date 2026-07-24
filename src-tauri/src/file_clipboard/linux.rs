@@ -20,7 +20,7 @@ pub fn copy_text(text: &str) -> Result<(), String> {
 }
 
 /// Pipes the payload through wl-copy (Wayland) or xclip (X11), preferring the
-/// one matching the session , both daemonize to own the selection for as long
+/// one matching the session, both daemonize to own the selection for as long
 /// as needed, which a short-lived write from this process can't do itself.
 fn copy_via(wayland: (&str, &[&str]), x11: (&str, &[&str]), payload: &str) -> Result<(), String> {
     let candidates = if std::env::var_os("WAYLAND_DISPLAY").is_some() {

@@ -59,7 +59,7 @@ const INSERT_TAG_INDEX: &str =
     "INSERT INTO tag_index (history_id, path, kind, value_text, value_num) VALUES (?1, ?2, ?3, ?4, ?5)";
 
 // Bumped when the derived tables change shape so existing databases rebuild.
-// Just needs to change whenever the shape does , not a meaningful version count.
+// Just needs to change whenever the shape does, not a meaningful version count.
 const METADATA_STATUS_BUILT: &str = "built-v1";
 
 #[derive(Debug, Serialize)]
@@ -297,7 +297,7 @@ impl HistoryStore {
     }
 
     /// File names of videos at least `min_size_bytes` large that don't have a
-    /// thumbnail on disk yet , lets the frontend backfill thumbnails for big
+    /// thumbnail on disk yet, lets the frontend backfill thumbnails for big
     /// imported videos right after import instead of waiting for the user to
     /// scroll past each one (thumbnail generation itself is client-side).
     pub fn videos_missing_thumbnail(&self, min_size_bytes: u64) -> Result<Vec<String>, HistoryError> {
@@ -319,7 +319,7 @@ impl HistoryStore {
     /// icon, so dragging a card out doesn't drag the full-resolution image as
     /// the cursor preview. Returns `None` when there's nothing to render from
     /// (a generic imported file, or a video whose thumbnail hasn't been
-    /// generated yet) , the caller should fall back to no custom icon then.
+    /// generated yet), the caller should fall back to no custom icon then.
     pub fn drag_icon_path(&self, file_name: &str) -> Result<Option<PathBuf>, HistoryError> {
         let entry = match self.get_by_file_name(file_name)? {
             Some(entry) => entry,
@@ -356,7 +356,7 @@ impl HistoryStore {
     /// dir), classifying it by extension, and records a history row. Returns
     /// `None` without copying/recording anything when `source` already lives
     /// under our own storage tree (e.g. a card's native OS drag dropped back
-    /// onto this window) , that's not a new file, so re-importing it would
+    /// onto this window), that's not a new file, so re-importing it would
     /// just duplicate it.
     pub fn import_file(
         &self,
@@ -609,7 +609,7 @@ impl HistoryStore {
     /// Keyset-paginated page query. The filter tree is compiled to an indexed
     /// SQL prefilter over `tag_index` (and `$file` conditions to plain column
     /// predicates); only when the compilation is inexact (tag negations,
-    /// fuzzy) does the `filter_match` residual run , and then only on rows
+    /// fuzzy) does the `filter_match` residual run, and then only on rows
     /// passing the prefilter.
     pub fn query(
         &self,
@@ -924,7 +924,7 @@ fn rebuild_schema(conn: &Connection) -> rusqlite::Result<Map<String, Value>> {
 /// Shared tail for every "add a row to history" path (`save_rendered`,
 /// `save_recording`, `import_file`): inserts the row and, if tagged, updates
 /// the derived tag tables. Callers have already picked the file name/path and
-/// written the file itself , that part differs enough between an encoded PNG,
+/// written the file itself, that part differs enough between an encoded PNG,
 /// a moved recording, and a copied import to stay separate.
 fn insert_history_row(
     conn: &Connection,
@@ -1050,21 +1050,91 @@ fn expand_file_name_template(
 
     let (process_name, window_title) = most_captured_window(tags);
 
-    let expanded = template
-        .replace("${year}", &format!("{:04}", now_local.year()))
-        .replace("${month}", &format!("{:02}", now_local.month()))
-        .replace("${day}", &format!("{:02}", now_local.day()))
-        .replace("${hour}", &format!("{:02}", now_local.hour()))
-        .replace("${minute}", &format!("{:02}", now_local.minute()))
-        .replace("${second}", &format!("{:02}", now_local.second()))
-        .replace("${millisecond}", &format!("{:03}", now_local.timestamp_subsec_millis()))
-        .replace("${process}", &process_name)
-        .replace("${windowTitle}", &window_title)
-        .replace("${width}", &width.to_string())
-        .replace("${height}", &height.to_string())
-        .replace("${guid}", &random_guid());
+    let expanded = expand_named_tokens(template, |name| match name {
+        "year" => Some(format!("{:04}", now_local.year())),
+        "month" => Some(format!("{:02}", now_local.month())),
+        "day" => Some(format!("{:02}", now_local.day())),
+        "hour" => Some(format!("{:02}", now_local.hour())),
+        "minute" => Some(format!("{:02}", now_local.minute())),
+        "second" => Some(format!("{:02}", now_local.second())),
+        "millisecond" => Some(format!("{:03}", now_local.timestamp_subsec_millis())),
+        "process" => Some(process_name.clone()),
+        "windowTitle" => Some(window_title.clone()),
+        "width" => Some(width.to_string()),
+        "height" => Some(height.to_string()),
+        "guid" => Some(random_guid()),
+        // `${random...}` is expanded in its own pass below; anything else is
+        // not a token at all and stays verbatim.
+        _ => None,
+    });
 
     sanitize_file_name(&expand_random_tokens(&expanded))
+}
+
+fn is_name_separator(c: char) -> bool {
+    matches!(c, '-' | '_' | ' ')
+}
+
+/// Expands `${name}` tokens. A token that resolves to nothing (commonly
+/// `${process}`/`${windowTitle}`, which have no window to read from for edits
+/// and scrolling captures) also swallows one adjacent separator, so the default
+/// `${process}_${random:10}` yields `abc123` rather than a dangling `_abc123`.
+fn expand_named_tokens(template: &str, lookup: impl Fn(&str) -> Option<String>) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    // Set when an empty token had no preceding separator to absorb, so the
+    // following one is dropped instead.
+    let mut drop_leading_separators = false;
+
+    while let Some(pos) = rest.find("${") {
+        let (literal, token_start) = rest.split_at(pos);
+        push_literal(&mut out, literal, &mut drop_leading_separators);
+
+        let body = &token_start[2..];
+        let Some(close) = body.find('}') else {
+            out.push_str(token_start);
+            return out;
+        };
+
+        let name = &body[..close];
+        rest = &body[close + 1..];
+
+        match lookup(name) {
+            Some(value) if value.is_empty() => {
+                let kept = out.trim_end_matches(is_name_separator).len();
+                if kept < out.len() {
+                    out.truncate(kept);
+                } else {
+                    drop_leading_separators = true;
+                }
+            }
+            Some(value) => {
+                out.push_str(&value);
+                drop_leading_separators = false;
+            }
+            None => {
+                // "${" + name + "}"
+                out.push_str(&token_start[..close + 3]);
+                drop_leading_separators = false;
+            }
+        }
+    }
+
+    push_literal(&mut out, rest, &mut drop_leading_separators);
+    out
+}
+
+fn push_literal(out: &mut String, literal: &str, drop_leading_separators: &mut bool) {
+    let literal = if *drop_leading_separators {
+        literal.trim_start_matches(is_name_separator)
+    } else {
+        literal
+    };
+
+    if !literal.is_empty() {
+        out.push_str(literal);
+        *drop_leading_separators = false;
+    }
 }
 
 /// The window covering the largest share of the capture, from the saved tags.
@@ -1828,6 +1898,33 @@ mod tests {
 
         // No tags → the process part is empty but the name never is.
         assert_eq!(expand_file_name_template(Some("${process}"), now, None, 10, 20), "screeny");
+    }
+
+    #[test]
+    fn empty_tokens_swallow_one_adjacent_separator() {
+        let now = Local.with_ymd_and_hms(2026, 7, 5, 9, 8, 7).unwrap();
+        // No "Windows" tag at all, so ${process}/${windowTitle} resolve to nothing,
+        // exactly like an edited image or a scrolling capture.
+        let expand = |template: &str| expand_file_name_template(Some(template), now, None, 10, 20);
+
+        // The default template must not leave a leading separator behind.
+        let default = expand_file_name_template(None, now, None, 10, 20);
+        assert_eq!(default.len(), 10);
+
+        // Absorbed from whichever side has one, never both.
+        assert_eq!(expand("${process}-${year}"), "2026");
+        assert_eq!(expand("${year}_${process}"), "2026");
+        assert_eq!(expand("${year}-${process}-${month}"), "2026-07");
+        assert_eq!(expand("${year} ${windowTitle} ${month}"), "2026 07");
+
+        // Several empty tokens in a row still collapse to a single separator.
+        assert_eq!(expand("${year}_${process}_${windowTitle}_${month}"), "2026_07");
+
+        // Separators that aren't next to an empty token are left alone.
+        assert_eq!(expand("${year}--${month}"), "2026--07");
+
+        // Unknown tokens stay verbatim rather than silently vanishing.
+        assert_eq!(expand("${nope}-${year}"), "${nope}-2026");
     }
 
     #[test]

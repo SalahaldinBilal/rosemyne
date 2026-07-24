@@ -56,7 +56,7 @@ function UploaderSettings() {
           </Button>
         </div>
         <Show when={uploaders().length > 0} fallback={
-          <div class={styles.Empty}>No uploaders yet , create one to start sharing screenshots.</div>
+          <div class={styles.Empty}>No uploaders yet, create one to start sharing screenshots.</div>
         }>
           <div class={styles.List}>
             <For each={uploaders()}>

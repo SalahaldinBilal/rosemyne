@@ -1,3 +1,4 @@
+use capture_overlay::{OVERLAY_BORDER_LABEL, OVERLAY_HUD_LABEL, create_overlay_windows};
 use capture_preview::CAPTURE_PREVIEW_LABEL;
 use capture_preview::commands::{
     create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
@@ -5,32 +6,40 @@ use capture_preview::commands::{
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
 use history_store::commands::{
-    get_drag_icon, get_tag_metadata, list_videos_missing_thumbnail, query_history, suggest_tag_values,
-    update_history_tags,
+    get_drag_icon, get_tag_metadata, list_videos_missing_thumbnail, query_history,
+    suggest_tag_values, update_history_tags,
 };
 use image::RgbaImage;
 use image_uploader::commands::{is_uploader_valid, maybe_auto_upload, test_uploader, upload_image};
 use mouse_rs::Mouse;
 use recording::commands::{
-    RECORDING_BORDER_LABEL, RECORDING_HUD_LABEL, RecordingManagerHandler, cancel_recording,
-    create_recording_windows, get_available_video_codecs, get_recording_status, start_recording,
-    stop_recording,
+    RecordingManagerHandler, cancel_recording, get_available_video_codecs, get_recording_status,
+    start_recording, stop_recording,
 };
 use screen_manager::commands::{
-    copy_file_to_clipboard, copy_screenshot_to_clipboard, copy_text_to_clipboard,
-    delete_screenshot, finish_region_pick, full_screenshot, monitor_identity, open_file,
-    persist_capture, record_screen, show_in_folder, start_region_pick,
+    begin_image_edit, cancel_image_edit, copy_file_to_clipboard, copy_screenshot_to_clipboard,
+    copy_text_to_clipboard, delete_screenshot, finish_region_pick, full_screenshot,
+    monitor_identity, open_file, persist_capture, record_screen, scrolling_capture_screen,
+    show_in_folder, start_region_pick,
 };
 use screen_manager::screenshot_manager::{ImageHistoryData, ScreenshotManager};
 use screen_manager::window::WindowBounds;
 use screenshot_window::{
     SCREENSHOT_WINDOW_LABEL, WindowManager, manager_trait::ScreenshotWindowManager,
 };
+use scrolling_capture::commands::{
+    PendingScrollCaptureHandler, ScrollCaptureManagerHandler, cancel_scroll_capture_review,
+    cancel_scrolling_capture, discard_any_pending_review, finish_scroll_capture_review,
+    get_scroll_capture_session, restitch_scroll_capture,
+    start_scrolling_capture, stop_scrolling_capture,
+};
+use scrolling_capture::result_window::RESULT_WINDOW_LABEL;
 use settings_manager::commands::{
     add_shortcut, delete_uploader, get_capture_preview_settings, get_default_uploader,
-    get_general_settings, get_overlay_defaults, get_shortcuts, get_uploaders, remove_shortcut,
-    save_uploader, set_capture_preview_settings, set_default_uploader, set_general_settings,
-    set_overlay_defaults,
+    get_general_settings, get_overlay_defaults, get_scrolling_capture_settings, get_shortcuts,
+    get_uploaders, remove_shortcut, save_uploader, set_capture_preview_settings,
+    set_default_uploader, set_general_settings, set_overlay_defaults,
+    set_scrolling_capture_settings,
 };
 use settings_manager::settings::Settings;
 use settings_manager::shortcuts::shortcut_handler;
@@ -54,6 +63,7 @@ use tauri::{
 };
 use tauri::{Emitter, State};
 pub mod capture;
+pub mod capture_overlay;
 pub mod capture_preview;
 pub mod dimensions;
 pub mod error_serializers;
@@ -64,11 +74,12 @@ pub mod locale;
 pub mod recording;
 pub mod screen_manager;
 pub mod screenshot_window;
+pub mod scrolling_capture;
 pub mod settings_manager;
 pub mod sharex_migration;
 pub mod sound_manager;
 
-/// Emits a Tauri event from the main thread , emitting cross-thread can
+/// Emits a Tauri event from the main thread, emitting cross-thread can
 /// deadlock with WebView2 on Windows (tauri-apps/tauri#9453, #11787).
 #[macro_export]
 macro_rules! emit_on_main_thread {
@@ -104,6 +115,12 @@ struct SaveScreenshotArgs {
     position: Dimensions,
     width: u32,
     height: u32,
+    #[serde(default = "default_true")]
+    play_sound: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Receives the finished image rendered by the frontend canvas compositor:
@@ -170,10 +187,10 @@ async fn save_rendered_screenshot(
     let dims = args.position;
     let mut manager = screenshot_manager.write().await;
 
-    // Clone the tagging windows out before consuming the temp capture, so the
-    // shared persist tail can run after the manager lock is dropped.
-    let windows = match manager.get_screenshot_windows(&args.id) {
-        Some(windows) => windows.clone(),
+    // Resolve the tags before consuming the temp capture, so the shared persist
+    // tail can run after the manager lock is dropped.
+    let window_tags = match manager.window_tags_for(&args.id, &dims) {
+        Some(tags) => tags,
         None => {
             eprintln!("Screenshot {} no longer exists, cannot save it", args.id);
             return;
@@ -192,8 +209,8 @@ async fn save_rendered_screenshot(
         &history_store,
         &settings_handle,
         &image,
-        &windows,
-        &dims,
+        window_tags,
+        args.play_sound,
     )
     .await;
 }
@@ -434,7 +451,7 @@ struct MonitorInfo {
 }
 
 /// The connected monitors, for picking an instant-capture target. `id` is the
-/// stable identity stored on the shortcut; `name` is a friendly label , the
+/// stable identity stored on the shortcut; `name` is a friendly label, the
 /// monitor's product name when the OS exposes it, else a positional fallback.
 #[tauri::command]
 fn list_monitors(app_handle: AppHandle) -> Result<Vec<MonitorInfo>, String> {
@@ -451,8 +468,8 @@ fn list_monitors(app_handle: AppHandle) -> Result<Vec<MonitorInfo>, String> {
             let os_name = monitor.name();
 
             // Prefer a platform-resolved product name (Windows DisplayConfig),
-            // then the OS-provided name when it's already human-friendly , many
-            // platforms expose one directly and need no extra lookup , and only
+            // then the OS-provided name when it's already human-friendly, many
+            // platforms expose one directly and need no extra lookup, and only
             // then a positional label. A Windows GDI device path (\\.\DISPLAY1)
             // is not user-friendly, so it's skipped in favour of "Display N".
             let name = os_name
@@ -495,7 +512,7 @@ pub fn default_app_path() -> PathBuf {
 }
 
 /// Baked into the autostart entry's command line (see `tauri_plugin_autostart::init`
-/// below), so only OS-triggered startup launches carry it , a manual double-click
+/// below), so only OS-triggered startup launches carry it, a manual double-click
 /// or Start Menu launch never does, even if autostart is also enabled.
 const AUTOSTART_ARG: &str = "--autostart";
 
@@ -504,7 +521,8 @@ fn was_launched_via_autostart() -> bool {
     std::env::args().any(|arg| arg == AUTOSTART_ARG)
 }
 
-const CHANGELOG_URL: &str = "https://raw.githubusercontent.com/SalahaldinBilal/rosemyne/main/CHANGELOG.md";
+const CHANGELOG_URL: &str =
+    "https://raw.githubusercontent.com/SalahaldinBilal/rosemyne/main/CHANGELOG.md";
 
 #[tauri::command]
 async fn fetch_changelog(http_client: State<'_, HttpClientHandler>) -> Result<String, String> {
@@ -529,9 +547,12 @@ pub fn run() {
     let screenshot_window: ScreenshotWindowHandler = Arc::new(RwLock::new(None));
     let screenshot_manager: ScreenshotManagerHandler =
         Arc::new(RwLock::new(ScreenshotManager::new()));
+    let pending_scroll_capture: PendingScrollCaptureHandler =
+        Arc::new(tauri::async_runtime::RwLock::new(None));
 
     let scheme_manager_ref = screenshot_manager.clone();
     let scheme_store_ref = history_store.clone();
+    let scheme_pending_ref = pending_scroll_capture.clone();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -557,6 +578,7 @@ pub fn run() {
             move |_app, request, responder| {
                 let screenshot_manager = scheme_manager_ref.clone();
                 let history_store = scheme_store_ref.clone();
+                let pending_scroll_capture = scheme_pending_ref.clone();
 
                 tauri::async_runtime::spawn(async move {
                     let split_uri: Vec<_> = request
@@ -640,6 +662,33 @@ pub fn run() {
                                 ),
                             };
                         }
+                        ["scroll-frame", session_id, index] => {
+                            let (session_id, index): (u16, usize) =
+                                match (session_id.parse(), index.parse()) {
+                                    (Ok(session_id), Ok(index)) => (session_id, index),
+                                    _ => {
+                                        responder.respond(status_response(400));
+                                        return;
+                                    }
+                                };
+
+                            let guard = pending_scroll_capture.read().await;
+                            let frame = guard.as_ref().and_then(|(id, session)| {
+                                (*id == session_id).then(|| session.frames.get(index)).flatten().cloned()
+                            });
+                            drop(guard);
+
+                            let response = match frame {
+                                Some(frame) => Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", "image/webp")
+                                    .header("Access-Control-Allow-Origin", "*")
+                                    .body(frame)
+                                    .expect("Valid response"),
+                                None => status_response(404),
+                            };
+                            responder.respond(response);
+                        }
                         _ => {
                             println!("Unknown request: {:#?}", request);
 
@@ -713,6 +762,16 @@ pub fn run() {
             cancel_recording,
             get_recording_status,
             get_available_video_codecs,
+            scrolling_capture_screen,
+            start_scrolling_capture,
+            stop_scrolling_capture,
+            cancel_scrolling_capture,
+            get_scrolling_capture_settings,
+            set_scrolling_capture_settings,
+            get_scroll_capture_session,
+            restitch_scroll_capture,
+            cancel_scroll_capture_review,
+            finish_scroll_capture_review,
             save_video_thumbnail,
             import_file,
             query_history,
@@ -722,6 +781,8 @@ pub fn run() {
             suggest_tag_values,
             update_history_tags,
             delete_screenshot,
+            begin_image_edit,
+            cancel_image_edit,
             copy_screenshot_to_clipboard,
             copy_file_to_clipboard,
             copy_text_to_clipboard,
@@ -776,16 +837,20 @@ pub fn run() {
     let settings: SettingsHandler = Arc::new(RwLock::new(settings));
     let recording_manager: RecordingManagerHandler =
         Arc::new(tauri::async_runtime::Mutex::new(None));
+    let scroll_capture_manager: ScrollCaptureManagerHandler =
+        Arc::new(tauri::async_runtime::RwLock::new(None));
     app.manage(settings);
     app.manage(screenshot_window.clone());
     app.manage(screenshot_manager);
     app.manage(history_store);
     app.manage(recording_manager);
+    app.manage(scroll_capture_manager);
+    app.manage(pending_scroll_capture);
     app.manage(Arc::new(reqwest::Client::new()));
     app.manage(Arc::new(Mouse::new()));
 
     app.run(move |app_handle, event| {
-        // Exit bookkeeping must happen synchronously , the spawned handler below
+        // Exit bookkeeping must happen synchronously, the spawned handler below
         // races against the Destroyed events fired during shutdown.
         if let RunEvent::ExitRequested {
             code: None, api, ..
@@ -813,7 +878,7 @@ async fn run_callback(
     match event {
         tauri::RunEvent::Ready => {
             create_screenshot_window(app_handle, screenshot_window).await;
-            create_recording_windows(app_handle);
+            create_overlay_windows(app_handle);
             create_capture_preview_window(app_handle);
         }
         tauri::RunEvent::WindowEvent {
@@ -838,13 +903,13 @@ async fn run_callback(
             label,
             event: tauri::WindowEvent::Destroyed,
             ..
-        } if label == RECORDING_HUD_LABEL || label == RECORDING_BORDER_LABEL => {
+        } if label == OVERLAY_HUD_LABEL || label == OVERLAY_BORDER_LABEL => {
             if APP_EXITING.load(Ordering::SeqCst) {
                 return;
             }
 
-            // Keep the chrome pre-created so the next recording shows it instantly.
-            create_recording_windows(app_handle);
+            // Keep the chrome pre-created so the next capture shows it instantly.
+            create_overlay_windows(app_handle);
         }
         tauri::RunEvent::WindowEvent {
             label,
@@ -856,6 +921,20 @@ async fn run_callback(
             }
 
             create_capture_preview_window(app_handle);
+        }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Destroyed,
+            ..
+        } if label == RESULT_WINDOW_LABEL => {
+            if APP_EXITING.load(Ordering::SeqCst) {
+                return;
+            }
+
+            // Closed directly (not via Save/Discard/Retake): treat as a discard, no re-creation.
+            let pending = app_handle.state::<PendingScrollCaptureHandler>();
+            let screenshot_manager = app_handle.state::<ScreenshotManagerHandler>();
+            discard_any_pending_review(pending.inner(), screenshot_manager.inner()).await;
         }
         _ => {}
     }

@@ -24,7 +24,7 @@ function WindowSelectionBox(props: { window: WindowInfo, onMouseDown: (event: Mo
       onMouseDown={props.onMouseDown}
       onClick={() => {
         // A just-cancelled drag/selection still has a pending mouseup, which
-        // fires a trailing click here , don't let it confirm-select.
+        // fires a trailing click here, don't let it confirm-select.
         if (consumeSuppressedClick() || props.hasMovedOnce) return;
 
         closeOverlay(imageData()!.imageId);

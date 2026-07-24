@@ -38,7 +38,7 @@ function Select<T>(props: SelectProps<T>) {
   }
 
   // The dropdown is portaled with a viewport position; any ancestor scroll or
-  // window resize would leave it floating detached, so just close it , but
+  // window resize would leave it floating detached, so just close it, but
   // not for a scroll inside the menu's own (possibly overflowing) item list,
   // which the capture-phase listener would otherwise see too.
   createEffect(() => {

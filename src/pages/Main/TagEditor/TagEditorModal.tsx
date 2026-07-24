@@ -14,14 +14,14 @@ import { ImageHistoryData, TagValue } from "../../../types";
 import { BOOLEAN_ITEMS, collectKeyErrors, defaultScalarFor, entriesToObject, findEntry, findParentList, KIND_ITEMS, makeEntry, TagEntry, TagKind, tagsToEntries } from "./tagEntry";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-solid";
 
-// FilterValueField only fetches suggestions for number/string paths , inert for datetime-local, so no real path is needed.
+// FilterValueField only fetches suggestions for number/string paths, inert for datetime-local, so no real path is needed.
 const NO_SUGGESTION_PATH: string[] = [];
 
 const ICON_STYLE = { height: "28px", width: "28px", "min-width": "28px" } as const;
 const KEY_STYLE = { flex: "0 1 160px", "min-width": "100px" } as const;
 const KIND_STYLE = { flex: "0 0 120px" } as const;
 const VALUE_STYLE = { flex: "1 1 auto", "min-width": "100px" } as const;
-// Past this, the value overflows to Infinity, which JSON serializes as null , silently turning the tag empty.
+// Past this, the value overflows to Infinity, which JSON serializes as null, silently turning the tag empty.
 const NUMBER_MIN = -Number.MAX_VALUE;
 const NUMBER_MAX = Number.MAX_VALUE;
 
@@ -189,7 +189,7 @@ function TagEditorModal(props: {
     }
   }
 
-  const title = createMemo(() => props.screenshot ? `Edit tags , ${props.screenshot.fileName}` : "");
+  const title = createMemo(() => props.screenshot ? `Edit tags, ${props.screenshot.fileName}` : "");
 
   return <Modal show={!!props.screenshot} onHide={props.onHide} title={title()} width={640} height="75%">
     <div class={styles.Body}>

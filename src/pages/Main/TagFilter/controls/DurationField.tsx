@@ -21,7 +21,7 @@ const UNIT_ITEMS: SelectItem<Unit>[] = [
 
 // A number + unit picker, matching how duration thresholds read elsewhere
 // ("older than 30 minutes"); switching the unit doesn't change the
-// underlying value, only its display scale , picking `milliseconds` is the
+// underlying value, only its display scale, picking `milliseconds` is the
 // escape hatch for exact/sub-second precision.
 function DurationField(props: { valueMs: number, onChange: (ms: number) => void }) {
   const [unit, setUnit] = createSignal<Unit>("seconds");

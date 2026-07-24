@@ -63,7 +63,8 @@ export type CaptureTarget =
 export type ShortcutMethod =
   | { type: "screenshot" }
   | { type: "instantCapture", data: CaptureTarget }
-  | { type: "record" };
+  | { type: "record" }
+  | { type: "scrollingCapture" };
 
 export type MonitorInfo = {
   id: string,
@@ -116,13 +117,13 @@ export type SoundSettings = {
 }
 
 // Real attribute map for one overlay type, e.g. OverlayAttributesFor<"box">
-// is BoxImageOverlay["attributes"] , see OVERLAY_DEFAULT_ATTRIBUTES, which
+// is BoxImageOverlay["attributes"], see OVERLAY_DEFAULT_ATTRIBUTES, which
 // uses the same derivation.
 type OverlayAttributesFor<Type extends ImageOverlay["type"]> = Extract<ImageOverlay, { type: Type }>["attributes"];
 
 // User overrides for a new overlay item's starting attribute values. Keyed by
 // the real overlay type union and, per type, the real attribute names for
-// that type , only customized values are present, anything missing falls
+// that type, only customized values are present, anything missing falls
 // back to the built-in `OVERLAY_DEFAULT_ATTRIBUTES`.
 export type OverlayDefaultOverrides = {
   [Type in ImageOverlay["type"]]?: {
@@ -158,6 +159,24 @@ export type CapturePreviewPayload = {
   autoDismissMs: number,
   leftClickAction: PreviewClickAction,
   rightClickAction: PreviewClickAction,
+}
+
+// How far one scroll step tries to move the target, converted to a notch count via notches_for_distance (Rust).
+export type ScrollDistance =
+  | { type: "percent", data: number }
+  | { type: "pixels", data: number };
+
+export type ScrollingCaptureSettings = {
+  maxFrames: number,
+  frameDelayMs: number,
+  scrollDistance: ScrollDistance,
+}
+
+// Per-instance tuning set in the live-select overlay, seeded from settings but not persisted back to them.
+export type ScrollCaptureOverrides = {
+  maxFrames: number,
+  frameDelayMs: number,
+  scrollDistance: ScrollDistance,
 }
 
 export type MigrationSummary = {

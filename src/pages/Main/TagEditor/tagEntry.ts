@@ -13,7 +13,7 @@ export type TagEntry = {
 
 let nextId = 1;
 
-// "null" stays a valid TagKind (for round-tripping) but is omitted here , it's invisible to every filter.
+// "null" stays a valid TagKind (for round-tripping) but is omitted here, it's invisible to every filter.
 export const KIND_ITEMS: SelectItem<TagKind>[] = [
   { id: "string", value: "string", label: "Text" },
   { id: "number", value: "number", label: "Number" },
@@ -40,7 +40,7 @@ export function makeEntry(key: string, kind: TagKind = "string"): TagEntry {
   return { id: nextId++, key, kind, scalar: defaultScalarFor(kind), children: [], expanded: true };
 }
 
-// Mirrors markerScalar/marker_scalar , this single-key shape is how Duration/Date-Time tags are actually stored.
+// Mirrors markerScalar/marker_scalar, this single-key shape is how Duration/Date-Time tags are actually stored.
 function markerKind(value: TagValue): { kind: "time" | "dateTime", ms: number } | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const keys = Object.keys(value);

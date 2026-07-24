@@ -1,5 +1,5 @@
 # Normalize line endings to LF for everything Git treats as text, checked in
-# and checked out the same way regardless of OS , this repo is edited on
+# and checked out the same way regardless of OS, this repo is edited on
 # Windows but CI (and potentially contributors) may run on Linux too.
 * text=auto eol=lf
 

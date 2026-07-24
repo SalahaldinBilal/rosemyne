@@ -16,10 +16,12 @@ import { Crop, Monitor, Plus, X } from "lucide-solid";
 
 const SCREENSHOT_ID = "screenshot";
 const RECORD_ID = "record";
+const SCROLLING_CAPTURE_ID = "scrollingCapture";
 
 type PickerTarget =
   | { kind: "screenshot" }
   | { kind: "record" }
+  | { kind: "scrollingCapture" }
   | { kind: "newInstant" }
   | { kind: "rebind"; id: string };
 
@@ -56,9 +58,12 @@ function ShortcutSettings() {
   const recordBinding = createMemo(() => shortcuts.find(s => s.method.type === "record"));
   const recordKeys = createMemo(() => recordBinding()?.keys);
   const hasRecord = createMemo(() => (recordKeys()?.keys.length ?? 0) > 0);
+  const scrollingCaptureBinding = createMemo(() => shortcuts.find(s => s.method.type === "scrollingCapture"));
+  const scrollingCaptureKeys = createMemo(() => scrollingCaptureBinding()?.keys);
+  const hasScrollingCapture = createMemo(() => (scrollingCaptureKeys()?.keys.length ?? 0) > 0);
   const instantBindings = createMemo(() => shortcuts.filter(s => s.method.type === "instantCapture"));
   const monitorItems = createMemo(() =>
-    monitors().map(m => ({ id: m.id, value: m, label: `${m.name} , ${m.width}×${m.height}` }))
+    monitors().map(m => ({ id: m.id, value: m, label: `${m.name}, ${m.width}×${m.height}` }))
   );
 
   function run(action: () => Promise<any>) {
@@ -80,6 +85,7 @@ function ShortcutSettings() {
     if (p.kind === "rebind") return p.id;
     if (p.kind === "screenshot") return screenshotBinding()?.id ?? SCREENSHOT_ID;
     if (p.kind === "record") return recordBinding()?.id ?? RECORD_ID;
+    if (p.kind === "scrollingCapture") return scrollingCaptureBinding()?.id ?? SCROLLING_CAPTURE_ID;
     return undefined;
   }
 
@@ -92,6 +98,8 @@ function ShortcutSettings() {
       run(() => addShortcut({ id: screenshotBinding()?.id ?? SCREENSHOT_ID, keys, method: { type: "screenshot" } }));
     } else if (p.kind === "record") {
       run(() => addShortcut({ id: recordBinding()?.id ?? RECORD_ID, keys, method: { type: "record" } }));
+    } else if (p.kind === "scrollingCapture") {
+      run(() => addShortcut({ id: scrollingCaptureBinding()?.id ?? SCROLLING_CAPTURE_ID, keys, method: { type: "scrollingCapture" } }));
     } else if (p.kind === "newInstant") {
       run(() => addShortcut({ id: crypto.randomUUID(), keys, method: { type: "instantCapture", data: defaultTarget() } }));
     } else {
@@ -205,6 +213,24 @@ function ShortcutSettings() {
     </div>
 
     <div class={styles.Section}>
+      <div class={styles.SectionTitle}>Scrolling capture</div>
+      <div class={styles.ShortcutItem}>
+        <span>Scrolling capture</span>
+        <div class={styles.KeyContainer} onClick={() => setPicker({ kind: "scrollingCapture" })}>
+          <KeyRenderer keys={scrollingCaptureKeys() ?? { keys: [] }} size={20} placeholder="No key assigned" />
+        </div>
+        <Show when={hasScrollingCapture()}>
+          <Button isIcon tooltip="Clear shortcut" onClick={() => scrollingCaptureBinding() && run(() => removeShortcut(scrollingCaptureBinding()!.id))}>
+            <X size={18} />
+          </Button>
+        </Show>
+      </div>
+      <div class={styles.SectionDescription}>
+        Opens the region selector; scrolls and captures the selection, then opens the result in the editor.
+      </div>
+    </div>
+
+    <div class={styles.Section}>
       <div class={styles.SectionHeader}>
         <div class={styles.SectionTitle}>Instant captures</div>
         <Button onClick={() => setPicker({ kind: "newInstant" })}>
@@ -212,7 +238,7 @@ function ShortcutSettings() {
         </Button>
       </div>
       <div class={styles.SectionDescription}>
-        Capture a whole monitor or a fixed region instantly , no editor window opens.
+        Capture a whole monitor or a fixed region instantly, no editor window opens.
       </div>
 
       <For each={instantBindings()} fallback={<div class={styles.Empty}>No instant capture shortcuts yet.</div>}>

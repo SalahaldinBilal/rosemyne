@@ -5,9 +5,10 @@
   "windows": [
     "main",
     "screenshotter",
-    "recording-hud",
-    "recording-border",
-    "capture-preview"
+    "capture-hud",
+    "capture-border",
+    "capture-preview",
+    "scroll-capture-result"
   ],
   "permissions": [
     "core:default",

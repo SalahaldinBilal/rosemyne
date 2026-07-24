@@ -226,6 +226,10 @@ function GeneralSettings() {
           <code>{"${width}"}</code> <code>{"${height}"}</code>, <code>{"${random}"}</code>{" "}
           (8 chars, or <code>{"${random:N}"}</code>) and <code>{"${guid}"}</code>.
           Default: <code>{"${process}_${random:10}"}</code>.
+          A <code>_</code>, <code>-</code> or space between two variables counts as a separator: if a
+          variable is empty (<code>{"${process}"}</code> and <code>{"${windowTitle}"}</code> are, when
+          no window was covering the capture), one separator next to it is dropped too, so you never
+          end up with a leading or doubled one.
         </span>
         <div class={styles.DirectoryRow}>
           <Input

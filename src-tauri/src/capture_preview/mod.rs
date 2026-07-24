@@ -35,7 +35,7 @@ pub struct CapturePreviewSettings {
     pub margin_y: u32,
     pub max_width: u32,
     pub max_height: u32,
-    /// 0 , stays open until clicked instead of auto-dismissing.
+    /// 0, stays open until clicked instead of auto-dismissing.
     pub auto_dismiss_ms: u32,
     pub left_click_action: PreviewClickAction,
     pub right_click_action: PreviewClickAction,

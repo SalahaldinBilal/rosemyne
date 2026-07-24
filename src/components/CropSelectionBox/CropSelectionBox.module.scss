@@ -1,0 +1,16 @@
+.CropBox {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed lightskyblue;
+  // Above every overlay item (ImageOverlayBase tops out around 30001 + order)
+  // so its resize handles (whose z-index ResizableBox derives from this
+  // element) are always grabbable.
+  z-index: 32000;
+  pointer-events: none;
+  // Dims everything outside the crop, so the save region actually reads as
+  // one. The spread is in native image pixels (same space as this box), so it
+  // scales with the ambient pan/zoom transform along with everything else in
+  // .OverlayLayer; huge enough to always reach past .Stage's edges, which
+  // clips it via overflow:hidden.
+  box-shadow: 0 0 0 100000px rgba(0, 0, 0, 0.3);
+}

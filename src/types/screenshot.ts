@@ -8,11 +8,50 @@ export type Data = {
   mousePosition: Position,
   pickRegion?: boolean,
   record?: boolean,
+  scrollCapture?: boolean,
 }
 
 export type RecordingStatus = {
   startedAtMs: number,
   withAudio: boolean,
+}
+
+// Pushed as "scroll-capture://progress" once per captured frame.
+export type ScrollCaptureProgress = {
+  frame: number,
+  maxFrames: number,
+}
+
+export type StitchMatchMode = "normal" | "edges";
+
+export type StitchParams = {
+  windowSize: number,
+  crop: number,
+  matchMode: StitchMatchMode,
+}
+
+// Fetched via `get_scroll_capture_session` on mount, a brand-new webview isn't guaranteed to be listening for a push.
+export type ScrollCaptureSession = {
+  sessionId: number,
+  imageId: number,
+  width: number,
+  height: number,
+  frameCount: number,
+  defaultParams: StitchParams,
+}
+
+export type RestitchResult = {
+  imageId: number,
+  width: number,
+  height: number,
+}
+
+// A saved history image staged back into ScreenshotManager for re-editing; saving
+// it writes a new history entry rather than overwriting the original.
+export type ImageEditSession = {
+  imageId: number,
+  width: number,
+  height: number,
 }
 
 export type WindowInfo = {
@@ -102,7 +141,7 @@ export type TagValueTypeMap = {
 export type FilterScalar = number | string | boolean;
 export type FilterValueType = "number" | "string" | "boolean" | "time" | "dateTime" | "byteSize";
 
-// Wrapped-value convention for Time/DateTime tags , mirrors `TIME_TAG_KEY`/
+// Wrapped-value convention for Time/DateTime tags, mirrors `TIME_TAG_KEY`/
 // `DATE_TIME_TAG_KEY` in `screen_manager::screenshot_manager` (Rust).
 export const TIME_TAG_KEY = "$time";
 export const DATE_TIME_TAG_KEY = "$dateTime";

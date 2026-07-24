@@ -8,7 +8,7 @@ use crate::screen_manager::window::WindowBounds;
 use super::error::RecordingError;
 
 /// Video codec requested for a recording. Not every codec is necessarily
-/// available on the running hardware/drivers , see `ScreenRecorder::available_codecs`.
+/// available on the running hardware/drivers, see `ScreenRecorder::available_codecs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoCodec {

@@ -1,0 +1,60 @@
+.Field {
+  position: relative;
+  display: inline-flex;
+}
+
+.Input {
+  all: unset;
+  box-sizing: border-box;
+  height: 32px;
+  width: 100%;
+  padding: 0 10px;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--base-font-color);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color .15s ease;
+
+  &:hover:not(:focus) {
+    border-color: var(--control-border-hover);
+  }
+
+  &:focus {
+    border-color: var(--input-accent);
+  }
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+// Portaled to document.body (so it isn't clipped by the panel's own
+// overflow) and positioned from the field's own rect (WindowSizeInput.tsx).
+.Suggestions {
+  position: fixed;
+  background-color: var(--secondary-bg-color);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, .6);
+  padding: 4px;
+  z-index: var(--z-menu);
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.Item {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--base-font-color);
+  cursor: pointer;
+}
+
+.Item.Active {
+  background-color: rgb(from var(--base-blue) r g b / .20);
+  color: #fff;
+}

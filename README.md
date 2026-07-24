@@ -17,7 +17,7 @@ A ShareX-like screenshot capture, annotate, and upload tool built with [Tauri 2]
 | Platform | Status |
 | --- | --- |
 | Windows | Primary target, fully supported |
-| Linux (X11 and Wayland) | Partial , the app builds and runs, but screen capture and recording aren't implemented yet |
+| Linux (X11 and Wayland) | Partial, the app builds and runs, but screen capture and recording aren't implemented yet |
 | macOS | Not supported |
 
 ## Development
@@ -50,5 +50,5 @@ User data (settings, history, saved images) lives in `Documents/Rosemyne/` by de
 
 Notification sounds (`src-tauri/assets/sounds/`) are from [Freesound](https://freesound.org/), licensed [CC0](http://creativecommons.org/publicdomain/zero/1.0/):
 
-- Capture shutter , [Contarex camera shutter.wav](https://freesound.org/people/Tonik1105/sounds/520684/) by [Tonik1105](https://freesound.org/people/Tonik1105/)
-- Task success , [Notification Sound 2](https://freesound.org/people/deadrobotmusic/sounds/750608/) by [deadrobotmusic](https://freesound.org/people/deadrobotmusic/)
+- Capture shutter, [Contarex camera shutter.wav](https://freesound.org/people/Tonik1105/sounds/520684/) by [Tonik1105](https://freesound.org/people/Tonik1105/)
+- Task success, [Notification Sound 2](https://freesound.org/people/deadrobotmusic/sounds/750608/) by [deadrobotmusic](https://freesound.org/people/deadrobotmusic/)

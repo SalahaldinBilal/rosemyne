@@ -51,7 +51,7 @@ export function describeUploaderError(error: UploaderCreationError | unknown): s
     case "jsonPathNotFound": return `Path "${typed.data.path}" was not found in the JSON response`;
     case "imageNotFound": return `Image "${typed.data}" was not found in history`;
     case "uploaderNotFound": return `Uploader "${typed.data}" no longer exists`;
-    case "noDefaultUploader": return "No default uploader is configured , create one in Settings → Uploaders";
+    case "noDefaultUploader": return "No default uploader is configured, create one in Settings → Uploaders";
     case "fileReadFailed": return `Could not read the image file: ${typed.data}`;
     default: return JSON.stringify(error);
   }
@@ -85,7 +85,7 @@ function UploaderCreator(props: {
   const responseJson = () => (uploader.responseHandler as Extract<UploaderResponseHandler, { type: "json" }>).data;
 
   // Deferred so a brand-new (empty-URL) uploader doesn't immediately show an
-  // "Invalid URL" error before the user has touched anything , validation
+  // "Invalid URL" error before the user has touched anything, validation
   // only starts once they've actually changed a field.
   createEffect(on(() => trackDeep(uploader), () => {
     const handle = setTimeout(async () => {
@@ -156,7 +156,7 @@ function UploaderCreator(props: {
       setJsonError(null);
       setUploader("bodyHandler", reconcile({ type: "json", data: parsed } as UploaderBodyHandler));
     } catch {
-      setJsonError("Not valid JSON , the body will not be updated until this parses");
+      setJsonError("Not valid JSON, the body will not be updated until this parses");
     }
   }
 
@@ -370,7 +370,7 @@ function UploaderCreator(props: {
               />
             </div>
             <div class={styles.SectionHint}>
-              <div>Dot-separated path to the URL inside the JSON response , object keys by name, array items by index:</div>
+              <div>Dot-separated path to the URL inside the JSON response, object keys by name, array items by index:</div>
               <div>{'{"data":{"url":"https://…"}}'} → data.url&ensp;•&ensp;{'{"files":[{"link":"https://…"}]}'} → files.0.link</div>
               <div>If the response only holds part of the URL, write a template with {'${path}'} placeholders:</div>
               <div>{'{"id":"a1b2c3"}'} → https://files.example.com/{'${id}'}&ensp;•&ensp;{'{"host":"cdn.example.com","file":{"key":"x9"}}'} → https://{'${host}'}/{'${file.key}'}</div>

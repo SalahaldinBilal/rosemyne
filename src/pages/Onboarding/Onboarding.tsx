@@ -37,7 +37,7 @@ function Onboarding() {
   const [general, setGeneral] = createStore<GeneralSettingsData>({ ...DEFAULT_GENERAL });
 
   onMount(async () => {
-    // Onboarding owns showing the window for this (first) launch , Main's
+    // Onboarding owns showing the window for this (first) launch, Main's
     // own `.window.show()` never runs since it redirects here before reaching it.
     await getCurrentWebview().window.show();
 
@@ -62,12 +62,12 @@ function Onboarding() {
   const steps = [
     {
       title: "General",
-      description: "A couple of basics to get started , you can change any of this later in Settings.",
+      description: "A couple of basics to get started, you can change any of this later in Settings.",
       content: () => <GeneralStep general={general} onChange={saveGeneral} />,
     },
     {
       title: "Shortcuts",
-      description: "Set up keyboard shortcuts for capturing and recording. Optional , skip it and bind them later.",
+      description: "Set up keyboard shortcuts for capturing and recording. Optional, skip it and bind them later.",
       content: () => <ShortcutSettings />,
     },
     {
@@ -82,12 +82,12 @@ function Onboarding() {
     },
     {
       title: "Upload",
-      description: "Add an image host so captures can be uploaded and shared directly. Optional , skip it and add one later.",
+      description: "Add an image host so captures can be uploaded and shared directly. Optional, skip it and add one later.",
       content: () => <UploaderSettings />,
     },
     {
       title: "Import from ShareX",
-      description: "Bring your existing ShareX screenshot history into Rosemyne. Optional , skip it and import later.",
+      description: "Bring your existing ShareX screenshot history into Rosemyne. Optional, skip it and import later.",
       content: () => <ShareXImport />,
     },
   ];
@@ -96,7 +96,7 @@ function Onboarding() {
 
   async function finish() {
     // Set before the save so Main doesn't bounce back here if the save is
-    // slow or fails , see onboardingState.ts.
+    // slow or fails, see onboardingState.ts.
     setOnboardingJustFinished(true);
 
     try {

@@ -27,7 +27,7 @@ function SelectionBox() {
   // The shared store already resets `selectedBox`; this stops this
   // component's own drag tracking so a stray mousemove can't redraw it. A
   // button still physically down means its release will fire a trailing
-  // click on whatever's under the cursor , suppress that too, or it can
+  // click on whatever's under the cursor, suppress that too, or it can
   // land on a WindowSelectionBox and confirm-select right after cancelling.
   function handleCancelDrag() {
     if (isMouseDown()) suppressNextClick();
@@ -110,7 +110,7 @@ function SelectionBox() {
   }
 
   function mouseUpHandler(event: MouseEvent) {
-    // Ignore other buttons , a right-click's own mouseup fires before its
+    // Ignore other buttons, a right-click's own mouseup fires before its
     // contextmenu event and would otherwise cancel the drag state too early.
     if (event.button !== 0) return;
 

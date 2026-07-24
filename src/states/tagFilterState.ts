@@ -183,7 +183,7 @@ export function matchTagsToFilter(node: FilterNode, tags: { [key: string]: TagVa
   return candidates.some(actual => node.values.some(value => applyOperation(node.operation, value, actual)));
 }
 
-// Wrapped-value convention for Time/DateTime tags , mirrors `marker_scalar`
+// Wrapped-value convention for Time/DateTime tags, mirrors `marker_scalar`
 // in `history_store::filter` (Rust): a single-key object wrapping a
 // millisecond number unwraps to that number instead of being treated as a
 // nested object.

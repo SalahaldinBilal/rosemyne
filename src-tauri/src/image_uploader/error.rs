@@ -5,7 +5,7 @@ use url::ParseError as UrlParseError;
 
 use crate::error_serializers::error_serialize;
 
-/// Exactly what was sent for a failed upload request , shown in a details
+/// Exactly what was sent for a failed upload request, shown in a details
 /// modal so a broken uploader config can actually be diagnosed instead of
 /// just reporting "it failed". `body` is a human-readable summary (the real
 /// text for JSON/form bodies; a byte-count/mime description for binary and

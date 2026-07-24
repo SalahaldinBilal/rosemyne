@@ -3,7 +3,9 @@ import styles from "./Main.module.scss";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
-import { HistoryCursor, HistorySort, ImageHistoryData, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
+import { HistoryCursor, HistorySort, ImageEditSession, ImageHistoryData, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
+import { ImageViewerApi } from "../../types";
+import { saveScreenshot } from "@core/helpers/saveScreenshot";
 import TagFilters from "./TagFilter/TagFilters";
 import useTagFilterState, { augmentTags, matchTagsToFilter } from "../../states/tagFilterState";
 import { onboardingJustFinished } from "../../states/onboardingState";
@@ -16,7 +18,7 @@ import { safeInvoke } from "@core/helpers/safeInvoke";
 import { describeUploaderError } from "@core/components/UploaderCreator/UploaderCreator";
 import UploadErrorDetailsModal, { errorHasRequestDetails } from "@core/components/UploadErrorDetailsModal/UploadErrorDetailsModal";
 import { UploaderCreationError } from "@core/types/request";
-import { Camera, CloudUpload, Copy, ExternalLink, File, FileSearch, FileSymlink, FolderOpen, FolderSymlink, Link, Play, RefreshCw, Settings2, Tag, Trash2, Video } from "lucide-solid";
+import { Camera, CloudUpload, Copy, ExternalLink, File, FileSearch, FileSymlink, FolderOpen, FolderSymlink, Link, Pencil, Play, RefreshCw, ScrollText, Settings2, Tag, Trash2, Video } from "lucide-solid";
 import pkg from "../../../package.json";
 import useToastState from "@core/states/toastState";
 import { LARGE_VIDEO_BYTES, generateVideoThumbnail } from "@core/helpers/videoThumbnail";
@@ -42,13 +44,15 @@ function Main() {
   const [loading, setLoading] = createSignal(true);
   const [metadata, setMetadata] = createSignal<TagMetadata | null>(null);
   const [preview, setPreview] = createSignal<ImageHistoryData | null>(null);
+  const [editSession, setEditSession] = createSignal<ImageEditSession | null>(null);
+  let editViewerApi: ImageViewerApi | undefined;
   const [pendingDelete, setPendingDelete] = createSignal<ImageHistoryData | null>(null);
   const [pendingReupload, setPendingReupload] = createSignal<ImageHistoryData | null>(null);
   const [editingTags, setEditingTags] = createSignal<ImageHistoryData | null>(null);
   const [viewingUploadError, setViewingUploadError] = createSignal<UploaderCreationError | null>(null);
   const [cardStatus, setCardStatus] = createStore<{ [fileName: string]: string | undefined }>({});
   const statusTimers: { [fileName: string]: number } = {};
-  // Live upload state , driven entirely by backend events so status is correct
+  // Live upload state, driven entirely by backend events so status is correct
   // whether this window was open when the upload started or not.
   const [uploadProgress, setUploadProgress] = createStore<{ [fileName: string]: { sent: number, total: number } | undefined }>({});
   const [uploadSuccess, setUploadSuccess] = createStore<{ [fileName: string]: { copied: boolean } | undefined }>({});
@@ -143,7 +147,7 @@ function Main() {
 
     // Real gate: only ever show onboarding once. Left active so the flow
     // itself works end-to-end; it's `onboardingJustFinished` (not this
-    // check) that's currently the workaround , see its own comment.
+    // check) that's currently the workaround, see its own comment.
     const general = await safeInvoke("get_general_settings");
     if (!general.hasCompletedOnboarding && !onboardingJustFinished()) {
       navigate("/onboarding", { replace: true });
@@ -153,7 +157,7 @@ function Main() {
     if (general.checkForUpdatesOnStartup) {
       checkForUpdate()
         .then(update => {
-          if (update) pushToast(`Update available: v${update.version} , see Settings → Updates`, "info", 8000);
+          if (update) pushToast(`Update available: v${update.version}, see Settings → Updates`, "info", 8000);
         })
         .catch(error => console.error("Failed to check for updates", error));
     }
@@ -179,7 +183,7 @@ function Main() {
     refreshTagMetadata();
 
     const unlistenSaved = await getCurrentWebview().listen("screenshot://new-saved-image", (event: TauriEvent<ImageHistoryData>) => {
-      // A filter being active doesn't mean the new item is excluded , check
+      // A filter being active doesn't mean the new item is excluded, check
       // it against the current filter tree instead of always hiding it.
       const { fileName, filePath, type, dateTime, tags, fileSize } = event.payload;
       const augmented = augmentTags(tags, fileName, filePath, type, new Date(dateTime).getTime(), fileSize);
@@ -368,6 +372,56 @@ function Main() {
     }
   }
 
+  // Stages the saved image back into ScreenshotManager so the viewer can edit it
+  // through the same path a fresh capture uses; the save writes a new entry.
+  async function startEdit(screenshot: ImageHistoryData) {
+    if (screenshot.type !== "image") return;
+
+    try {
+      const session = await safeInvoke("begin_image_edit", { fileName: screenshot.fileName });
+      setPreview(screenshot);
+      setEditSession(session);
+    } catch (error) {
+      pushToast(`Failed to open the editor: ${errorText(error)}`, "error", 6000);
+    }
+  }
+
+  // Frees the staged temp image for an abandoned edit. A successful save consumes
+  // it backend-side instead, so that path clears the session without calling this.
+  function cancelEdit() {
+    const session = editSession();
+    if (!session) return;
+
+    setEditSession(null);
+    safeInvoke("cancel_image_edit", { imageId: session.imageId }).catch(() => { });
+  }
+
+  function closePreview() {
+    cancelEdit();
+    setPreview(null);
+  }
+
+  async function saveEdit() {
+    const session = editSession();
+    if (!session) return;
+
+    const final = editViewerApi?.renderFinal?.(true);
+    if (!final) {
+      pushToast("Nothing to save, the selected region is empty.", "error", 6000);
+      return;
+    }
+
+    try {
+      // No capture sound: this is an edit of an existing image, not a new capture.
+      // The backend still runs the normal persist + auto-upload tail from here.
+      await saveScreenshot(session.imageId, { x: final.x, y: final.y, width: final.width, height: final.height }, final.image, false);
+      setEditSession(null);
+      setPreview(null);
+    } catch (error) {
+      pushToast(`Failed to save the edited image: ${errorText(error)}`, "error", 6000);
+    }
+  }
+
   async function copyLink(screenshot: ImageHistoryData) {
     if (!screenshot.url) return;
 
@@ -484,6 +538,14 @@ function Main() {
     }
   }
 
+  async function scrollingCaptureScreen() {
+    try {
+      await safeInvoke('scrolling_capture_screen');
+    } catch (error) {
+      pushToast(`Failed to start scrolling capture: ${errorText(error)}`, "error", 6000);
+    }
+  }
+
   return <div class={styles.Main}>
     <div class={styles.SideBar}>
       <div class={styles.Brand}>
@@ -498,6 +560,10 @@ function Main() {
         <Button filled color="var(--base-blue)" onClick={recordScreen}>
           <Video size={16} />
           Record Screen
+        </Button>
+        <Button filled color="var(--base-blue)" onClick={scrollingCaptureScreen}>
+          <ScrollText size={16} />
+          Scrolling Capture
         </Button>
       </div>
       <div class={styles.SettingsRow}>
@@ -616,7 +682,7 @@ function Main() {
                           <Match when={uploadSuccess[screenshot.fileName]}>
                             {success => <div class={styles.UploadBar} classList={{ [styles.Success]: true }}>
                               <div class={styles.UploadTrack}><div class={styles.UploadFill} style={{ width: "100%" }} /></div>
-                              <span class={styles.UploadLabel}>{success().copied ? "Uploaded , link copied" : "Uploaded , copy failed"}</span>
+                              <span class={styles.UploadLabel}>{success().copied ? "Uploaded, link copied" : "Uploaded, copy failed"}</span>
                             </div>}
                           </Match>
                           <Match when={screenshot.uploadError}>
@@ -650,6 +716,7 @@ function Main() {
                       <Show when={screenshot.type === "image"} fallback={
                         <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyFile(screenshot)}>Copy File</ContextMenuItem>
                       }>
+                        <ContextMenuItem icon={{ icon: Pencil }} onClick={() => startEdit(screenshot)}>Edit</ContextMenuItem>
                         <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyImage(screenshot)}>Copy Image</ContextMenuItem>
                       </Show>
                       <ContextMenuItem icon={{ icon: Link }} disabled={!screenshot.url} onClick={() => copyLink(screenshot)}>Copy Link</ContextMenuItem>
@@ -676,25 +743,57 @@ function Main() {
         </Show>
       </div>
     </div>
-    <Modal show={!!preview()} onHide={() => setPreview(null)} title={preview()?.fileName} width="85%" height="85%">
+    <Modal
+      show={!!preview()}
+      onHide={closePreview}
+      title={preview()?.fileName}
+      width="85%"
+      height="85%"
+      headerActions={preview()?.type === "image" ? (
+        <Show
+          when={editSession()}
+          fallback={<Button onClick={() => startEdit(preview()!)}><Pencil size={16} />Edit</Button>}
+        >
+          <Button onClick={cancelEdit}>Cancel</Button>
+          <Button filled color="var(--base-blue)" onClick={saveEdit}>Save as new</Button>
+        </Show>
+      ) : undefined}
+    >
       <Show when={preview()} keyed>
-        {screenshot => <div class={styles.PreviewBody}>
-          <Switch>
-            <Match when={screenshot.type === "video"}>
-              <video src={savedUrl(screenshot.fileName)} controls autoplay />
-            </Match>
-            <Match when={screenshot.type === "file"}>
-              <div class={styles.FilePreview}>
-                <File size={72} />
-                <span>{screenshot.fileName}</span>
-                <Button onClick={() => openFolder(screenshot)}>Show in folder</Button>
-              </div>
-            </Match>
-            <Match when={true}>
-              <ImageViewer src={savedUrl(screenshot.fileName)} />
-            </Match>
-          </Switch>
-        </div>}
+        {screenshot => (
+          <div class={styles.PreviewBody}>
+            <Switch>
+              <Match when={screenshot.type === "video"}>
+                <video src={savedUrl(screenshot.fileName)} controls autoplay />
+              </Match>
+              <Match when={screenshot.type === "file"}>
+                <div class={styles.FilePreview}>
+                  <File size={72} />
+                  <span>{screenshot.fileName}</span>
+                  <Button onClick={() => openFolder(screenshot)}>Show in folder</Button>
+                </div>
+              </Match>
+              <Match when={true}>
+                <Show
+                  when={editSession()}
+                  fallback={<ImageViewer src={savedUrl(screenshot.fileName)} />}
+                >
+                  {/* A separate JSX position, so entering/leaving edit mode
+                      mounts a fresh viewer: `editable` is read once at setup. */}
+                  {session => (
+                    <ImageViewer
+                      src={`http://rosemyne-photo.localhost/preview/${session().imageId}`}
+                      hideRotate
+                      editable
+                      annotating
+                      onApi={api => editViewerApi = api}
+                    />
+                  )}
+                </Show>
+              </Match>
+            </Switch>
+          </div>
+        )}
       </Show>
     </Modal>
     <Modal show={!!pendingDelete()} onHide={() => setPendingDelete(null)} title="Delete screenshot?" width={420}>

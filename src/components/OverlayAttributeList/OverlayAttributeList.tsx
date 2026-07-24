@@ -8,7 +8,7 @@ import { DefaultColorPicker } from "@thednp/solid-color-picker";
 import { beautifyCamelOrPascalCase } from "@core/helpers";
 
 // Shared between the overlay's own right-click menu (ImageOverlayBase) and the
-// Overlay Defaults settings page , both edit the same attribute-map shape,
+// Overlay Defaults settings page, both edit the same attribute-map shape,
 // just backed by a different store (a placed item's attributes vs. the
 // defaults a new item is created with).
 function OverlayAttributeList(props: { attributes: ImageOverlayAttributeMap, onChange: (name: string, value: any) => void }) {

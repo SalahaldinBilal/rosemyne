@@ -6,13 +6,17 @@ import { dimensionToStyle } from "../../helpers";
 import { createMutationObserver } from "@solid-primitives/mutation-observer";
 import ResizePoint, { composeDirection, directionCursor, horizontalAnchor, verticalAnchor } from "./ResizePoint/ResizePoint";
 
-function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number }): JSX.Element {
+function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number, toContainerCoords?: (clientX: number, clientY: number) => { x: number, y: number }, zIndexBoost?: number }): JSX.Element {
+  // Identity by default; a host whose positioned ancestor scrolls/zooms must supply its own.
+  const toContainerCoords = createMemo(() => props.toContainerCoords ?? ((clientX: number, clientY: number) => ({ x: clientX, y: clientY })));
   const [elementRef, setElementRef] = createSignal<HTMLDivElement>();
   const [zIndex, setZIndex] = createSignal<number>(0);
   const [boxPosition, setBoxPosition] = createStore<Dimensions>({ x: 0, y: 0, width: 0, height: 0 });
   const shouldShow = createMemo(() => !!props.show && !!elementRef());
   const borderWidth = createMemo(() => props.borderWidth ?? 5);
-  const style = createMemo<JSX.CSSProperties>(() => ({ 'border-width': borderWidth() + 'px', ...(props.style ?? {}), ...dimensionToStyle(boxPosition), 'z-index': zIndex() }));
+  // Derived from the child's own z-index, so the handles track it; `zIndexBoost`
+  // lets a host lift just the handles without moving the child's own content.
+  const style = createMemo<JSX.CSSProperties>(() => ({ 'border-width': borderWidth() + 'px', ...(props.style ?? {}), ...dimensionToStyle(boxPosition), 'z-index': zIndex() + (props.zIndexBoost ?? 0) }));
   const pointRadius = createMemo(() => {
     const desiredRadius = props.pointRadius ?? 25;
     // Each point sits in one of 3 equal rows/columns; keep a full cell of slack (desiredRadius)
@@ -38,13 +42,17 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
 
     setZIndex(+window.getComputedStyle(element).zIndex || 0)
 
+    // getBoundingClientRect() is post-transform (screen) pixels; converting
+    // both corners and diffing recovers container-space size under any scale.
     const boundingBox = element.getBoundingClientRect();
+    const topLeft = toContainerCoords()(boundingBox.left, boundingBox.top);
+    const bottomRight = toContainerCoords()(boundingBox.right, boundingBox.bottom);
 
     setBoxPosition({
-      x: boundingBox.x - borderWidth(),
-      y: boundingBox.y - borderWidth(),
-      width: boundingBox.width + (borderWidth() * 2),
-      height: boundingBox.height + (borderWidth() * 2)
+      x: topLeft.x - borderWidth(),
+      y: topLeft.y - borderWidth(),
+      width: (bottomRight.x - topLeft.x) + (borderWidth() * 2),
+      height: (bottomRight.y - topLeft.y) + (borderWidth() * 2)
     })
   }
 
@@ -71,20 +79,21 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
   }
 
   function onDragMove(event: MouseEvent) {
+    const point = toContainerCoords()(event.clientX, event.clientY);
     const newDims: Dimensions = { x: boxPosition.x, y: boxPosition.y, width: boxPosition.width, height: boxPosition.height };
     let horizontalSide: "left" | "right" | null = null;
     let verticalSide: "top" | "bottom" | null = null;
 
     if (anchor.x !== null) {
-      newDims.x = Math.min(event.clientX, anchor.x);
-      newDims.width = Math.abs(event.clientX - anchor.x);
-      horizontalSide = event.clientX < anchor.x ? "left" : "right";
+      newDims.x = Math.min(point.x, anchor.x);
+      newDims.width = Math.abs(point.x - anchor.x);
+      horizontalSide = point.x < anchor.x ? "left" : "right";
     }
 
     if (anchor.y !== null) {
-      newDims.y = Math.min(event.clientY, anchor.y);
-      newDims.height = Math.abs(event.clientY - anchor.y);
-      verticalSide = event.clientY < anchor.y ? "top" : "bottom";
+      newDims.y = Math.min(point.y, anchor.y);
+      newDims.height = Math.abs(point.y - anchor.y);
+      verticalSide = point.y < anchor.y ? "top" : "bottom";
     }
 
     const currentDirection = composeDirection(horizontalSide, verticalSide) ?? draggedDirection;

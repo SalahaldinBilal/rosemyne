@@ -1,17 +1,12 @@
 import { createEffect, createMemo, onCleanup } from "solid-js";
 import { BlurImageOverlay, ImageOverlayProps, PixelateImageOverlay } from "../../../../types/imageOverlay";
 import ImageOverlayBase from "../ImageOverlayBase/ImageOverlayBase";
-import useScreenshotOverlayStateInner from "../../../../states/screenshotOverlayState";
+import { useAnnotationState } from "../../../../states/annotationContext";
 import { applyEffectRegion, composeScratchContext, drawOverlayOnto, effectMargin } from "../../../../helpers/canvasRenderer";
 
-/**
- * Fully client-side: composes its region + margin from the capture and every
- * overlay below it (boxes/text redrawn vectorially, lower effects blitted from
- * their canvases), applies its own kernel, and registers the result so effects
- * above can composite it , all region-sized, GPU-backed draws, zero IPC.
- */
+// Fully client-side: composites the region + everything below it, applies its own kernel, zero IPC.
 function ImageOverlayEffectElem(props: ImageOverlayProps<BlurImageOverlay | PixelateImageOverlay>) {
-  const { image, overlayItems, effectLayers, layerVersions, bumpLayerVersion, removeEffectLayer } = useScreenshotOverlayStateInner;
+  const { image, overlayItems, effectLayers, layerVersions, bumpLayerVersion, removeEffectLayer } = useAnnotationState();
   let canvas: HTMLCanvasElement | undefined;
 
   const region = createMemo(() => {

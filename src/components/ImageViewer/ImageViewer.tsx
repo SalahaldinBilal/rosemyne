@@ -1,7 +1,15 @@
 import styles from "./ImageViewer.module.scss";
-import { createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from "solid-js";
-import { ImageViewerProps } from "../../types";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
+import { unwrap } from "solid-js/store";
+import { ImageViewerApi, ImageViewerProps, Tools } from "../../types";
 import Button from "../Button/Button";
+import AnnotationToolBar from "../AnnotationToolBar/AnnotationToolBar";
+import AnnotationContext from "../../states/annotationContext";
+import { createAnnotationState } from "../../states/annotationState";
+import ImageOverlayContainer from "../../pages/Screenshot/ImageOverlayContainer/ImageOverlayContainer";
+import DrawLayer from "../../pages/Screenshot/DrawLayer/DrawLayer";
+import CropSelectionBox from "../CropSelectionBox/CropSelectionBox";
+import { renderFinalImage } from "../../helpers/canvasRenderer";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { Maximize, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-solid";
 
@@ -36,11 +44,8 @@ function ImageViewer(props: ImageViewerProps) {
     return Math.min(view.w / size.w, view.h / size.h);
   });
 
-  const pannable = createMemo(() => {
-    const size = rotatedSize();
-    if (!size) return false;
-    return size.w * scale() > viewport().w + 0.5 || size.h * scale() > viewport().h + 0.5;
-  });
+  // Shared between the image and `overlay`, so both stay pixel-aligned.
+  const transform = createMemo(() => `translate(calc(-50% + ${pan().x}px), calc(-50% + ${pan().y}px)) rotate(${rotation()}deg) scale(${scale()})`);
 
   function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
@@ -54,8 +59,8 @@ function ImageViewer(props: ImageViewerProps) {
     const size = rotatedSize();
     if (!size) return { x: 0, y: 0 };
     const view = viewport();
-    const maxX = size.w * atScale > view.w ? (size.w * atScale - view.w) / 2 + view.w * PAN_OVERSCROLL : 0;
-    const maxY = size.h * atScale > view.h ? (size.h * atScale - view.h) / 2 + view.h * PAN_OVERSCROLL : 0;
+    const maxX = Math.max(0, size.w * atScale - view.w) / 2 + view.w * PAN_OVERSCROLL;
+    const maxY = Math.max(0, size.h * atScale - view.h) / 2 + view.h * PAN_OVERSCROLL;
     return { x: clamp(next.x, -maxX, maxX), y: clamp(next.y, -maxY, maxY) };
   }
 
@@ -94,6 +99,55 @@ function ImageViewer(props: ImageViewerProps) {
     };
   }
 
+  // Inverts the same pan/scale transform the image and `overlay` share; only
+  // valid at rotation 0, which is why `overlay` callers also pass `hideRotate`.
+  function toImageCoords(clientX: number, clientY: number) {
+    const point = stagePoint({ clientX, clientY });
+    const size = natural();
+    const p = pan();
+    const s = scale();
+    return {
+      x: (size ? size.w / 2 : 0) + (point.x - p.x) / s,
+      y: (size ? size.h / 2 : 0) + (point.y - p.y) / s,
+    };
+  }
+
+  function toImageDelta(dx: number, dy: number) {
+    const s = scale();
+    return { x: dx / s, y: dy / s };
+  }
+
+  // `editable` is stable for this instance's lifetime, so this only ever runs once:
+  // the annotation state is created here (not by the caller) so it can live for as
+  // long as this ImageViewer does, surviving `annotating` toggling on/off.
+  const annotation = props.editable
+    ? createAnnotationState(() => props.src, toImageCoords, toImageDelta)
+    : undefined;
+  // Unlike the screenshotter (which starts a live drag-select), an editable
+  // ImageViewer has nothing to select on entry, Move is the useful default.
+  annotation?.setCurrentTool(Tools.Move);
+
+  // Primary(left)-button drag pans only when nothing else claims it: outside
+  // annotate mode that's the caller's `allowPrimaryPan`, inside it it's only
+  // the Move tool, so drawing/box/etc. tools don't fight the viewer for drags.
+  const canPrimaryPan = createMemo(() => {
+    if (annotation && props.annotating) return annotation.currentTool() === Tools.Move;
+    return props.allowPrimaryPan !== false;
+  });
+
+  function renderFinal(withAnnotations: boolean) {
+    if (!annotation) return null;
+    const baseImage = annotation.image();
+    if (!baseImage) return null;
+
+    const box = withAnnotations
+      ? { ...unwrap(annotation.selectedBox) }
+      : { x: 0, y: 0, width: baseImage.naturalWidth, height: baseImage.naturalHeight };
+    const overlays = withAnnotations ? unwrap(annotation.overlayItems) : [];
+
+    return renderFinalImage(baseImage, box, overlays, annotation.effectLayers);
+  }
+
   function onWheel(event: WheelEvent) {
     event.preventDefault();
     const point = stagePoint(event);
@@ -110,7 +164,11 @@ function ImageViewer(props: ImageViewerProps) {
   }
 
   function onPointerDown(event: PointerEvent) {
-    if (event.button !== 0 || !pannable()) return;
+    // Middle-button drag always pans; primary(left)-button drag only when the
+    // caller isn't using it for something else (e.g. drawing an overlay).
+    const isMiddle = event.button === 1;
+    const isPrimary = event.button === 0 && canPrimaryPan();
+    if (!(isMiddle || isPrimary)) return;
     event.preventDefault();
     const el = event.currentTarget as HTMLElement;
     el.setPointerCapture(event.pointerId);
@@ -158,10 +216,10 @@ function ImageViewer(props: ImageViewerProps) {
         zoomTo(1);
         break;
       case "r":
-        rotate(90);
+        if (!props.hideRotate) rotate(90);
         break;
       case "R":
-        rotate(-90);
+        if (!props.hideRotate) rotate(-90);
         break;
     }
   });
@@ -173,6 +231,13 @@ function ImageViewer(props: ImageViewerProps) {
     });
     observer.observe(stage!);
     onCleanup(() => observer.disconnect());
+
+    const api: ImageViewerApi = { toImageCoords, toImageDelta };
+    if (annotation) {
+      api.renderFinal = renderFinal;
+      api.resetEditing = annotation.resetEditing;
+    }
+    props.onApi?.(api);
   });
 
   createEffect(() => {
@@ -189,50 +254,88 @@ function ImageViewer(props: ImageViewerProps) {
     });
   });
 
-  return <div class={styles.ImageViewer}>
-    <div
-      class={styles.Stage}
-      classList={{ [styles.Pannable]: pannable(), [styles.Dragging]: dragging() }}
-      ref={stage}
-      onWheel={onWheel}
-      onDblClick={onDblClick}
-      onPointerDown={onPointerDown}
-    >
-      <img
-        src={props.src}
-        draggable={false}
-        classList={{ [styles.Pixelated]: scale() >= 2 }}
-        style={{
-          visibility: natural() ? "visible" : "hidden",
-          transform: `translate(calc(-50% + ${pan().x}px), calc(-50% + ${pan().y}px)) rotate(${rotation()}deg) scale(${scale()})`,
-        }}
-        onLoad={event => setNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })}
-      />
-    </div>
-    <div class={styles.Toolbar} onPointerDown={event => event.stopPropagation()} onDblClick={event => event.stopPropagation()}>
-      <Button isIcon color="var(--base-font-color)" tooltip="Zoom out (-)" onClick={() => zoomBy(1 / ZOOM_STEP)}>
-        <ZoomOut size={18} />
-      </Button>
-      <span class={styles.ZoomLabel}>{Math.round(scale() * 100)}%</span>
-      <Button isIcon color="var(--base-font-color)" tooltip="Zoom in (+)" onClick={() => zoomBy(ZOOM_STEP)}>
-        <ZoomIn size={18} />
-      </Button>
-      <div class={styles.Divider} />
-      <Button isIcon color="var(--base-font-color)" tooltip="Fit to window (0)" onClick={applyFit}>
-        <Maximize size={18} />
-      </Button>
-      <Button isIcon color="var(--base-font-color)" tooltip="Actual size (1)" onClick={() => zoomTo(1)}>
-        <span class={styles.ActualSize}>1:1</span>
-      </Button>
-      <div class={styles.Divider} />
-      <Button isIcon color="var(--base-font-color)" tooltip="Rotate left (Shift+R)" onClick={() => rotate(-90)}>
-        <RotateCcw size={18} />
-      </Button>
-      <Button isIcon color="var(--base-font-color)" tooltip="Rotate right (R)" onClick={() => rotate(90)}>
-        <RotateCw size={18} />
-      </Button>
-    </div>
-  </div>
+  // A named function, not a pre-computed `const`, so that when it's called
+  // from inside <AnnotationContext.Provider>'s JSX children below, Solid's
+  // compiler defers actually calling it (children are compiled as a getter)
+  // until the Provider has set its context on the owner. A precomputed value
+  // would construct ImageOverlayContainer/DrawLayer/AnnotationToolBar (and
+  // their useAnnotationState() calls) before the Provider is in scope.
+  function renderBody() {
+    return <div class={styles.ImageViewer}>
+      <div
+        class={styles.Stage}
+        classList={{ [styles.Pannable]: canPrimaryPan(), [styles.Dragging]: dragging() }}
+        ref={stage}
+        onWheel={onWheel}
+        onDblClick={onDblClick}
+        onPointerDown={onPointerDown}
+      >
+        <img
+          src={props.src}
+          draggable={false}
+          classList={{ [styles.Pixelated]: scale() >= 2 }}
+          style={{
+            visibility: natural() ? "visible" : "hidden",
+            transform: transform(),
+          }}
+          onLoad={event => setNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })}
+        />
+        <Show when={props.overlay || (annotation && props.annotating)}>
+          <div
+            class={styles.OverlayLayer}
+            style={{
+              width: `${natural()?.w ?? 0}px`,
+              height: `${natural()?.h ?? 0}px`,
+              transform: transform(),
+            }}
+          >
+            {props.overlay}
+            <Show when={annotation && props.annotating}>
+              <div class={styles.EditLayer} onMouseDown={e => annotation!.mouseEventHandler.emit("mouseDown", e)}>
+                <ImageOverlayContainer />
+                <DrawLayer />
+                <CropSelectionBox />
+              </div>
+            </Show>
+          </div>
+        </Show>
+      </div>
+      <div class={styles.Toolbar} onPointerDown={event => event.stopPropagation()} onDblClick={event => event.stopPropagation()}>
+        <Button isIcon color="var(--base-font-color)" tooltip="Zoom out (-)" onClick={() => zoomBy(1 / ZOOM_STEP)}>
+          <ZoomOut size={18} />
+        </Button>
+        <span class={styles.ZoomLabel}>{Math.round(scale() * 100)}%</span>
+        <Button isIcon color="var(--base-font-color)" tooltip="Zoom in (+)" onClick={() => zoomBy(ZOOM_STEP)}>
+          <ZoomIn size={18} />
+        </Button>
+        <div class={styles.Divider} />
+        <Button isIcon color="var(--base-font-color)" tooltip="Fit to window (0)" onClick={applyFit}>
+          <Maximize size={18} />
+        </Button>
+        <Button isIcon color="var(--base-font-color)" tooltip="Actual size (1)" onClick={() => zoomTo(1)}>
+          <span class={styles.ActualSize}>1:1</span>
+        </Button>
+        <Show when={!props.hideRotate}>
+          <div class={styles.Divider} />
+          <Button isIcon color="var(--base-font-color)" tooltip="Rotate left (Shift+R)" onClick={() => rotate(-90)}>
+            <RotateCcw size={18} />
+          </Button>
+          <Button isIcon color="var(--base-font-color)" tooltip="Rotate right (R)" onClick={() => rotate(90)}>
+            <RotateCw size={18} />
+          </Button>
+        </Show>
+      </div>
+      <Show when={annotation && props.annotating}>
+        <div class={styles.AnnotationToolbar} onPointerDown={event => event.stopPropagation()} onDblClick={event => event.stopPropagation()}>
+          <AnnotationToolBar hint={props.annotationHint} cursorScale={scale} screenshotToolLabel="Crop" />
+        </div>
+      </Show>
+    </div>;
+  }
+
+  return annotation
+    ? <AnnotationContext.Provider value={annotation}>{renderBody()}</AnnotationContext.Provider>
+    : renderBody();
 }
 
 export default ImageViewer;

@@ -97,7 +97,7 @@ function ShareXImport() {
     <div class={styles.Intro}>
       <span>Import your ShareX screenshot history into Rosemyne.</span>
       <span class={styles.Hint}>
-        Image files are copied into Rosemyne's own storage , your ShareX folder is never modified.
+        Image files are copied into Rosemyne's own storage, your ShareX folder is never modified.
         Uploaders, hotkeys and settings are not imported. Close ShareX before importing.
       </span>
     </div>
@@ -141,7 +141,7 @@ function ShareXImport() {
         </div>
         <Show when={progress()} fallback={<span class={styles.Hint}>Reading history…</span>}>
           {current => <span class={styles.Hint}>
-            {current().current} / {current().total} , {current().currentFile}
+            {current().current} / {current().total}, {current().currentFile}
           </span>}
         </Show>
       </div>

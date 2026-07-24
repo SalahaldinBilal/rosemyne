@@ -19,6 +19,10 @@
     cursor: not-allowed;
   }
 
+  &.Invalid:not(.Disabled) {
+    border-color: var(--danger-color);
+  }
+
   &>* {
     flex-shrink: 0;
   }

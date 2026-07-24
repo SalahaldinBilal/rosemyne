@@ -21,7 +21,7 @@ const UNIT_ITEMS: SelectItem<Unit>[] = [
 
 // A number + unit picker, the byte-size counterpart to DurationField (reuses
 // its layout styles): switching the unit only changes the display scale, not
-// the underlying byte count , picking `bytes` is the escape hatch for exact
+// the underlying byte count, picking `bytes` is the escape hatch for exact
 // values.
 function FileSizeField(props: { valueBytes: number, onChange: (bytes: number) => void }) {
   const [unit, setUnit] = createSignal<Unit>("mb");

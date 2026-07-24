@@ -22,7 +22,7 @@ function useOverlayDefaultsStateInner() {
   let saveTimer: number | undefined;
 
   // Rebuilds `merged` from the built-ins + whatever's currently persisted,
-  // for every overlay type , authoritative, not incremental, so it also
+  // for every overlay type, authoritative, not incremental, so it also
   // rolls back overrides that were reset since the last load. `reconcile`
   // only touches the leaves that actually changed, so an open color picker
   // elsewhere isn't disturbed by a refresh that changes nothing for its type.
@@ -71,7 +71,7 @@ function useOverlayDefaultsStateInner() {
     persist();
   }
 
-  /** Snapshot for a freshly placed overlay of `type` to start with , built-in defaults with any saved overrides merged in. */
+  /** Snapshot for a freshly placed overlay of `type` to start with, built-in defaults with any saved overrides merged in. */
   function defaultAttributesFor<Type extends ImageOverlay["type"]>(type: Type): typeof OVERLAY_DEFAULT_ATTRIBUTES[Type] {
     return structuredClone(unwrap(merged[type]));
   }

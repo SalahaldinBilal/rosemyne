@@ -70,7 +70,7 @@ impl PendingLoopback {
 }
 
 /// The output format capture would use, from the default device's mix format
-/// (the MF AAC encoder only takes 44.1/48 kHz mono/stereo PCM). Fast , no
+/// (the MF AAC encoder only takes 44.1/48 kHz mono/stereo PCM). Fast, no
 /// streams are opened.
 pub fn probe_format() -> Result<LoopbackFormat, String> {
     let host = cpal::default_host();

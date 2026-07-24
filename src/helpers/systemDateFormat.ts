@@ -8,7 +8,7 @@ import { DateTimePatterns } from "@core/types";
 const [patterns, setPatterns] = createSignal<DateTimePatterns | null>(null);
 
 /**
- * Fetches the OS's actual date/time format once (see `locale.rs` , this
+ * Fetches the OS's actual date/time format once (see `locale.rs`, this
  * reflects the user's Regional format/LC_TIME override, which can differ
  * from their UI language and isn't otherwise visible to a WebView). Safe to
  * call more than once; only the first call does any work.
@@ -59,7 +59,7 @@ function applyPattern(pattern: string, date: Date): string {
       case "tt": return date.getHours() < 12 ? "AM" : "PM";
       case "t": return date.getHours() < 12 ? "A" : "P";
       default:
-        // A quoted literal , strip the surrounding single quotes.
+        // A quoted literal, strip the surrounding single quotes.
         return token.startsWith("'") && token.endsWith("'") ? token.slice(1, -1) : token;
     }
   });
@@ -68,7 +68,7 @@ function applyPattern(pattern: string, date: Date): string {
 /**
  * Formats a date using the OS's real short-date + time preference, falling
  * back to the browser default until `loadSystemDateTimePatterns` resolves
- * (or if it couldn't determine one). Reactive , re-evaluates once the real
+ * (or if it couldn't determine one). Reactive, re-evaluates once the real
  * pattern loads if called from within JSX/a computation.
  */
 export function formatSystemDateTime(date: Date): string {

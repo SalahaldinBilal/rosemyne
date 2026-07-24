@@ -48,8 +48,8 @@ function ShortcutPicker(props: { show: boolean, onHide: () => any, onConfirm: (k
   )
 
   // Print Screen (and possibly other OS-intercepted keys) never fires
-  // `keydown` in the webview , Windows' "Use PrtScn to open screen snipping"
-  // grabs it first , but `keyup` still does. This only ever engages for a key
+  // `keydown` in the webview, Windows' "Use PrtScn to open screen snipping"
+  // grabs it first, but `keyup` still does. This only ever engages for a key
   // the keydown listener above missed entirely: any key it did see is either
   // already recorded (deduped below) or has already ended the recording via
   // `hasPressedMainKey`, so normal keys are untouched by this.
