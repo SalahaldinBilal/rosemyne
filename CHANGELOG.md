@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-24
+
+### Added
+
+- **Scrolling capture**: pick a region and Rosemyne scrolls it, capturing as it goes, then stitches the frames into one tall image. Available from the main window and as its own shortcut. It stops once scrolling stops changing the content, or early from the on-screen status bar.
+- The stitched result opens for review before saving: re-stitch with different settings without recapturing, drop individual frames, then save directly or continue into the annotation tools.
+- Settings → Scrolling Capture for frame delay, scroll amount and a maximum frame count, all also adjustable per capture from the region selector.
+- **Editing saved images**: re-open any image from the history list in the annotation editor, via its right-click menu or the preview window. Always saved as a new image and uploaded as usual, leaving the original untouched.
+
+### Changed
+
+- Number inputs no longer silently snap back while you type an out-of-range value; the field is outlined in red with a message, and only reverts if you leave it without a valid one.
+- Placing a box, text, blur or pixelate overlay now needs a small drag, so a plain click no longer leaves a near-invisible speck.
+
+### Fixed
+
+- Overlays could jump above or below each other while annotating. They now always stack in the order they were added, matching the saved image. An overlay buried under a larger one still surfaces its resize handles.
+- File name templates no longer leave a dangling separator when a variable is empty: with the default `${process}_${random:10}`, a capture with no window information now produces `abc123` instead of `_abc123`.
+
 ## [0.1.7] - 2026-07-23
 
 ### Added
