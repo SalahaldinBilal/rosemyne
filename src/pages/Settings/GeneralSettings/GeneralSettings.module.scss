@@ -10,6 +10,7 @@
     display: flex;
     align-items: flex-start;
     gap: 12px;
+    min-width: 0;
 
     // Only the checkbox rows are `<label>`s (click-anywhere-to-toggle);
     // plain `<div>` rows aren't themselves clickable, just their contents.
@@ -21,6 +22,7 @@
       width: 18px;
       height: 18px;
       margin-top: 3px;
+      flex-shrink: 0;
       accent-color: var(--base-blue);
       cursor: pointer;
     }
@@ -29,6 +31,7 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
 
       .Hint {
         font-size: 13px;
