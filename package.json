@@ -1,6 +1,6 @@
 {
   "name": "rosemyne",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A ShareX-like screenshot capture, annotate and upload tool",
   "type": "module",
   "scripts": {

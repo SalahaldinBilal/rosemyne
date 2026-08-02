@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-02
+
+### Added
+
+- Filters can now be grouped: a group can be scoped to one element of an array tag (e.g. one window) at a time, so conditions like "the same window is both Firefox and covers more than half the screen" are expressible, instead of only matching across different elements independently.
+- Filter trees can now be saved by name and reloaded from a new bar above the Filters panel.
+- Settings → General has a new "Trim the window border when snapping" option: Windows 11 draws a 1px border blended with whatever is behind a window, so snap-to-window captures used to include a ring of the background. Now trimmed by default; can be turned off to keep the border.
+
+### Changed
+
+- Reworked the history filter UI: sorting and the filter toggle now sit in a compact toolbar above the list, and the filter panel itself is collapsed by default.
+- Window snap-to-select no longer offers invisible windows that ignore interaction.
+
 ## [0.2.0] - 2026-07-24
 
 ### Added
