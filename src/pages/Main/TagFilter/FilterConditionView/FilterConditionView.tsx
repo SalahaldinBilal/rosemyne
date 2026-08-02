@@ -2,7 +2,7 @@ import { createMemo, For, Index, Match, Show, Switch } from "solid-js";
 import styles from "./FilterConditionView.module.scss";
 import { FilterCondition, FilterOperations, FilterValueType, OPERATION_LABELS, OPERATIONS_BY_TYPE, SelectItem, TagValueTypeMap } from "../../../../types";
 import { dateTimeLocalToMs, msToDateTimeLocal } from "../../../../helpers";
-import useTagFilterState from "../../../../states/tagFilterState";
+import useTagFilterState, { keyLabel } from "../../../../states/tagFilterState";
 import Button from "../../../../components/Button/Button";
 import Select from "../../../../components/Select/Select";
 import FilterValueField from "../controls/FilterValueField";
@@ -34,13 +34,10 @@ function formatFieldValue(type: FilterValueType, value: string | number): string
   return value;
 }
 
-// `$`-prefixed keys are reserved system fields (`$file`); show them prettified.
-function keyLabel(key: string): string {
-  return key.startsWith("$") ? key.charAt(1).toUpperCase() + key.slice(2) : key;
-}
-
-function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTypeMap }) {
+function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTypeMap, pathPrefix?: string[] }) {
   const { setConditionPath, setOperation, addValue, setValue, removeValue, removeNode } = useTagFilterState;
+
+  const suggestPath = createMemo(() => [...(props.pathPrefix ?? []), ...props.node.path]);
 
   const levels = createMemo<Level[]>(() => {
     const result: Level[] = [];
@@ -105,7 +102,7 @@ function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTyp
                   <FilterValueField
                     type={INPUT_TYPE[props.node.valueType]}
                     value={formatFieldValue(props.node.valueType, value() as string | number)}
-                    path={props.node.path}
+                    path={suggestPath()}
                     onChange={raw => changeValue(index, raw)}
                   />
                 }>

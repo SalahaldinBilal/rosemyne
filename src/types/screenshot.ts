@@ -159,6 +159,7 @@ export type FilterGroup = {
   id: number,
   kind: "group",
   relation: FilterRelationOperations,
+  scope: string[],
   children: FilterNode[],
 };
 

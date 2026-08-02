@@ -25,16 +25,52 @@ function defaultValueFor(type: FilterValueType): FilterScalar {
   return "";
 }
 
+function emptyConditionFields(): Omit<FilterCondition, "id" | "kind"> {
+  return { path: [], valueType: "string", operation: FilterOperations.equals, values: [""] };
+}
+
 function makeCondition(): FilterCondition {
-  return { id: nextId++, kind: "condition", path: [], valueType: "string", operation: FilterOperations.equals, values: [""] };
+  return { id: nextId++, kind: "condition", ...emptyConditionFields() };
 }
 
 function makeGroup(): FilterGroup {
-  return { id: nextId++, kind: "group", relation: FilterRelationOperations.and, children: [] };
+  return { id: nextId++, kind: "group", relation: FilterRelationOperations.and, scope: [], children: [] };
 }
 
 export function tagPathKey(path: string[]): string {
   return JSON.stringify(path);
+}
+
+// `$`-prefixed keys are reserved system fields (`$file`); show them prettified.
+export function keyLabel(key: string): string {
+  return key.startsWith("$") ? key.charAt(1).toUpperCase() + key.slice(2) : key;
+}
+
+export function tagMapAtPath(tagMap: TagValueTypeMap, path: string[]): TagValueTypeMap {
+  let map = tagMap;
+
+  for (const key of path) {
+    const entry = map[key];
+    if (!entry || typeof entry.type !== "object") return {};
+    map = entry.type;
+  }
+
+  return map;
+}
+
+// Object-array paths only; scoping to a single object is what an unscoped group already does.
+export function scopePaths(tagMap: TagValueTypeMap, prefix: string[] = []): string[][] {
+  const out: string[][] = [];
+
+  for (const [key, entry] of Object.entries(tagMap)) {
+    if (typeof entry.type !== "object") continue;
+
+    const path = [...prefix, key];
+    if (entry.isArray) out.push(path);
+    out.push(...scopePaths(entry.type, path));
+  }
+
+  return out;
 }
 
 export function valueTypeAtPath(tagMap: TagValueTypeMap, path: string[]): FilterValueType | null {
@@ -108,6 +144,24 @@ function useTagFilterStateInner() {
     editNode<FilterGroup>(groupId, "group", group => { group.relation = relation; });
   }
 
+  // Descendant paths were relative to the old scope, so they can't survive it.
+  function resetPaths(node: FilterNode) {
+    if (node.kind === "group") {
+      node.scope = [];
+      node.children.forEach(resetPaths);
+      return;
+    }
+
+    Object.assign(node, emptyConditionFields());
+  }
+
+  function setGroupScope(groupId: number, scope: string[]) {
+    editNode<FilterGroup>(groupId, "group", group => {
+      group.scope = scope;
+      group.children.forEach(resetPaths);
+    });
+  }
+
   function setConditionPath(id: number, path: string[], tagMap: TagValueTypeMap) {
     const valueType = valueTypeAtPath(tagMap, path);
 
@@ -140,7 +194,7 @@ function useTagFilterStateInner() {
     });
   }
 
-  return { root, addCondition, addGroup, removeNode, setRelation, setConditionPath, setOperation, addValue, setValue, removeValue };
+  return { root, addCondition, addGroup, removeNode, setRelation, setGroupScope, setConditionPath, setOperation, addValue, setValue, removeValue };
 }
 
 const useTagFilterState = createRoot(useTagFilterStateInner);
@@ -168,13 +222,16 @@ export function augmentTags(
   };
 }
 
-export function matchTagsToFilter(node: FilterNode, tags: { [key: string]: TagValue }): boolean {
+export function matchTagsToFilter(node: FilterNode, tags: TagValue): boolean {
   if (node.kind === "group") {
     if (node.children.length === 0) return true;
 
-    return node.relation === FilterRelationOperations.and
-      ? node.children.every(child => matchTagsToFilter(child, tags))
-      : node.children.some(child => matchTagsToFilter(child, tags));
+    const matchChildren = (scoped: TagValue) => node.relation === FilterRelationOperations.and
+      ? node.children.every(child => matchTagsToFilter(child, scoped))
+      : node.children.some(child => matchTagsToFilter(child, scoped));
+
+    if (node.scope.length === 0) return matchChildren(tags);
+    return resolveScope(tags, node.scope).some(candidate => matchChildren(candidate));
   }
 
   if (node.path.length === 0 || node.values.length === 0) return true;
@@ -195,6 +252,17 @@ function markerScalar(value: TagValue): number | null {
   const inner = value[keys[0]];
   if ((keys[0] !== TIME_TAG_KEY && keys[0] !== DATE_TIME_TAG_KEY) || typeof inner !== "number") return null;
   return inner;
+}
+
+// Mirrors `resolve_scope` (Rust): the containers at the path, not the scalars under it.
+function resolveScope(value: TagValue, path: string[]): TagValue[] {
+  if (Array.isArray(value)) return (value as TagValue[]).flatMap(item => resolveScope(item, path));
+  if (path.length === 0) return value === null ? [] : [value];
+  if (value === null || typeof value !== "object") return [];
+
+  const [head, ...rest] = path;
+  const next = (value as { [key: string]: TagValue })[head];
+  return next === undefined ? [] : resolveScope(next, rest);
 }
 
 function resolvePath(value: TagValue, path: string[]): FilterScalar[] {

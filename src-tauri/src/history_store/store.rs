@@ -1390,17 +1390,26 @@ mod tests {
     }
 
     fn empty_filter() -> FilterNode {
-        FilterNode::Group { relation: 0, children: vec![] }
+        group(0, &[], vec![])
+    }
+
+    fn group(relation: u8, scope: &[&str], children: Vec<FilterNode>) -> FilterNode {
+        FilterNode::Group {
+            relation,
+            scope: scope.iter().map(|s| s.to_string()).collect(),
+            children,
+        }
     }
 
     fn equals(path: &[&str], value: serde_json::Value) -> FilterNode {
-        FilterNode::Group {
-            relation: 0,
-            children: vec![FilterNode::Condition {
-                path: path.iter().map(|s| s.to_string()).collect(),
-                operation: 0,
-                values: vec![value],
-            }],
+        group(0, &[], vec![raw_condition(path, 0, vec![value])])
+    }
+
+    fn raw_condition(path: &[&str], operation: u8, values: Vec<serde_json::Value>) -> FilterNode {
+        FilterNode::Condition {
+            path: path.iter().map(|s| s.to_string()).collect(),
+            operation,
+            values,
         }
     }
 
@@ -1651,14 +1660,7 @@ mod tests {
     }
 
     fn condition(path: &[&str], operation: u8, values: Vec<serde_json::Value>) -> FilterNode {
-        FilterNode::Group {
-            relation: 0,
-            children: vec![FilterNode::Condition {
-                path: path.iter().map(|s| s.to_string()).collect(),
-                operation,
-                values,
-            }],
-        }
+        group(0, &[], vec![raw_condition(path, operation, values)])
     }
 
     /// Every operation, exact-compiled or residual, must return the same rows
@@ -1749,21 +1751,36 @@ mod tests {
             condition(&["$file", "Size"], 1, vec![json!(1500)]),
             condition(&["$file", "Size"], 2, vec![json!(1000)]),
             condition(&["$file", "Size"], 5, vec![json!(750)]),
-            FilterNode::Group {
-                relation: 1,
-                children: vec![
-                    FilterNode::Condition {
-                        path: vec!["ProcessName".to_string()],
-                        operation: 0,
-                        values: vec![json!("firefox")],
-                    },
-                    FilterNode::Condition {
-                        path: vec!["$file".to_string(), "Name".to_string()],
-                        operation: 6,
-                        values: vec![json!("untagged")],
-                    },
-                ],
-            },
+            group(1, &[], vec![
+                raw_condition(&["ProcessName"], 0, vec![json!("firefox")]),
+                raw_condition(&["$file", "Name"], 6, vec![json!("untagged")]),
+            ]),
+            // Scoped groups: only the same `Windows` element may satisfy every child.
+            group(0, &["Windows"], vec![
+                raw_condition(&["Window Name"], 0, vec![json!("firefox")]),
+                raw_condition(&["Screenshot Percentage"], 2, vec![json!(0.5)]),
+            ]),
+            group(0, &["Windows"], vec![
+                raw_condition(&["Window Name"], 6, vec![json!("Studio")]),
+                raw_condition(&["Screenshot Percentage"], 2, vec![json!(0.5)]),
+            ]),
+            group(1, &["Windows"], vec![
+                raw_condition(&["Window Name"], 0, vec![json!("firefox")]),
+                raw_condition(&["Screenshot Percentage"], 2, vec![json!(0.5)]),
+            ]),
+            group(0, &["Windows"], vec![
+                raw_condition(&["Window Name"], 1, vec![json!("firefox")]),
+                raw_condition(&["Screenshot Percentage"], 3, vec![json!(0.5)]),
+            ]),
+            group(0, &["Windows"], vec![raw_condition(&["Window Name"], 10, vec![json!("ffx")])]),
+            group(0, &["Windows"], vec![raw_condition(&["Missing"], 1, vec![json!("x")])]),
+            group(0, &[], vec![
+                group(0, &["Windows"], vec![
+                    raw_condition(&["Window Name"], 0, vec![json!("firefox")]),
+                    raw_condition(&["Screenshot Percentage"], 5, vec![json!(0.25)]),
+                ]),
+                raw_condition(&["ProcessName"], 0, vec![json!("Code")]),
+            ]),
         ];
 
         for filter in filters {

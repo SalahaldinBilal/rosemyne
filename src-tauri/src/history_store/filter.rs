@@ -16,6 +16,9 @@ use crate::screen_manager::screenshot_manager::{DATE_TIME_TAG_KEY, TIME_TAG_KEY}
 pub enum FilterNode {
     Group {
         relation: u8,
+        /// Empty (or absent) scopes the group to the whole row.
+        #[serde(default)]
+        scope: Vec<String>,
         children: Vec<FilterNode>,
     },
     Condition {
@@ -52,15 +55,27 @@ enum Candidate<'a> {
 
 pub fn eval(node: &FilterNode, tags: &Value) -> bool {
     match node {
-        FilterNode::Group { relation, children } => {
+        FilterNode::Group {
+            relation,
+            scope,
+            children,
+        } => {
             if children.is_empty() {
                 return true;
             }
-            if *relation == RELATION_OR {
-                children.iter().any(|child| eval(child, tags))
-            } else {
-                children.iter().all(|child| eval(child, tags))
+            let matches = |value: &Value| {
+                if *relation == RELATION_OR {
+                    children.iter().any(|child| eval(child, value))
+                } else {
+                    children.iter().all(|child| eval(child, value))
+                }
+            };
+            if scope.is_empty() {
+                return matches(tags);
             }
+            let mut candidates = Vec::new();
+            resolve_scope(tags, scope, &mut candidates);
+            candidates.iter().any(|candidate| matches(candidate))
         }
         FilterNode::Condition {
             path,
@@ -96,6 +111,30 @@ pub(super) fn marker_scalar(value: &Value) -> Option<(&'static str, &Value)> {
         return Some(("dateTime", inner));
     }
     None
+}
+
+/// `resolve_path`'s counterpart for scopes: the containers at the path, not the scalars under it.
+fn resolve_scope<'a>(value: &'a Value, path: &[String], out: &mut Vec<&'a Value>) {
+    if let Value::Array(items) = value {
+        for item in items {
+            resolve_scope(item, path, out);
+        }
+        return;
+    }
+
+    if path.is_empty() {
+        if !value.is_null() {
+            out.push(value);
+        }
+        return;
+    }
+
+    if let Value::Object(map) = value {
+        let (head, rest) = path.split_first().expect("path is non-empty");
+        if let Some(next) = map.get(head) {
+            resolve_scope(next, rest, out);
+        }
+    }
 }
 
 fn resolve_path<'a>(value: &'a Value, path: &[String]) -> Vec<Candidate<'a>> {
@@ -263,8 +302,25 @@ mod tests {
         }
     }
 
+    fn group(relation: u8, scope: &[&str], children: Vec<FilterNode>) -> FilterNode {
+        FilterNode::Group {
+            relation,
+            scope: scope.iter().map(|s| s.to_string()).collect(),
+            children,
+        }
+    }
+
     fn matches(node: &FilterNode, tags: Value) -> bool {
         eval(node, &tags)
+    }
+
+    fn windows() -> Value {
+        json!({
+            "Windows": [
+                { "Name": "code", "Percentage": 0.75 },
+                { "Name": "firefox", "Percentage": 0.25 },
+            ]
+        })
     }
 
     #[test]
@@ -350,23 +406,82 @@ mod tests {
     #[test]
     fn group_and_or() {
         let tags = json!({ "a": "1", "b": "2" });
-        let and = FilterNode::Group {
-            relation: 0,
-            children: vec![
-                cond(&["a"], EQUALS, vec![json!("1")]),
-                cond(&["b"], EQUALS, vec![json!("2")]),
-            ],
-        };
-        let or = FilterNode::Group {
-            relation: RELATION_OR,
-            children: vec![
-                cond(&["a"], EQUALS, vec![json!("nope")]),
-                cond(&["b"], EQUALS, vec![json!("2")]),
-            ],
-        };
+        let and = group(0, &[], vec![
+            cond(&["a"], EQUALS, vec![json!("1")]),
+            cond(&["b"], EQUALS, vec![json!("2")]),
+        ]);
+        let or = group(RELATION_OR, &[], vec![
+            cond(&["a"], EQUALS, vec![json!("nope")]),
+            cond(&["b"], EQUALS, vec![json!("2")]),
+        ]);
         assert!(matches(&and, tags.clone()));
         assert!(matches(&or, tags.clone()));
         // Empty group matches everything.
-        assert!(matches(&FilterNode::Group { relation: 0, children: vec![] }, tags));
+        assert!(matches(&group(0, &[], vec![]), tags));
+    }
+
+    #[test]
+    fn scoped_and_requires_one_element_to_satisfy_every_child() {
+        let children = vec![
+            cond(&["Name"], EQUALS, vec![json!("firefox")]),
+            cond(&["Percentage"], GREATER_THAN, vec![json!(0.5)]),
+        ];
+        // Unscoped, the two conditions are satisfied by different windows.
+        assert!(matches(
+            &group(0, &[], vec![
+                cond(&["Windows", "Name"], EQUALS, vec![json!("firefox")]),
+                cond(&["Windows", "Percentage"], GREATER_THAN, vec![json!(0.5)]),
+            ]),
+            windows()
+        ));
+        assert!(!matches(&group(0, &["Windows"], children), windows()));
+        assert!(matches(
+            &group(0, &["Windows"], vec![
+                cond(&["Name"], EQUALS, vec![json!("code")]),
+                cond(&["Percentage"], GREATER_THAN, vec![json!(0.5)]),
+            ]),
+            windows()
+        ));
+    }
+
+    #[test]
+    fn scoped_or_matches_any_element() {
+        assert!(matches(
+            &group(RELATION_OR, &["Windows"], vec![
+                cond(&["Name"], EQUALS, vec![json!("firefox")]),
+                cond(&["Percentage"], GREATER_THAN, vec![json!(0.9)]),
+            ]),
+            windows()
+        ));
+    }
+
+    #[test]
+    fn scope_without_candidates_does_not_match() {
+        let scoped = group(0, &["Windows"], vec![cond(&["Name"], NOT_EQUALS, vec![json!("x")])]);
+        assert!(!matches(&scoped, json!({})));
+        assert!(!matches(&scoped, json!({ "Windows": [] })));
+        assert!(matches(&scoped, windows()));
+        // An empty scoped group still matches everything, like any empty group.
+        assert!(matches(&group(0, &["Windows"], vec![]), json!({})));
+    }
+
+    #[test]
+    fn nested_scopes_resolve_relative_to_their_parent() {
+        let tags = json!({
+            "Windows": [
+                { "Name": "code", "Tabs": [{ "Title": "main.rs", "Pinned": true }] },
+                { "Name": "firefox", "Tabs": [{ "Title": "docs", "Pinned": false }] },
+            ]
+        });
+        let filter = |window: &str, title: &str| group(0, &["Windows"], vec![
+            cond(&["Name"], EQUALS, vec![json!(window)]),
+            group(0, &["Tabs"], vec![
+                cond(&["Title"], EQUALS, vec![json!(title)]),
+                cond(&["Pinned"], EQUALS, vec![json!(true)]),
+            ]),
+        ]);
+        assert!(matches(&filter("code", "main.rs"), tags.clone()));
+        assert!(!matches(&filter("firefox", "main.rs"), tags.clone()));
+        assert!(!matches(&filter("firefox", "docs"), tags));
     }
 }

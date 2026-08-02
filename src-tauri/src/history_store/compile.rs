@@ -19,32 +19,45 @@ pub struct CompiledFilter {
 }
 
 pub fn compile(node: &FilterNode) -> CompiledFilter {
+    compile_node(node, &[])
+}
+
+/// `prefix` is the absolute path of the enclosing scopes; condition paths are relative to it.
+fn compile_node(node: &FilterNode, prefix: &[String]) -> CompiledFilter {
     match node {
-        FilterNode::Group { relation, children } => {
+        FilterNode::Group { relation, scope, children } => {
             if children.is_empty() {
                 return literal("1", true);
             }
-            let parts: Vec<CompiledFilter> = children.iter().map(compile).collect();
+            let child_prefix = joined(prefix, scope);
+            let parts: Vec<CompiledFilter> =
+                children.iter().map(|child| compile_node(child, &child_prefix)).collect();
             let joiner = if *relation == RELATION_OR { " OR " } else { " AND " };
+            // `tag_index` flattens arrays away; only a scoped AND over 2+ children loses precision to that.
+            let same_element = !scope.is_empty() && *relation != RELATION_OR && children.len() > 1;
             CompiledFilter {
                 expr: format!(
                     "({})",
                     parts.iter().map(|p| p.expr.as_str()).collect::<Vec<_>>().join(joiner)
                 ),
-                exact: parts.iter().all(|p| p.exact),
+                exact: !same_element && parts.iter().all(|p| p.exact),
                 params: parts.into_iter().flat_map(|p| p.params).collect(),
             }
         }
         FilterNode::Condition { path, operation, values } => {
-            compile_condition(path, *operation, values)
+            if path.is_empty() || values.is_empty() {
+                return literal("1", true);
+            }
+            compile_condition(&joined(prefix, path), *operation, values)
         }
     }
 }
 
+fn joined(prefix: &[String], rest: &[String]) -> Vec<String> {
+    prefix.iter().chain(rest.iter()).cloned().collect()
+}
+
 fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> CompiledFilter {
-    if path.is_empty() || values.is_empty() {
-        return literal("1", true);
-    }
     if !is_known_operation(operation) {
         return literal("1", false);
     }
@@ -420,9 +433,17 @@ mod tests {
         }
     }
 
+    fn group(relation: u8, scope: &[&str], children: Vec<FilterNode>) -> FilterNode {
+        FilterNode::Group {
+            relation,
+            scope: scope.iter().map(|s| s.to_string()).collect(),
+            children,
+        }
+    }
+
     #[test]
     fn empty_group_is_exact_true() {
-        let compiled = compile(&FilterNode::Group { relation: 0, children: vec![] });
+        let compiled = compile(&group(0, &[], vec![]));
         assert_eq!(compiled.expr, "1");
         assert!(compiled.exact);
     }
@@ -462,17 +483,46 @@ mod tests {
 
     #[test]
     fn group_exactness_requires_all_children_exact() {
-        let group = FilterNode::Group {
-            relation: RELATION_OR,
-            children: vec![
-                condition(&["a"], EQUALS, vec![json!("x")]),
-                condition(&["b"], NOT_EQUALS, vec![json!("y")]),
-            ],
-        };
-        let compiled = compile(&group);
+        let compiled = compile(&group(RELATION_OR, &[], vec![
+            condition(&["a"], EQUALS, vec![json!("x")]),
+            condition(&["b"], NOT_EQUALS, vec![json!("y")]),
+        ]));
         assert!(compiled.expr.starts_with('('));
         assert!(compiled.expr.contains(" OR "));
         assert!(!compiled.exact);
+    }
+
+    #[test]
+    fn scope_prefixes_child_paths() {
+        let compiled = compile(&group(0, &["Windows"], vec![
+            condition(&["Window Name"], EQUALS, vec![json!("firefox")]),
+        ]));
+        assert_eq!(compiled.params[0], SqlValue::Text("[\"Windows\",\"Window Name\"]".into()));
+
+        let nested = compile(&group(0, &["Windows"], vec![
+            group(0, &["Tabs"], vec![condition(&["Title"], EQUALS, vec![json!("x")])]),
+        ]));
+        assert_eq!(nested.params[0], SqlValue::Text("[\"Windows\",\"Tabs\",\"Title\"]".into()));
+    }
+
+    #[test]
+    fn scoped_and_over_several_children_is_inexact() {
+        let children = || vec![
+            condition(&["Window Name"], EQUALS, vec![json!("firefox")]),
+            condition(&["Screenshot Percentage"], GREATER_THAN, vec![json!(0.5)]),
+        ];
+        assert!(!compile(&group(0, &["Windows"], children())).exact);
+        // `∃e ∃child` is the same set as `∃child ∃e`, and one child needs no agreement.
+        assert!(compile(&group(RELATION_OR, &["Windows"], children())).exact);
+        assert!(compile(&group(0, &["Windows"], vec![children().remove(0)])).exact);
+        assert!(compile(&group(0, &[], children())).exact);
+    }
+
+    #[test]
+    fn unconfigured_condition_under_a_scope_matches_everything() {
+        let compiled = compile(&group(0, &["Windows"], vec![condition(&[], EQUALS, vec![json!("x")])]));
+        assert_eq!(compiled.expr, "(1)");
+        assert!(compiled.exact);
     }
 
     #[test]

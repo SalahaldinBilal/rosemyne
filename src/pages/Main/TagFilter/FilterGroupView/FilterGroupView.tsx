@@ -1,19 +1,34 @@
-import { For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import styles from "./FilterGroupView.module.scss";
 import ghost from "../controls/ghost.module.scss";
-import { FilterGroup, FilterRelationOperations, TagValueTypeMap } from "../../../../types";
-import useTagFilterState from "../../../../states/tagFilterState";
+import { FilterGroup, FilterRelationOperations, SelectItem, TagValueTypeMap } from "../../../../types";
+import useTagFilterState, { keyLabel, scopePaths, tagMapAtPath, tagPathKey } from "../../../../states/tagFilterState";
 import Button from "../../../../components/Button/Button";
+import Select from "../../../../components/Select/Select";
 import FilterConditionView from "../FilterConditionView/FilterConditionView";
 import { FolderPlus, Plus, Trash2 } from "lucide-solid";
 
 const ICON_STYLE = { height: "34px", "min-width": "34px" } as const;
+const NO_SCOPE = tagPathKey([]);
 
-function FilterGroupView(props: { node: FilterGroup, tagMap: TagValueTypeMap, isRoot?: boolean }) {
-  const { setRelation, addCondition, addGroup, removeNode } = useTagFilterState;
-  const isAnd = () => props.node.relation === FilterRelationOperations.and;
+function FilterGroupView(props: { node: FilterGroup, tagMap: TagValueTypeMap, pathPrefix?: string[], isRoot?: boolean }) {
+  const { setRelation, setGroupScope, addCondition, addGroup, removeNode } = useTagFilterState;
+  const isAnd = createMemo(() => props.node.relation === FilterRelationOperations.and);
   // The relation only distinguishes anything with two or more children.
-  const showSegment = () => props.node.children.length > 1;
+  const showSegment = createMemo(() => props.node.children.length > 1);
+
+  const scopeItems = createMemo<SelectItem<string[]>[]>(() => [
+    { id: NO_SCOPE, value: [], label: "Anywhere in the capture" },
+    ...scopePaths(props.tagMap).map(path => ({
+      id: tagPathKey(path),
+      value: path,
+      label: `Same ${path.map(keyLabel).join(" › ")} entry`,
+    })),
+  ]);
+
+  const scopeKey = createMemo(() => tagPathKey(props.node.scope));
+  const childTagMap = createMemo(() => tagMapAtPath(props.tagMap, props.node.scope));
+  const childPrefix = createMemo(() => [...(props.pathPrefix ?? []), ...props.node.scope]);
 
   return (
     <div class={styles.Group} classList={{ [styles.Nested]: !props.isRoot }}>
@@ -23,6 +38,16 @@ function FilterGroupView(props: { node: FilterGroup, tagMap: TagValueTypeMap, is
             <div class={styles.Segment}>
               <button classList={{ [styles.Active]: isAnd() }} onClick={() => setRelation(props.node.id, FilterRelationOperations.and)}>All · AND</button>
               <button classList={{ [styles.Active]: !isAnd() }} onClick={() => setRelation(props.node.id, FilterRelationOperations.or)}>Any · OR</button>
+            </div>
+          </Show>
+          <Show when={!props.isRoot && scopeItems().length > 1}>
+            <div class={styles.Scope}>
+              <span class={styles.ScopeLabel}>Match in</span>
+              <Select
+                value={scopeKey()}
+                items={scopeItems()}
+                onItemClick={item => setGroupScope(props.node.id, item.value)}
+              />
             </div>
           </Show>
           <Show when={!props.isRoot}>
@@ -45,8 +70,8 @@ function FilterGroupView(props: { node: FilterGroup, tagMap: TagValueTypeMap, is
         <div class={styles.Children}>
           <For each={props.node.children}>{child =>
             child.kind === "group"
-              ? <FilterGroupView node={child} tagMap={props.tagMap} />
-              : <FilterConditionView node={child} tagMap={props.tagMap} />
+              ? <FilterGroupView node={child} tagMap={childTagMap()} pathPrefix={childPrefix()} />
+              : <FilterConditionView node={child} tagMap={childTagMap()} pathPrefix={childPrefix()} />
           }</For>
         </div>
       </Show>
