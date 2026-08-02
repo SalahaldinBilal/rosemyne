@@ -21,7 +21,8 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{
         AdjustWindowRectEx, EnumChildWindows, EnumWindows, GWL_EXSTYLE, GWL_STYLE, GetClassNameW,
         GetDesktopWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
-        GetWindowThreadProcessId, IsWindowVisible, WINDOW_EX_STYLE, WINDOW_STYLE,
+        GetWindowThreadProcessId, IsWindowVisible, WINDOW_EX_STYLE, WINDOW_STYLE, WS_EX_NOACTIVATE,
+        WS_EX_TRANSPARENT,
     },
 };
 
@@ -138,6 +139,10 @@ impl CaptureManager for WindowsCaptureManager {
                 let cloaked = is_window_cloaked(handle);
 
                 if cloaked {
+                    return None;
+                }
+
+                if is_input_shim(handle) {
                     return None;
                 }
 
@@ -293,6 +298,13 @@ fn get_window_rect_via_style(hwnd: HWND) -> Result<RECT, String> {
 
         Ok(adjusted_rect)
     }
+}
+
+/// Click-through + non-activatable marks an invisible overlay shim, like TabTip's topmost full-monitor "Shell Handwriting Canvas", which would occlude every real window.
+fn is_input_shim(hwnd: HWND) -> bool {
+    let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+
+    ex_style & WS_EX_TRANSPARENT.0 != 0 && ex_style & WS_EX_NOACTIVATE.0 != 0
 }
 
 fn is_window_cloaked(hwnd: HWND) -> bool {
