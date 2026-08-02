@@ -1,5 +1,5 @@
-import { createRoot } from "solid-js";
-import { createStore, produce } from "solid-js/store";
+import { createEffect, createMemo, createRoot, createSignal, on } from "solid-js";
+import { createStore, produce, unwrap } from "solid-js/store";
 import {
   DATE_TIME_TAG_KEY,
   FilterCondition,
@@ -10,10 +10,12 @@ import {
   FilterScalar,
   FilterValueType,
   OPERATIONS_BY_TYPE,
+  SavedFilter,
   TagValue,
   TagValueTypeMap,
   TIME_TAG_KEY,
 } from "../types/screenshot";
+import { safeInvoke } from "../helpers/safeInvoke";
 import fuzzysort from "fuzzysort";
 
 let nextId = 1;
@@ -35,6 +37,49 @@ function makeCondition(): FilterCondition {
 
 function makeGroup(): FilterGroup {
   return { id: nextId++, kind: "group", relation: FilterRelationOperations.and, scope: [], children: [] };
+}
+
+function isFilterScalar(value: unknown): value is FilterScalar {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function adoptNode(raw: unknown): FilterNode | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const source = raw as Record<string, unknown>;
+  if (source.kind === "group") return adoptGroup(source);
+  if (source.kind !== "condition") return null;
+
+  const valueType = (source.valueType as FilterValueType) in OPERATIONS_BY_TYPE ? source.valueType as FilterValueType : "string";
+  const operations = OPERATIONS_BY_TYPE[valueType];
+  const values = Array.isArray(source.values) ? source.values.filter(isFilterScalar) : [];
+
+  return {
+    id: nextId++,
+    kind: "condition",
+    path: stringList(source.path),
+    valueType,
+    operation: operations.includes(source.operation as FilterOperations) ? source.operation as FilterOperations : operations[0],
+    values: values.length > 0 ? values : [defaultValueFor(valueType)],
+  };
+}
+
+// Fresh ids: a stored tree's own would collide with `nextId` and misdirect `findById`.
+function adoptGroup(raw: unknown): FilterGroup {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  const children = Array.isArray(source.children) ? source.children : [];
+
+  return {
+    id: nextId++,
+    kind: "group",
+    relation: source.relation === FilterRelationOperations.or ? FilterRelationOperations.or : FilterRelationOperations.and,
+    scope: stringList(source.scope),
+    children: children.map(adoptNode).filter((node): node is FilterNode => node !== null),
+  };
 }
 
 export function tagPathKey(path: string[]): string {
@@ -114,6 +159,62 @@ function findParentOf(group: FilterGroup, id: number): FilterGroup | null {
 
 function useTagFilterStateInner() {
   const [root, setRoot] = createStore<FilterGroup>(makeGroup());
+  const [savedFilters, setSavedFilters] = createSignal<SavedFilter[]>([]);
+  const [activeFilterName, setActiveFilterName] = createSignal<string | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = createSignal<string | null>(null);
+  const [collapsed, setCollapsed] = createSignal(false);
+  const [filtersOpen, setFiltersOpen] = createSignal(false);
+
+  const isFilterDirty = createMemo(() => savedSnapshot() !== null && JSON.stringify(root) !== savedSnapshot());
+
+  const ruleCount = createMemo(() => {
+    const walk = (group: FilterGroup): number =>
+      group.children.reduce((sum, child) => sum + (child.kind === "group" ? walk(child) : 1), 0);
+    return walk(root);
+  });
+
+  // With nothing to collapse the toggle disappears; never stay stuck collapsed.
+  createEffect(on(ruleCount, count => {
+    if (count === 0) setCollapsed(false);
+  }));
+
+
+  function filterSnapshot(): FilterGroup {
+    return JSON.parse(JSON.stringify(unwrap(root)));
+  }
+
+  function markSaved(name: string | null) {
+    setActiveFilterName(name);
+    setSavedSnapshot(name === null ? null : JSON.stringify(unwrap(root)));
+  }
+
+  async function refreshSavedFilters() {
+    setSavedFilters(await safeInvoke("get_saved_filters"));
+  }
+
+  // Loading into an empty panel would otherwise expand a whole tree the user never opened.
+  function loadFilter(saved: SavedFilter) {
+    if (ruleCount() === 0) setCollapsed(true);
+    setRoot(adoptGroup(saved.filter));
+    markSaved(saved.name);
+  }
+
+  async function saveFilterAs(name: string) {
+    await safeInvoke("save_filter", { name, filter: filterSnapshot() });
+    markSaved(name.trim());
+    await refreshSavedFilters();
+  }
+
+  async function deleteFilter(name: string) {
+    await safeInvoke("delete_saved_filter", { name });
+    if (activeFilterName() === name) markSaved(null);
+    await refreshSavedFilters();
+  }
+
+  function clearFilter() {
+    setRoot(makeGroup());
+    markSaved(null);
+  }
 
   function editNode<T extends FilterNode>(id: number, kind: T["kind"], edit: (node: T) => void) {
     setRoot(produce(draft => {
@@ -194,7 +295,10 @@ function useTagFilterStateInner() {
     });
   }
 
-  return { root, addCondition, addGroup, removeNode, setRelation, setGroupScope, setConditionPath, setOperation, addValue, setValue, removeValue };
+  return {
+    root, addCondition, addGroup, removeNode, setRelation, setGroupScope, setConditionPath, setOperation, addValue, setValue, removeValue,
+    savedFilters, activeFilterName, isFilterDirty, ruleCount, collapsed, setCollapsed, filtersOpen, setFiltersOpen, filterSnapshot, refreshSavedFilters, loadFilter, saveFilterAs, deleteFilter, clearFilter,
+  };
 }
 
 const useTagFilterState = createRoot(useTagFilterStateInner);

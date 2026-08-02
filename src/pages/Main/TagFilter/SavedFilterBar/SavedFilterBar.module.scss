@@ -1,14 +1,12 @@
-.TagFilters {
-  padding: 8px 14px 10px;
-}
-
-.Header {
+.SavedFilterBar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
 
   &:not(:last-child) {
-    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
   }
 }
 
@@ -21,6 +19,7 @@
   letter-spacing: .06em;
   text-transform: uppercase;
   font-weight: 600;
+  white-space: nowrap;
 
   svg {
     flex-shrink: 0;
@@ -36,13 +35,19 @@
   margin-left: auto;
 }
 
-.Badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background-color: var(--control-bg);
-  border: 1px solid var(--control-border);
+.SaveBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.SaveHint {
   color: var(--text-muted);
   font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+}
+
+.SaveFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }

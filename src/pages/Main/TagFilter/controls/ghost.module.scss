@@ -14,10 +14,15 @@
   font-family: inherit;
   transition: color .15s, border-color .15s, background-color .15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: var(--base-font-color);
     border-color: var(--control-border-hover);
     background-color: var(--control-bg);
+  }
+
+  &:disabled {
+    opacity: .45;
+    cursor: default;
   }
 
   svg {

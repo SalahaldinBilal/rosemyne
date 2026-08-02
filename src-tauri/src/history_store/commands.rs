@@ -4,7 +4,9 @@ use tauri::State;
 
 use super::filter::FilterNode;
 use super::metadata::TagMetadata;
-use super::store::{HistoryCursor, HistoryError, HistoryPage, HistorySort, TagValueSuggestion};
+use super::store::{
+    HistoryCursor, HistoryError, HistoryPage, HistorySort, SavedFilter, TagValueSuggestion,
+};
 use crate::HistoryStoreHandler;
 use crate::screen_manager::screenshot_manager::{ImageHistoryData, TagValue};
 
@@ -40,6 +42,39 @@ pub async fn get_tag_metadata(
 ) -> Result<TagMetadata, HistoryError> {
     let store = store.inner().clone();
     tauri::async_runtime::spawn_blocking(move || store.tag_metadata())
+        .await
+        .map_err(|err| HistoryError::Task(err.to_string()))?
+}
+
+#[tauri::command]
+pub async fn get_saved_filters(
+    store: State<'_, HistoryStoreHandler>,
+) -> Result<Vec<SavedFilter>, HistoryError> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.saved_filters())
+        .await
+        .map_err(|err| HistoryError::Task(err.to_string()))?
+}
+
+#[tauri::command]
+pub async fn save_filter(
+    store: State<'_, HistoryStoreHandler>,
+    name: String,
+    filter: serde_json::Value,
+) -> Result<(), HistoryError> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.save_filter(&name, &filter))
+        .await
+        .map_err(|err| HistoryError::Task(err.to_string()))?
+}
+
+#[tauri::command]
+pub async fn delete_saved_filter(
+    store: State<'_, HistoryStoreHandler>,
+    name: String,
+) -> Result<(), HistoryError> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.delete_saved_filter(&name))
         .await
         .map_err(|err| HistoryError::Task(err.to_string()))?
 }

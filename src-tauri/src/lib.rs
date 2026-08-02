@@ -6,8 +6,9 @@ use capture_preview::commands::{
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
 use history_store::commands::{
-    get_drag_icon, get_tag_metadata, list_videos_missing_thumbnail, query_history,
-    suggest_tag_values, update_history_tags,
+    delete_saved_filter, get_drag_icon, get_saved_filters, get_tag_metadata,
+    list_videos_missing_thumbnail, query_history, save_filter, suggest_tag_values,
+    update_history_tags,
 };
 use image::RgbaImage;
 use image_uploader::commands::{is_uploader_valid, maybe_auto_upload, test_uploader, upload_image};
@@ -776,6 +777,9 @@ pub fn run() {
             import_file,
             query_history,
             get_tag_metadata,
+            get_saved_filters,
+            save_filter,
+            delete_saved_filter,
             get_drag_icon,
             list_videos_missing_thumbnail,
             suggest_tag_values,

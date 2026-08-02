@@ -50,7 +50,11 @@ CREATE TABLE IF NOT EXISTS tag_index (
 );
 CREATE INDEX IF NOT EXISTS idx_tag_index_text ON tag_index(path, kind, value_text, history_id);
 CREATE INDEX IF NOT EXISTS idx_tag_index_num ON tag_index(path, kind, value_num, history_id);
-CREATE INDEX IF NOT EXISTS idx_tag_index_row ON tag_index(history_id);";
+CREATE INDEX IF NOT EXISTS idx_tag_index_row ON tag_index(history_id);
+CREATE TABLE IF NOT EXISTS saved_filters (
+  name   TEXT PRIMARY KEY COLLATE NOCASE,
+  filter TEXT NOT NULL
+);";
 
 const COLUMNS: &str =
     "file_name, file_path, type, date_time_ms, host, url, deletion_url, tags, file_size, upload_error";
@@ -112,6 +116,13 @@ impl Default for HistorySort {
 pub struct TagValueSuggestion {
     pub value: Value,
     pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedFilter {
+    pub name: String,
+    pub filter: Value,
 }
 
 struct Inner {
@@ -593,6 +604,49 @@ impl HistoryStore {
             "UPDATE history SET upload_error = ?1 WHERE file_name = ?2",
             params![error_json, file_name],
         )?;
+        Ok(())
+    }
+
+    pub fn saved_filters(&self) -> Result<Vec<SavedFilter>, HistoryError> {
+        let inner = self.lock();
+        let mut stmt = inner
+            .conn
+            .prepare("SELECT name, filter FROM saved_filters ORDER BY name COLLATE NOCASE")?;
+        let filters = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .filter_map(|(name, filter)| {
+                serde_json::from_str(&filter)
+                    .ok()
+                    .map(|filter| SavedFilter { name, filter })
+            })
+            .collect();
+        Ok(filters)
+    }
+
+    pub fn save_filter(&self, name: &str, filter: &Value) -> Result<(), HistoryError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(HistoryError::InvalidInput("filter name can't be empty".into()));
+        }
+
+        let inner = self.lock();
+        inner.conn.execute(
+            "INSERT INTO saved_filters (name, filter) VALUES (?1, ?2) \
+             ON CONFLICT(name) DO UPDATE SET name = excluded.name, filter = excluded.filter",
+            params![name, filter.to_string()],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_saved_filter(&self, name: &str) -> Result<(), HistoryError> {
+        let inner = self.lock();
+        inner
+            .conn
+            .execute("DELETE FROM saved_filters WHERE name = ?1", [name])?;
         Ok(())
     }
 
@@ -1333,6 +1387,7 @@ pub enum HistoryError {
     Io(std::io::Error),
     Encode(String),
     Task(String),
+    InvalidInput(String),
 }
 
 impl Display for HistoryError {
@@ -1342,6 +1397,7 @@ impl Display for HistoryError {
             Self::Io(err) => write!(f, "HistoryError::Io: {err}"),
             Self::Encode(err) => write!(f, "HistoryError::Encode: {err}"),
             Self::Task(err) => write!(f, "HistoryError::Task: {err}"),
+            Self::InvalidInput(err) => write!(f, "HistoryError::InvalidInput: {err}"),
         }
     }
 }
@@ -1624,6 +1680,29 @@ mod tests {
         let page = store.query(equals(&["ProcessName"], json!("firefox")), None, None, 10).unwrap();
         assert_eq!(page.total, Some(1));
         assert_eq!(page.items[0].file_name, "x.png");
+    }
+
+    #[test]
+    fn saved_filters_upsert_by_name_case_insensitively() {
+        let store = temp_store();
+        let tree = |relation: u8| json!({ "kind": "group", "relation": relation, "scope": [], "children": [] });
+
+        store.save_filter("Work", &tree(0)).unwrap();
+        store.save_filter("Recordings", &tree(0)).unwrap();
+        store.save_filter("  work  ", &tree(1)).unwrap();
+
+        let saved = store.saved_filters().unwrap();
+        assert_eq!(saved.len(), 2);
+        assert_eq!(saved[0].name, "Recordings");
+        assert_eq!(saved[1].name, "work");
+        assert_eq!(saved[1].filter["relation"], json!(1));
+
+        assert!(store.save_filter("   ", &tree(0)).is_err());
+
+        store.delete_saved_filter("WORK").unwrap();
+        let saved = store.saved_filters().unwrap();
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].name, "Recordings");
     }
 
     #[test]

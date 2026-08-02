@@ -165,6 +165,11 @@ export type FilterGroup = {
 
 export type FilterNode = FilterCondition | FilterGroup;
 
+export type SavedFilter = {
+  name: string,
+  filter: FilterGroup,
+};
+
 export type TagValueSuggestion = { value: string | number, count: number };
 
 export const RELATION_LABELS: Record<FilterRelationOperations, string> = {

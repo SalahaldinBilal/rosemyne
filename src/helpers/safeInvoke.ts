@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, RestitchResult, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
+import { CapturePreviewSettings, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -38,6 +38,9 @@ type Commands = {
   'finish_scroll_capture_review': Command<{ sessionId: number }>,
   'query_history': Command<{ filter: FilterGroup, sort: HistorySort, cursor: HistoryCursor | null, limit: number }, HistoryPage>,
   'get_tag_metadata': Command<undefined, TagMetadata>,
+  'get_saved_filters': Command<undefined, SavedFilter[]>,
+  'save_filter': Command<{ name: string, filter: FilterGroup }>,
+  'delete_saved_filter': Command<{ name: string }>,
   'get_drag_icon': Command<{ fileName: string }, string | null>,
   'list_videos_missing_thumbnail': Command<{ minSizeBytes: number }, string[]>,
   'suggest_tag_values': Command<{ path: string[], query: string }, TagValueSuggestion[]>,

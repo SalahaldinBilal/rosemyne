@@ -2,11 +2,13 @@ import { createMemo, createSignal, createEffect, For, Match, on, onCleanup, onMo
 import styles from "./Main.module.scss";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
-import { createStore, produce, reconcile, unwrap } from "solid-js/store";
+import { createStore, produce, reconcile } from "solid-js/store";
 import { HistoryCursor, HistorySort, ImageEditSession, ImageHistoryData, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
 import { ImageViewerApi } from "../../types";
 import { saveScreenshot } from "@core/helpers/saveScreenshot";
 import TagFilters from "./TagFilter/TagFilters";
+import SavedFilterBar from "./TagFilter/SavedFilterBar/SavedFilterBar";
+import FilterToolbar from "./TagFilter/FilterToolbar/FilterToolbar";
 import useTagFilterState, { augmentTags, matchTagsToFilter } from "../../states/tagFilterState";
 import { onboardingJustFinished } from "../../states/onboardingState";
 import Modal from "@core/components/Modal/Modal";
@@ -57,7 +59,7 @@ function Main() {
   const [uploadProgress, setUploadProgress] = createStore<{ [fileName: string]: { sent: number, total: number } | undefined }>({});
   const [uploadSuccess, setUploadSuccess] = createStore<{ [fileName: string]: { copied: boolean } | undefined }>({});
   const uploadSuccessTimers: { [fileName: string]: number } = {};
-  const { root } = useTagFilterState;
+  const { root, filterSnapshot, filtersOpen } = useTagFilterState;
   const { pushToast } = useToastState;
   const navigate = useNavigate();
 
@@ -89,15 +91,11 @@ function Main() {
   // first (cursor-less) page.
   let nextCursor: HistoryCursor | null = null;
 
-  function currentFilter() {
-    return JSON.parse(JSON.stringify(unwrap(root)));
-  }
-
   async function reload() {
     const token = ++requestToken;
     setLoading(true);
     try {
-      const page = await safeInvoke("query_history", { filter: currentFilter(), sort: sort(), cursor: null, limit: PAGE_SIZE });
+      const page = await safeInvoke("query_history", { filter: filterSnapshot(), sort: sort(), cursor: null, limit: PAGE_SIZE });
       if (token !== requestToken) return;
       setTotal(page.total ?? 0);
       nextCursor = page.nextCursor;
@@ -116,7 +114,7 @@ function Main() {
     const token = requestToken;
     setLoading(true);
     try {
-      const page = await safeInvoke("query_history", { filter: currentFilter(), sort: sort(), cursor: nextCursor, limit: PAGE_SIZE });
+      const page = await safeInvoke("query_history", { filter: filterSnapshot(), sort: sort(), cursor: nextCursor, limit: PAGE_SIZE });
       if (token !== requestToken) return;
       nextCursor = page.nextCursor;
       setItems(produce(list => list.push(...page.items)));
@@ -576,9 +574,15 @@ function Main() {
     <div class={styles.Content}>
       <div class={styles.ScreenshotListing} ref={scrollEl} onScroll={onScroll}>
         <div class={styles.FiltersHeader} ref={filtersEl}>
-          <Show when={metadata()}>
-            {meta => <TagFilters tagMap={meta().schema} sort={sort()} onSortChange={setSort} />}
-          </Show>
+          <div class={styles.FilterPanel}>
+            <FilterToolbar sort={sort()} onSortChange={setSort} />
+            <Show when={filtersOpen()}>
+              <SavedFilterBar />
+              <Show when={metadata()}>
+                {meta => <TagFilters tagMap={meta().schema} />}
+              </Show>
+            </Show>
+          </div>
         </div>
         <Show when={items.length > 0} fallback={
           <Show when={loading()} fallback={
