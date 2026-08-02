@@ -824,6 +824,9 @@ pub fn run() {
         eprintln!("Failed to read settings: {}", err);
     }
 
+    #[cfg(target_os = "windows")]
+    capture::windows::set_strip_window_border(settings.get_general().strip_window_border);
+
     let save_directory = settings.get_general().effective_save_directory(&app_path);
     if save_directory != app_path {
         if let Err(err) = history_store.set_base_path(save_directory) {
@@ -877,6 +880,9 @@ async fn run_callback(
 ) {
     match event {
         tauri::RunEvent::Ready => {
+            #[cfg(target_os = "windows")]
+            capture::windows::is_windows_11();
+
             create_screenshot_window(app_handle, screenshot_window).await;
             create_overlay_windows(app_handle);
             create_capture_preview_window(app_handle);

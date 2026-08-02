@@ -65,26 +65,31 @@ impl WindowBounds {
 pub struct WindowInfo {
     pub name: String,
     pub process_name: String,
+    /// The snap/crop box, with any composited border stripped. What the frontend selects.
     pub dimensions: DimensionsWithOrder,
+    /// The full composited frame the window actually paints over, kept out of the
+    /// frontend payload. Occlusion and coverage must use this, not `dimensions`, or
+    /// the stripped border becomes a gap every window behind this one shows through.
+    #[serde(skip)]
+    pub frame: DimensionsWithOrder,
     pub sub_dimensions: Vec<DimensionsWithOrder>,
     pub visible_percentage: f64,
     pub visible_bounds: Vec<Dimensions>,
 }
 
 impl WindowInfo {
-    pub fn new<D>(
+    pub fn new(
         name: String,
         process_name: String,
-        dimension: D,
+        dimensions: DimensionsWithOrder,
+        frame: DimensionsWithOrder,
         sub_dimensions: Vec<DimensionsWithOrder>,
-    ) -> Self
-    where
-        D: Into<DimensionsWithOrder>,
-    {
+    ) -> Self {
         Self {
             name,
             process_name,
-            dimensions: dimension.into(),
+            dimensions,
+            frame,
             sub_dimensions,
             visible_percentage: 0.0,
             visible_bounds: Vec::new(),
@@ -100,15 +105,13 @@ pub fn calculate_visible_bounds(windows: Vec<WindowInfo>) -> Vec<WindowInfo> {
         .rev()
         .enumerate()
         .map(|(i, current_window)| {
-            let total_area =
-                (current_window.dimensions.width * current_window.dimensions.height) as f64;
-            let mut bounds: Vec<Dimensions> =
-                vec![current_window.dimensions.clone().into_dimensions()];
+            let total_area = (current_window.frame.width * current_window.frame.height) as f64;
+            let mut bounds: Vec<Dimensions> = vec![current_window.frame.clone().into_dimensions()];
 
             for other_window in windows.iter().rev().skip(i + 1) {
                 bounds = bounds
                     .into_iter()
-                    .flat_map(|bound| subtract_intersection(&bound, &other_window.dimensions))
+                    .flat_map(|bound| subtract_intersection(&bound, &other_window.frame))
                     .collect();
             }
 

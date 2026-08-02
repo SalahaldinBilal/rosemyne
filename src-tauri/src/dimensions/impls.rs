@@ -20,7 +20,7 @@ pub struct Dimensions {
     pub height: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DimensionsWithOrder {
     pub x: u32,

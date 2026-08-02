@@ -27,6 +27,7 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   screenshotFormat: "webp",
   hasCompletedOnboarding: false,
   checkForUpdatesOnStartup: true,
+  stripWindowBorder: true,
 };
 
 function Onboarding() {

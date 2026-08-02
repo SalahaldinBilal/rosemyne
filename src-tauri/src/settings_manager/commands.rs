@@ -97,6 +97,9 @@ pub async fn set_general_settings(
     settings.set_general(general.clone())?;
     drop(settings);
 
+    #[cfg(target_os = "windows")]
+    crate::capture::windows::set_strip_window_border(general.strip_window_border);
+
     if old.autostart != general.autostart {
         let autolaunch = app_handle.autolaunch();
         let result = if general.autostart {

@@ -399,6 +399,7 @@ pub async fn take_screenshot(
                     windows.push(WindowInfo::new(
                         "Desktop".into(),
                         "desktop".into(),
+                        desktop_bounds.clone(),
                         desktop_bounds,
                         vec![],
                     ));

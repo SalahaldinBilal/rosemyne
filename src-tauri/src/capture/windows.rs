@@ -1,9 +1,14 @@
 use std::{
     ffi::OsString,
     os::{raw::c_void, windows::ffi::OsStringExt},
+    sync::{
+        LazyLock,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use image::RgbaImage;
+use windows::Wdk::System::SystemServices::RtlGetVersion;
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HWND, LPARAM, RECT},
     Graphics::{
@@ -14,9 +19,12 @@ use windows::Win32::{
             ReleaseDC, SRCCOPY, SelectObject,
         },
     },
-    System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
-        TH32CS_SNAPPROCESS,
+    System::{
+        Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+            TH32CS_SNAPPROCESS,
+        },
+        SystemInformation::OSVERSIONINFOW,
     },
     UI::WindowsAndMessaging::{
         AdjustWindowRectEx, EnumChildWindows, EnumWindows, GWL_EXSTYLE, GWL_STYLE, GetClassNameW,
@@ -190,7 +198,8 @@ impl CaptureManager for WindowsCaptureManager {
                     return None;
                 }
 
-                let mut rect = rect.to_normalized_ordered_dimensions(normalization_base)?;
+                let mut frame = rect.to_normalized_ordered_dimensions(normalization_base)?;
+                let mut dimensions = strip_composited_border(&frame);
 
                 let name = String::from_utf16(&name).ok()?;
                 let name = name.trim_end_matches(char::from(0));
@@ -220,18 +229,21 @@ impl CaptureManager for WindowsCaptureManager {
                         Ok(rect) => rect,
                         Err(_) => return true,
                     };
-                    let mut child_rect = match WindowBounds::from(child_rect)
+                    let child_rect = match WindowBounds::from(child_rect)
                         .to_normalized_ordered_dimensions(normalization_base)
                     {
                         Some(child) => child,
                         None => return true,
                     };
 
-                    if !child_rect.dims_equal(&rect)
-                        && rect.intersection_area(&child_rect) > 0
+                    let Some(mut child_rect) = clamp_within(&child_rect, &dimensions) else {
+                        return true;
+                    };
+
+                    if !child_rect.dims_equal(&dimensions)
                         && children
                             .iter()
-                            .find(|dimensions| dimensions.dims_equal(&child_rect))
+                            .find(|existing| existing.dims_equal(&child_rect))
                             .is_none()
                     {
                         child_rect.z_order = z_order;
@@ -242,9 +254,17 @@ impl CaptureManager for WindowsCaptureManager {
                     true
                 });
 
-                rect.z_order = z_order;
+                frame.z_order = z_order;
+                dimensions.z_order = z_order;
                 z_order -= 1;
-                Some(WindowInfo::new(name.into(), process_name, rect, children))
+
+                Some(WindowInfo::new(
+                    name.into(),
+                    process_name,
+                    dimensions,
+                    frame,
+                    children,
+                ))
             })
             .collect();
 
@@ -297,6 +317,78 @@ fn get_window_rect_via_style(hwnd: HWND) -> Result<RECT, String> {
         }
 
         Ok(adjusted_rect)
+    }
+}
+
+const WINDOWS_11_BUILD: u32 = 22000;
+
+static IS_WINDOWS_11: LazyLock<bool> = LazyLock::new(|| {
+    let mut info = OSVERSIONINFOW {
+        dwOSVersionInfoSize: std::mem::size_of::<OSVERSIONINFOW>() as u32,
+        ..Default::default()
+    };
+
+    // Unlike GetVersionEx this isn't subject to compatibility shimming.
+    if unsafe { RtlGetVersion(&mut info) }.is_err() {
+        eprintln!("RtlGetVersion failed, assuming pre-Windows 11 and leaving window borders intact");
+        return false;
+    }
+
+    info.dwMajorVersion > 10
+        || (info.dwMajorVersion == 10 && info.dwBuildNumber >= WINDOWS_11_BUILD)
+});
+
+/// Resolved once and cached; warmed at startup so no capture pays for it.
+pub fn is_windows_11() -> bool {
+    *IS_WINDOWS_11
+}
+
+static STRIP_WINDOW_BORDER: AtomicBool = AtomicBool::new(true);
+
+/// Mirrors the user setting, since window enumeration has no handle on settings state.
+pub fn set_strip_window_border(enabled: bool) {
+    STRIP_WINDOW_BORDER.store(enabled, Ordering::Relaxed);
+}
+
+/// A child is painted clipped to its parent and outranks it as a snap target, so anything reaching past the parent's stripped frame would hand back the border that strip removed.
+fn clamp_within(
+    child: &DimensionsWithOrder,
+    parent: &DimensionsWithOrder,
+) -> Option<DimensionsWithOrder> {
+    let left = child.x.max(parent.x);
+    let top = child.y.max(parent.y);
+    let right = (child.x + child.width).min(parent.x + parent.width);
+    let bottom = (child.y + child.height).min(parent.y + parent.height);
+
+    if right <= left || bottom <= top {
+        return None;
+    }
+
+    Some(DimensionsWithOrder {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+        z_order: child.z_order,
+    })
+}
+
+/// Win11 composites a 1px rounded-corner border over whatever sits behind the window and reports it inside the DWM frame, so capturing it copies a ring of background bleed.
+fn strip_composited_border(frame: &DimensionsWithOrder) -> DimensionsWithOrder {
+    if !STRIP_WINDOW_BORDER.load(Ordering::Relaxed)
+        || !is_windows_11()
+        || frame.width <= 2
+        || frame.height <= 2
+    {
+        return frame.clone();
+    }
+
+    DimensionsWithOrder {
+        x: frame.x + 1,
+        y: frame.y + 1,
+        width: frame.width - 2,
+        height: frame.height - 2,
+        z_order: frame.z_order,
     }
 }
 

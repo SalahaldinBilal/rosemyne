@@ -45,6 +45,8 @@ pub struct GeneralSettings {
     pub screenshot_format: ScreenshotImageFormat,
     pub has_completed_onboarding: bool,
     pub check_for_updates_on_startup: bool,
+    /// Windows only; Linux has no composited frame border to strip.
+    pub strip_window_border: bool,
 }
 
 impl Default for GeneralSettings {
@@ -61,6 +63,7 @@ impl Default for GeneralSettings {
             screenshot_format: ScreenshotImageFormat::default(),
             has_completed_onboarding: false,
             check_for_updates_on_startup: true,
+            strip_window_border: true,
         }
     }
 }

@@ -1,5 +1,5 @@
 import styles from "./GeneralSettings.module.scss";
-import { createMemo, createSignal, onMount } from "solid-js";
+import { Show, createMemo, createSignal, onMount } from "solid-js";
 import { createStore, reconcile, unwrap } from "solid-js/store";
 import Input from "@core/components/Input/Input";
 import Button from "@core/components/Button/Button";
@@ -10,6 +10,8 @@ import useToastState from "@core/states/toastState";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-solid";
 import { CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
+
+const IS_WINDOWS = navigator.userAgent.includes("Windows");
 
 function GeneralSettings() {
   const [general, setGeneral] = createStore<GeneralSettingsData>({
@@ -24,6 +26,7 @@ function GeneralSettings() {
     screenshotFormat: "webp",
     hasCompletedOnboarding: false,
     checkForUpdatesOnStartup: true,
+    stripWindowBorder: true,
   });
   const [availableCodecs, setAvailableCodecs] = createSignal<VideoCodec[]>(["h264"]);
   const [directoryInput, setDirectoryInput] = createSignal("");
@@ -130,6 +133,19 @@ function GeneralSettings() {
         <span class={styles.Hint}>Silently checks when the app opens; you'll get a notification if one's found.</span>
       </div>
     </label>
+    <Show when={IS_WINDOWS}>
+      <label class={styles.SettingRow}>
+        <input
+          type="checkbox"
+          checked={general.stripWindowBorder}
+          onChange={e => apply({ stripWindowBorder: e.currentTarget.checked })}
+        />
+        <div class={styles.SettingText}>
+          <span>Trim the window border when snapping</span>
+          <span class={styles.Hint}>Windows 11 draws a 1px border blended with whatever is behind a window, so snapping to one captures a ring of the background. Turn off to keep the border.</span>
+        </div>
+      </label>
+    </Show>
     <div class={styles.SettingRow}>
       <div class={styles.SettingText} style={{ width: '100%' }}>
         <span>Recording video codec</span>

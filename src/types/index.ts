@@ -93,6 +93,7 @@ export type GeneralSettings = {
   screenshotFormat: ScreenshotImageFormat,
   hasCompletedOnboarding: boolean,
   checkForUpdatesOnStartup: boolean,
+  stripWindowBorder: boolean,
 }
 
 // Windows' own custom-format-picture token syntax (`yyyy`, `MM`, `dd`, `HH`,
