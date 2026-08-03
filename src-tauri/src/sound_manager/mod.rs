@@ -35,6 +35,7 @@ impl SoundKind {
 #[serde(rename_all = "camelCase", default)]
 pub struct SoundSetting {
     pub enabled: bool,
+    pub instant_capture_enabled: bool,
     /// File name under `sounds/` (next to settings.json); `None` = use the bundled default.
     pub custom_file: Option<String>,
     /// Playback volume as a percentage (0-100).
@@ -45,6 +46,7 @@ impl Default for SoundSetting {
     fn default() -> Self {
         Self {
             enabled: true,
+            instant_capture_enabled: true,
             custom_file: None,
             volume: 100,
         }
@@ -63,6 +65,7 @@ pub struct SoundSettings {
 fn default_capture_setting() -> SoundSetting {
     SoundSetting {
         enabled: true,
+        instant_capture_enabled: true,
         custom_file: None,
         volume: 100,
     }
@@ -71,6 +74,7 @@ fn default_capture_setting() -> SoundSetting {
 fn default_task_success_setting() -> SoundSetting {
     SoundSetting {
         enabled: true,
+        instant_capture_enabled: true,
         custom_file: None,
         volume: 80,
     }
@@ -105,10 +109,10 @@ pub fn sounds_dir() -> PathBuf {
     crate::default_app_path().join("sounds")
 }
 
-/// Plays `kind` if enabled in settings, using its custom file when set ,
-/// falling back to the bundled default if that file is missing, unreadable,
-/// or fails to decode.
-pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind) {
+/// Plays `kind` if enabled for the supplied capture context, using its custom
+/// file when set, falling back to the bundled default if that file is missing,
+/// unreadable, or fails to decode.
+pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind, is_instant_capture: bool) {
     let settings_handle = app_handle.state::<SettingsHandler>();
     let setting = settings_handle
         .read()
@@ -117,7 +121,7 @@ pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind) {
         .get(kind)
         .clone();
 
-    if setting.enabled {
+    if setting.enabled && (!is_instant_capture || setting.instant_capture_enabled) {
         play_now(kind, setting.custom_file, setting.volume);
     }
 }

@@ -108,6 +108,7 @@ export type SoundKind = "capture" | "taskSuccess";
 
 export type SoundSetting = {
   enabled: boolean,
+  instantCaptureEnabled: boolean,
   customFile: string | null,
   volume: number,
 }

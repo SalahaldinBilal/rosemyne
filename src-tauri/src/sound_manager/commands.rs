@@ -24,6 +24,19 @@ pub async fn set_sound_enabled(
         .map_err(|err| err.to_string())
 }
 
+#[tauri::command]
+pub async fn set_instant_capture_sound_enabled(
+    settings_handle: State<'_, SettingsHandler>,
+    kind: SoundKind,
+    enabled: bool,
+) -> Result<(), String> {
+    settings_handle
+        .write()
+        .await
+        .set_instant_capture_sound_enabled(kind, enabled)
+        .map_err(|err| err.to_string())
+}
+
 /// Copies the user-picked file (already resolved by the frontend's native file
 /// dialog) into `sounds/<kind>.<ext>`, replacing any previous custom file for
 /// that kind so extension changes don't leave orphans behind.

@@ -255,6 +255,11 @@ impl Settings {
         self.save_settings()
     }
 
+    pub fn set_instant_capture_sound_enabled(&mut self, kind: SoundKind, enabled: bool) -> Result<(), SettingsError> {
+        self.user_settings.sound.get_mut(kind).instant_capture_enabled = enabled;
+        self.save_settings()
+    }
+
     pub fn set_sound_custom_file(&mut self, kind: SoundKind, file_name: Option<String>) -> Result<(), SettingsError> {
         self.user_settings.sound.get_mut(kind).custom_file = file_name;
         self.save_settings()

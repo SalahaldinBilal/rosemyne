@@ -55,6 +55,19 @@
     }
   }
 
+  .ChildSetting {
+    margin-left: 30px;
+
+    &:has(input:disabled) {
+      cursor: default;
+      opacity: 0.55;
+
+      input {
+        cursor: default;
+      }
+    }
+  }
+
   .SoundControls {
     display: flex;
     align-items: center;

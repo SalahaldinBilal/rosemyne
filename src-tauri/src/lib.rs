@@ -46,8 +46,8 @@ use settings_manager::settings::Settings;
 use settings_manager::shortcuts::shortcut_handler;
 use sharex_migration::commands::migrate_from_sharex;
 use sound_manager::commands::{
-    get_sound_settings, preview_sound, reset_custom_sound, set_custom_sound, set_sound_enabled,
-    set_sound_volume,
+    get_sound_settings, preview_sound, reset_custom_sound, set_custom_sound,
+    set_instant_capture_sound_enabled, set_sound_enabled, set_sound_volume,
 };
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -94,13 +94,13 @@ macro_rules! emit_on_main_thread {
 }
 
 /// Shared tail for every history-adding path; waits on auto-upload (a no-op unless one applies) before showing the capture preview, so its link is already included.
-pub fn notify_history_saved(app_handle: &AppHandle, entry: &ImageHistoryData) {
+pub fn notify_history_saved(app_handle: &AppHandle, entry: &ImageHistoryData, is_instant_capture: bool) {
     emit_on_main_thread!(app_handle, "screenshot://new-saved-image", entry.clone());
 
     let app_handle = app_handle.clone();
     let file_name = entry.file_name.clone();
     tauri::async_runtime::spawn(async move {
-        maybe_auto_upload(app_handle.clone(), file_name.clone()).await;
+        maybe_auto_upload(app_handle.clone(), file_name.clone(), is_instant_capture).await;
 
         let history_store = app_handle.state::<HistoryStoreHandler>().inner().clone();
         capture_preview::commands::trigger(&app_handle, &history_store, &file_name).await;
@@ -212,6 +212,7 @@ async fn save_rendered_screenshot(
         &image,
         window_tags,
         args.play_sound,
+        false,
     )
     .await;
 }
@@ -242,7 +243,7 @@ async fn import_file(
     .map_err(|err| err.to_string())?;
 
     if let Some(entry) = &entry {
-        notify_history_saved(&app_handle, entry);
+        notify_history_saved(&app_handle, entry, false);
     }
     Ok(entry)
 }
@@ -815,6 +816,7 @@ pub fn run() {
             migrate_from_sharex,
             get_sound_settings,
             set_sound_enabled,
+            set_instant_capture_sound_enabled,
             set_sound_volume,
             set_custom_sound,
             reset_custom_sound,

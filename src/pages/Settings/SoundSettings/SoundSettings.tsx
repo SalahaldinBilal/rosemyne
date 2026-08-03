@@ -8,9 +8,19 @@ import { SoundKind, SoundSettings as SoundSettingsData } from "@core/types";
 import { FolderOpen, Play, RotateCcw } from "lucide-solid";
 import useToastState from "@core/states/toastState";
 
-const SOUND_ROWS: Array<{ kind: SoundKind, title: string, hint: string }> = [
-  { kind: "capture", title: "Screenshot captured", hint: "Plays right after a screenshot is saved to history." },
-  { kind: "taskSuccess", title: "Task finished successfully", hint: "Plays when a background task completes." },
+const SOUND_ROWS: Array<{ kind: SoundKind, title: string, hint: string, instantHint: string }> = [
+  {
+    kind: "capture",
+    title: "Screenshot captured",
+    hint: "Plays right after a screenshot is saved to history.",
+    instantHint: "Play the capture sound when using an instant-capture shortcut.",
+  },
+  {
+    kind: "taskSuccess",
+    title: "Task finished successfully",
+    hint: "Plays when a background task completes.",
+    instantHint: "Play the task-finished sound when an instant capture's auto-upload completes.",
+  },
 ];
 
 const AUDIO_EXTENSIONS = ["mp3", "wav", "flac", "ogg", "m4a", "aac", "weba", "webm"];
@@ -18,8 +28,8 @@ const VOLUME_SAVE_DEBOUNCE_MS = 200;
 
 function SoundSettings() {
   const [settings, setSettings] = createStore<SoundSettingsData>({
-    capture: { enabled: true, customFile: null, volume: 100 },
-    taskSuccess: { enabled: true, customFile: null, volume: 80 },
+    capture: { enabled: true, instantCaptureEnabled: true, customFile: null, volume: 100 },
+    taskSuccess: { enabled: true, instantCaptureEnabled: true, customFile: null, volume: 80 },
   });
   const { pushToast } = useToastState;
   const volumeTimers: { [key in SoundKind]?: number } = {};
@@ -40,6 +50,15 @@ function SoundSettings() {
     setSettings(kind, "enabled", enabled);
     try {
       await safeInvoke("set_sound_enabled", { kind, enabled });
+    } catch (error) {
+      pushToast(`Failed to update the setting: ${errorText(error)}`, "error", 6000);
+    }
+  }
+
+  async function toggleInstantCaptureEnabled(kind: SoundKind, enabled: boolean) {
+    setSettings(kind, "instantCaptureEnabled", enabled);
+    try {
+      await safeInvoke("set_instant_capture_sound_enabled", { kind, enabled });
     } catch (error) {
       pushToast(`Failed to update the setting: ${errorText(error)}`, "error", 6000);
     }
@@ -133,6 +152,18 @@ function SoundSettings() {
           />
           <span class={styles.VolumeValue}>{settings[row.kind].volume}%</span>
         </div>
+        <label class={`${styles.SettingRow} ${styles.ChildSetting}`}>
+          <input
+            type="checkbox"
+            checked={settings[row.kind].instantCaptureEnabled}
+            disabled={!settings[row.kind].enabled}
+            onChange={e => toggleInstantCaptureEnabled(row.kind, e.currentTarget.checked)}
+          />
+          <div class={styles.SettingText}>
+            <span>Play for instant captures</span>
+            <span class={styles.Hint}>{row.instantHint}</span>
+          </div>
+        </label>
       </div>}
     </For>
   </div>
