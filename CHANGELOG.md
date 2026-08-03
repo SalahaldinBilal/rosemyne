@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-03
+
+### Added
+
+- Settings → Sounds has a new per-sound "Play for instant captures" option, so instant-capture shortcuts (and the auto-upload that follows them) can stay silent while normal captures keep playing their sound. (thanks @iAverages)
+
+### Fixed
+
+- Taking a screenshot while a fullscreen game had the cursor confined to its own window left the pointer trapped in that area, making the region selector unusable. The overlay now releases the lock while it's open; the game re-establishes it once it's focused again. (thanks @iAverages)
+
 ## [0.2.1] - 2026-08-02
 
 ### Added
