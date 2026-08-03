@@ -7,8 +7,9 @@ use windows::Win32::UI::HiDpi::{
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowThreadProcessId, IsWindow,
-    STYLESTRUCT, SetForegroundWindow, SetWindowLongPtrW, WM_STYLECHANGING, WS_EX_TOOLWINDOW,
+    ClipCursor, GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowThreadProcessId,
+    IsWindow, STYLESTRUCT, SetForegroundWindow, SetWindowLongPtrW, WM_STYLECHANGING,
+    WS_EX_TOOLWINDOW,
 };
 
 use super::{base_window_builder, manager_trait::ScreenshotWindowManager};
@@ -81,7 +82,14 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
         let _ = webview.window.set_always_on_top(false);
         let _ = webview.window.set_always_on_top(true);
 
-        force_focus(&webview.window);
+        let window = webview.window.clone();
+        if let Err(error) = webview.window.run_on_main_thread(move || {
+            force_focus(&window);
+            release_cursor_clip();
+        }) {
+            eprintln!("Failed to schedule screenshot overlay focus: {error}");
+            release_cursor_clip();
+        }
     }
 
     fn hide<R: Runtime>(webview: &ScreenshotWebview<R>) {
@@ -155,13 +163,25 @@ fn force_focus<R: Runtime>(window: &WebviewWindow<R>) {
         let current_thread = GetCurrentThreadId();
 
         if foreground_thread == 0 || foreground_thread == current_thread {
+            let _ = SetForegroundWindow(target_hwnd);
             focus_window_and_webview(window);
             return;
         }
 
         let _ = AttachThreadInput(current_thread, foreground_thread, true);
+        let _ = SetForegroundWindow(target_hwnd);
         focus_window_and_webview(window);
         let _ = AttachThreadInput(current_thread, foreground_thread, false);
+    }
+}
+
+/// Fullscreen games commonly confine the cursor. Once the screenshot overlay owns the
+/// foreground, that old clip is no longer valid and would make the selector's
+/// pointer unusable. Clearing it is process-independent. When the game regains
+/// focus after the overlay closes, it can establish its preferred clip again.
+fn release_cursor_clip() {
+    unsafe {
+        let _ = ClipCursor(None);
     }
 }
 
