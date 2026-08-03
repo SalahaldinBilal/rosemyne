@@ -95,7 +95,7 @@ pub async fn upload_image(
     .clone();
     drop(settings);
 
-    run_upload(&app_handle, history_store.inner(), http_client.inner(), &uploader, &file_name).await
+    run_upload(&app_handle, history_store.inner(), http_client.inner(), &uploader, &file_name, false).await
 }
 
 /// Uploads with the given uploader if there's an image to upload, emitting
@@ -109,6 +109,7 @@ pub async fn run_upload(
     http_client: &HttpClientHandler,
     uploader: &SavedUploader,
     file_name: &str,
+    is_instant_capture: bool,
 ) -> Result<UploadResult, UploaderError> {
     let result = try_upload(app_handle, history_store, http_client, uploader, file_name).await;
 
@@ -117,7 +118,12 @@ pub async fn run_upload(
             if let Err(err) = history_store.set_upload_result(file_name, &uploader.name, &upload.url) {
                 eprintln!("Failed to persist upload result for {}: {}", file_name, err);
             }
-            crate::sound_manager::play_sound(app_handle, crate::sound_manager::SoundKind::TaskSuccess).await;
+            crate::sound_manager::play_sound(
+                app_handle,
+                crate::sound_manager::SoundKind::TaskSuccess,
+                is_instant_capture,
+            )
+            .await;
             emit_on_main_thread!(
                 app_handle,
                 "upload://finished",
@@ -193,7 +199,7 @@ async fn try_upload(
 }
 
 /// Uploads a freshly-saved file with the default uploader, if one is set and has auto-upload enabled.
-pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String) {
+pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String, is_instant_capture: bool) {
     let settings_handle = app_handle.state::<SettingsHandler>();
     let uploader = {
         let settings = settings_handle.read().await;
@@ -207,7 +213,15 @@ pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String) {
     let history_store = app_handle.state::<HistoryStoreHandler>().inner().clone();
     let http_client = app_handle.state::<HttpClientHandler>().inner().clone();
 
-    let _ = run_upload(&app_handle, &history_store, &http_client, &uploader, &file_name).await;
+    let _ = run_upload(
+        &app_handle,
+        &history_store,
+        &http_client,
+        &uploader,
+        &file_name,
+        is_instant_capture,
+    )
+    .await;
 }
 
 #[tauri::command]

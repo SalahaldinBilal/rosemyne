@@ -222,7 +222,7 @@ pub async fn finish_recording(app_handle: &AppHandle) -> Result<(), RecordingErr
     .await
     .map_err(|err| RecordingError::Failed(err.to_string()))??;
 
-    crate::notify_history_saved(app_handle, &entry);
+    crate::notify_history_saved(app_handle, &entry, false);
 
     Ok(())
 }

@@ -77,6 +77,7 @@ type Commands = {
   'migrate_from_sharex': Command<{ sharexPath: string, dryRun: boolean }, MigrationSummary>,
   'get_sound_settings': Command<undefined, SoundSettings>,
   'set_sound_enabled': Command<{ kind: SoundKind, enabled: boolean }>,
+  'set_instant_capture_sound_enabled': Command<{ kind: SoundKind, enabled: boolean }>,
   'set_sound_volume': Command<{ kind: SoundKind, volume: number }>,
   'set_custom_sound': Command<{ kind: SoundKind, path: string }, SoundSetting>,
   'reset_custom_sound': Command<{ kind: SoundKind }, SoundSetting>,

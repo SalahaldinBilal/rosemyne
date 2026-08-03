@@ -498,6 +498,7 @@ async fn instant_capture(
         &image,
         window_coverage_tags(&windows, &region),
         true,
+        true,
     )
     .await;
 
@@ -575,7 +576,8 @@ pub(crate) async fn persist_capture(
     settings_handle: &SettingsHandler,
     image: &RgbaImage,
     window_tags: Vec<HashMap<String, TagValue>>,
-    play_sound: bool,
+    should_play_capture_sound: bool,
+    is_instant_capture: bool,
 ) {
     let (copy_to_clipboard, upload_template, file_name_template, screenshot_format) = {
         let settings = settings_handle.read().await;
@@ -613,8 +615,13 @@ pub(crate) async fn persist_capture(
         }
     }
 
-    if play_sound {
-        crate::sound_manager::play_sound(app_handle, crate::sound_manager::SoundKind::Capture).await;
+    if should_play_capture_sound {
+        crate::sound_manager::play_sound(
+            app_handle,
+            crate::sound_manager::SoundKind::Capture,
+            is_instant_capture,
+        )
+        .await;
     }
-    crate::notify_history_saved(app_handle, &saved_image);
+    crate::notify_history_saved(app_handle, &saved_image, is_instant_capture);
 }
