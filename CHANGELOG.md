@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-04
+
+### Added
+
+- Text filter conditions now have a case-sensitivity toggle next to the operation picker. It applies to every text field, tag values as well as File Name, Path and Type, and to every text operation: equals, contains, starts/ends with and fuzzy.
+
+### Changed
+
+- Text filters now match case-insensitively by default, so searching `chrome` finds `Chrome`. Matching is Unicode-aware, `ÉCOLE` matches `école` and `ПРИВЕТ` matches `привет`, not just plain ASCII. Filters saved before this update load as case-insensitive; switch the new toggle on and save again to get exact-case matching back.
+- The filter panel's dropdowns and value fields now blend into the background like the sorting dropdown, instead of each sitting in its own outlined box.
+
 ## [0.2.2] - 2026-08-03
 
 ### Added
