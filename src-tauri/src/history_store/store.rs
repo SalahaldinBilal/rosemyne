@@ -15,9 +15,10 @@ use crate::error_serializers::error_serialize;
 use crate::screen_manager::screenshot_manager::{HistoryItemType, ImageHistoryData, TagValue, encode_image_as};
 
 use super::compile::{collect_index_entries, compile};
-use super::filter::{FilterNode, FilterSlot, register_filter_match};
+use super::filter::{FilterNode, FilterSlot, register_filter_match, register_fold};
 use super::metadata::{MetadataBuilder, TagMetadata, collect_scalars, merge_schema};
 
+// The `rosemyne_fold(...)` expression indexes need `register_fold` on the connection first.
 const SCHEMA: &str = "\
 CREATE TABLE IF NOT EXISTS history (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +35,9 @@ CREATE TABLE IF NOT EXISTS history (
 );
 CREATE INDEX IF NOT EXISTS idx_history_date ON history(date_time_ms DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_history_name ON history(file_name COLLATE NOCASE, id);
+CREATE INDEX IF NOT EXISTS idx_history_name_fold ON history(rosemyne_fold(file_name), id);
+CREATE INDEX IF NOT EXISTS idx_history_path_fold ON history(rosemyne_fold(file_path), id);
+CREATE INDEX IF NOT EXISTS idx_history_type_fold ON history(rosemyne_fold(type), id);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tag_value_counts (
   path  TEXT NOT NULL,
@@ -49,6 +53,7 @@ CREATE TABLE IF NOT EXISTS tag_index (
   value_num  REAL
 );
 CREATE INDEX IF NOT EXISTS idx_tag_index_text ON tag_index(path, kind, value_text, history_id);
+CREATE INDEX IF NOT EXISTS idx_tag_index_text_fold ON tag_index(path, kind, rosemyne_fold(value_text), history_id);
 CREATE INDEX IF NOT EXISTS idx_tag_index_num ON tag_index(path, kind, value_num, history_id);
 CREATE INDEX IF NOT EXISTS idx_tag_index_row ON tag_index(history_id);
 CREATE TABLE IF NOT EXISTS saved_filters (
@@ -852,6 +857,7 @@ impl HistoryStore {
 fn open_conn(base_path: &Path, filter_slot: FilterSlot) -> Result<Connection, HistoryError> {
     let mut conn = Connection::open(base_path.join("history.db"))?;
     conn.execute_batch("PRAGMA journal_mode=WAL;")?;
+    register_fold(&conn)?;
     conn.execute_batch(SCHEMA)?;
     register_filter_match(&conn, filter_slot)?;
     ensure_metadata_built(&mut conn)?;
@@ -1462,10 +1468,20 @@ mod tests {
     }
 
     fn raw_condition(path: &[&str], operation: u8, values: Vec<serde_json::Value>) -> FilterNode {
+        raw_condition_cased(path, operation, values, false)
+    }
+
+    fn raw_condition_cased(
+        path: &[&str],
+        operation: u8,
+        values: Vec<serde_json::Value>,
+        case_sensitive: bool,
+    ) -> FilterNode {
         FilterNode::Condition {
             path: path.iter().map(|s| s.to_string()).collect(),
             operation,
             values,
+            case_sensitive,
         }
     }
 
@@ -1659,6 +1675,7 @@ mod tests {
         {
             // Pre-existing history with a stale (pre-tag_index) cache status.
             let conn = Connection::open(dir.join("history.db")).unwrap();
+            register_fold(&conn).unwrap();
             conn.execute_batch(SCHEMA).unwrap();
             conn.execute(
                 "INSERT INTO history (file_name, file_path, type, date_time_ms, tags) \
@@ -1860,6 +1877,29 @@ mod tests {
                 ]),
                 raw_condition(&["ProcessName"], 0, vec![json!("Code")]),
             ]),
+            // Same operations with the casing flipped, both sensitive and not.
+            condition(&["ProcessName"], 0, vec![json!("CODE")]),
+            condition(&["ProcessName"], 1, vec![json!("CODE")]),
+            condition(&["ProcessName"], 6, vec![json!("FIRE")]),
+            condition(&["ProcessName"], 7, vec![json!("FIRE")]),
+            condition(&["ProcessName"], 8, vec![json!("co")]),
+            condition(&["ProcessName"], 9, vec![json!("FOX")]),
+            condition(&["Windows", "Window Name"], 6, vec![json!("studio")]),
+            condition(&["$file", "Name"], 0, vec![json!("CODE.PNG")]),
+            condition(&["$file", "Name"], 1, vec![json!("CODE.PNG")]),
+            condition(&["$file", "Name"], 6, vec![json!("FIRE")]),
+            condition(&["$file", "Name"], 7, vec![json!("FIRE")]),
+            condition(&["$file", "Name"], 8, vec![json!("EMPTY")]),
+            condition(&["$file", "Name"], 9, vec![json!(".PNG")]),
+            condition(&["$file", "Type"], 0, vec![json!("IMAGE")]),
+            condition(&["$file", "Path"], 6, vec![json!("ROSEMYNE")]),
+            group(0, &[], vec![raw_condition_cased(&["ProcessName"], 0, vec![json!("CODE")], true)]),
+            group(0, &[], vec![raw_condition_cased(&["ProcessName"], 1, vec![json!("CODE")], true)]),
+            group(0, &[], vec![raw_condition_cased(&["ProcessName"], 6, vec![json!("FIRE")], true)]),
+            group(0, &[], vec![raw_condition_cased(&["ProcessName"], 8, vec![json!("co")], true)]),
+            group(0, &[], vec![raw_condition_cased(&["$file", "Name"], 0, vec![json!("CODE.PNG")], true)]),
+            group(0, &[], vec![raw_condition_cased(&["$file", "Name"], 6, vec![json!("FIRE")], true)]),
+            group(0, &[], vec![raw_condition_cased(&["$file", "Type"], 0, vec![json!("IMAGE")], true)]),
         ];
 
         for filter in filters {

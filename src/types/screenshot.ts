@@ -153,6 +153,7 @@ export type FilterCondition = {
   valueType: FilterValueType,
   operation: FilterOperations,
   values: FilterScalar[],
+  caseSensitive: boolean,
 };
 
 export type FilterGroup = {

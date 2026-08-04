@@ -28,7 +28,7 @@ function defaultValueFor(type: FilterValueType): FilterScalar {
 }
 
 function emptyConditionFields(): Omit<FilterCondition, "id" | "kind"> {
-  return { path: [], valueType: "string", operation: FilterOperations.equals, values: [""] };
+  return { path: [], valueType: "string", operation: FilterOperations.equals, values: [""], caseSensitive: false };
 }
 
 function makeCondition(): FilterCondition {
@@ -65,6 +65,7 @@ function adoptNode(raw: unknown): FilterNode | null {
     valueType,
     operation: operations.includes(source.operation as FilterOperations) ? source.operation as FilterOperations : operations[0],
     values: values.length > 0 ? values : [defaultValueFor(valueType)],
+    caseSensitive: source.caseSensitive === true,
   };
 }
 
@@ -281,6 +282,10 @@ function useTagFilterStateInner() {
     editNode<FilterCondition>(id, "condition", condition => { condition.operation = operation; });
   }
 
+  function setCaseSensitive(id: number, caseSensitive: boolean) {
+    editNode<FilterCondition>(id, "condition", condition => { condition.caseSensitive = caseSensitive; });
+  }
+
   function addValue(id: number) {
     editNode<FilterCondition>(id, "condition", condition => condition.values.push(defaultValueFor(condition.valueType)));
   }
@@ -296,7 +301,7 @@ function useTagFilterStateInner() {
   }
 
   return {
-    root, addCondition, addGroup, removeNode, setRelation, setGroupScope, setConditionPath, setOperation, addValue, setValue, removeValue,
+    root, addCondition, addGroup, removeNode, setRelation, setGroupScope, setConditionPath, setOperation, setCaseSensitive, addValue, setValue, removeValue,
     savedFilters, activeFilterName, isFilterDirty, ruleCount, collapsed, setCollapsed, filtersOpen, setFiltersOpen, filterSnapshot, refreshSavedFilters, loadFilter, saveFilterAs, deleteFilter, clearFilter,
   };
 }
@@ -341,7 +346,12 @@ export function matchTagsToFilter(node: FilterNode, tags: TagValue): boolean {
   if (node.path.length === 0 || node.values.length === 0) return true;
 
   const candidates = resolvePath(tags, node.path);
-  return candidates.some(actual => node.values.some(value => applyOperation(node.operation, value, actual)));
+  return candidates.some(actual => node.values.some(value => applyOperation(node.operation, value, actual, node.caseSensitive)));
+}
+
+// Mirrors `fold` in `history_store::filter` (Rust), which uses `to_lowercase`.
+function cased(value: string, caseSensitive: boolean): string {
+  return caseSensitive ? value : value.toLowerCase();
 }
 
 // Wrapped-value convention for Time/DateTime tags, mirrors `marker_scalar`
@@ -387,10 +397,17 @@ function resolvePath(value: TagValue, path: string[]): FilterScalar[] {
   return resolvePath((value as { [key: string]: TagValue })[head], rest);
 }
 
-function applyOperation(operation: FilterOperations, filterValue: FilterScalar, actual: FilterScalar): boolean {
+function applyOperation(operation: FilterOperations, filterValue: FilterScalar, actual: FilterScalar, caseSensitive: boolean): boolean {
+  const bothStrings = typeof actual === "string" && typeof filterValue === "string";
+
   switch (operation) {
-    case FilterOperations.equals: return actual === filterValue;
-    case FilterOperations.notEquals: return actual !== filterValue;
+    case FilterOperations.equals:
+    case FilterOperations.notEquals: {
+      const equal = bothStrings
+        ? cased(actual, caseSensitive) === cased(filterValue, caseSensitive)
+        : actual === filterValue;
+      return operation === FilterOperations.equals ? equal : !equal;
+    }
   }
 
   if (typeof actual === "number" && typeof filterValue === "number") {
@@ -402,13 +419,16 @@ function applyOperation(operation: FilterOperations, filterValue: FilterScalar, 
     }
   }
 
-  if (typeof actual === "string" && typeof filterValue === "string") {
+  if (bothStrings) {
+    const value = cased(actual, caseSensitive);
+    const filter = cased(filterValue, caseSensitive);
+
     switch (operation) {
-      case FilterOperations.contains: return actual.includes(filterValue);
-      case FilterOperations.notContains: return !actual.includes(filterValue);
-      case FilterOperations.startsWith: return actual.startsWith(filterValue);
-      case FilterOperations.endsWith: return actual.endsWith(filterValue);
-      case FilterOperations.fuzzy: return filterValue.length === 0 || (fuzzysort.single(filterValue, actual)?.score ?? 0) >= 0.5;
+      case FilterOperations.contains: return value.includes(filter);
+      case FilterOperations.notContains: return !value.includes(filter);
+      case FilterOperations.startsWith: return value.startsWith(filter);
+      case FilterOperations.endsWith: return value.endsWith(filter);
+      case FilterOperations.fuzzy: return filter.length === 0 || (fuzzysort.single(filter, value)?.score ?? 0) >= 0.5;
     }
   }
 

@@ -1,12 +1,23 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use rusqlite::types::Value as SqlValue;
 use serde_json::Value;
 
 use super::filter::{
-    CONTAINS, ENDS_WITH, EQUALS, FUZZY, FilterNode, GREATER_OR_EQUAL, GREATER_THAN, LESS_OR_EQUAL,
-    LESS_THAN, NOT_CONTAINS, NOT_EQUALS, RELATION_OR, STARTS_WITH, marker_scalar,
+    CONTAINS, ENDS_WITH, EQUALS, FOLD_FN, FUZZY, FilterNode, GREATER_OR_EQUAL, GREATER_THAN,
+    LESS_OR_EQUAL, LESS_THAN, NOT_CONTAINS, NOT_EQUALS, RELATION_OR, STARTS_WITH, fold,
+    marker_scalar,
 };
+
+/// Matching the fold indexes' expression lets SQLite read it back instead of recomputing.
+fn text_expr(column: &str, case_sensitive: bool) -> Cow<'_, str> {
+    if case_sensitive { Cow::Borrowed(column) } else { Cow::Owned(format!("{FOLD_FN}({column})")) }
+}
+
+fn needle(value: &str, case_sensitive: bool) -> String {
+    if case_sensitive { value.to_string() } else { fold(value) }
+}
 
 /// SQL prefilter compiled from a filter tree, evaluated against `history AS h`
 /// via `tag_index` subqueries. The expression matches a superset of the rows
@@ -44,11 +55,11 @@ fn compile_node(node: &FilterNode, prefix: &[String]) -> CompiledFilter {
                 params: parts.into_iter().flat_map(|p| p.params).collect(),
             }
         }
-        FilterNode::Condition { path, operation, values } => {
+        FilterNode::Condition { path, operation, values, case_sensitive } => {
             if path.is_empty() || values.is_empty() {
                 return literal("1", true);
             }
-            compile_condition(&joined(prefix, path), *operation, values)
+            compile_condition(&joined(prefix, path), *operation, values, *case_sensitive)
         }
     }
 }
@@ -57,7 +68,12 @@ fn joined(prefix: &[String], rest: &[String]) -> Vec<String> {
     prefix.iter().chain(rest.iter()).cloned().collect()
 }
 
-fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> CompiledFilter {
+fn compile_condition(
+    path: &[String],
+    operation: u8,
+    values: &[Value],
+    case_sensitive: bool,
+) -> CompiledFilter {
     if !is_known_operation(operation) {
         return literal("1", false);
     }
@@ -65,7 +81,9 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
     // every operation except fuzzy compiles exactly, including notEquals.
     if let Some((column, kind)) = file_column(path) {
         return match kind {
-            FileColumnKind::Text => compile_file_text_condition(column, operation, values),
+            FileColumnKind::Text => {
+                compile_file_text_condition(column, operation, values, case_sensitive)
+            }
             FileColumnKind::Number => compile_file_number_condition(column, operation, values),
         };
     }
@@ -76,6 +94,7 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
     }
 
     let path_key = serde_json::to_string(path).expect("path is serializable");
+    let column = text_expr("value_text", case_sensitive);
     let mut preds: Vec<String> = Vec::new();
     let mut params = vec![SqlValue::Text(path_key)];
     let mut exact = true;
@@ -84,8 +103,8 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
         match operation {
             EQUALS => match value {
                 Value::String(s) => {
-                    preds.push("(kind = 's' AND value_text = ?)".into());
-                    params.push(SqlValue::Text(s.clone()));
+                    preds.push(format!("(kind = 's' AND {column} = ?)"));
+                    params.push(SqlValue::Text(needle(s, case_sensitive)));
                 }
                 Value::Number(n) => {
                     if let Some(f) = n.as_f64() {
@@ -118,8 +137,8 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
                     if s.is_empty() {
                         preds.push("kind = 's'".into());
                     } else {
-                        preds.push("(kind = 's' AND instr(value_text, ?) > 0)".into());
-                        params.push(SqlValue::Text(s.clone()));
+                        preds.push(format!("(kind = 's' AND instr({column}, ?) > 0)"));
+                        params.push(SqlValue::Text(needle(s, case_sensitive)));
                     }
                 }
             }
@@ -127,8 +146,8 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
                 // `!x.contains("")` is always false, so empty patterns drop out.
                 if let Value::String(s) = value {
                     if !s.is_empty() {
-                        preds.push("(kind = 's' AND instr(value_text, ?) = 0)".into());
-                        params.push(SqlValue::Text(s.clone()));
+                        preds.push(format!("(kind = 's' AND instr({column}, ?) = 0)"));
+                        params.push(SqlValue::Text(needle(s, case_sensitive)));
                     }
                 }
             }
@@ -137,9 +156,11 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
                     if s.is_empty() {
                         preds.push("kind = 's'".into());
                     } else {
-                        preds.push("(kind = 's' AND substr(value_text, 1, ?) = ?)".into());
-                        params.push(SqlValue::Integer(s.chars().count() as i64));
-                        params.push(SqlValue::Text(s.clone()));
+                        // Folding can change length, so measure the folded needle.
+                        let text = needle(s, case_sensitive);
+                        preds.push(format!("(kind = 's' AND substr({column}, 1, ?) = ?)"));
+                        params.push(SqlValue::Integer(text.chars().count() as i64));
+                        params.push(SqlValue::Text(text));
                     }
                 }
             }
@@ -148,14 +169,14 @@ fn compile_condition(path: &[String], operation: u8, values: &[Value]) -> Compil
                     if s.is_empty() {
                         preds.push("kind = 's'".into());
                     } else {
-                        let chars = s.chars().count() as i64;
-                        preds.push(
-                            "(kind = 's' AND length(value_text) >= ? AND substr(value_text, -?) = ?)"
-                                .into(),
-                        );
+                        let text = needle(s, case_sensitive);
+                        let chars = text.chars().count() as i64;
+                        preds.push(format!(
+                            "(kind = 's' AND length({column}) >= ? AND substr({column}, -?) = ?)"
+                        ));
                         params.push(SqlValue::Integer(chars));
                         params.push(SqlValue::Integer(chars));
-                        params.push(SqlValue::Text(s.clone()));
+                        params.push(SqlValue::Text(text));
                     }
                 }
             }
@@ -245,7 +266,13 @@ fn compile_file_number_condition(column: &str, operation: u8, values: &[Value]) 
 }
 
 /// Conditions on a text `$file` column: exactly one string candidate, always present.
-fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) -> CompiledFilter {
+fn compile_file_text_condition(
+    raw_column: &str,
+    operation: u8,
+    values: &[Value],
+    case_sensitive: bool,
+) -> CompiledFilter {
+    let column = text_expr(raw_column, case_sensitive);
     let mut preds: Vec<String> = Vec::new();
     let mut params: Vec<SqlValue> = Vec::new();
     let mut exact = true;
@@ -256,14 +283,14 @@ fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) ->
             NOT_EQUALS => match value {
                 Value::String(s) => {
                     preds.push(format!("{column} <> ?"));
-                    params.push(SqlValue::Text(s.clone()));
+                    params.push(SqlValue::Text(needle(s, case_sensitive)));
                 }
                 _ => preds.push("1".into()),
             },
             EQUALS => {
                 if let Value::String(s) = value {
                     preds.push(format!("{column} = ?"));
-                    params.push(SqlValue::Text(s.clone()));
+                    params.push(SqlValue::Text(needle(s, case_sensitive)));
                 }
             }
             CONTAINS => {
@@ -272,7 +299,7 @@ fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) ->
                         preds.push("1".into());
                     } else {
                         preds.push(format!("instr({column}, ?) > 0"));
-                        params.push(SqlValue::Text(s.clone()));
+                        params.push(SqlValue::Text(needle(s, case_sensitive)));
                     }
                 }
             }
@@ -280,7 +307,7 @@ fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) ->
                 if let Value::String(s) = value {
                     if !s.is_empty() {
                         preds.push(format!("instr({column}, ?) = 0"));
-                        params.push(SqlValue::Text(s.clone()));
+                        params.push(SqlValue::Text(needle(s, case_sensitive)));
                     }
                 }
             }
@@ -289,9 +316,10 @@ fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) ->
                     if s.is_empty() {
                         preds.push("1".into());
                     } else {
+                        let text = needle(s, case_sensitive);
                         preds.push(format!("substr({column}, 1, ?) = ?"));
-                        params.push(SqlValue::Integer(s.chars().count() as i64));
-                        params.push(SqlValue::Text(s.clone()));
+                        params.push(SqlValue::Integer(text.chars().count() as i64));
+                        params.push(SqlValue::Text(text));
                     }
                 }
             }
@@ -300,11 +328,12 @@ fn compile_file_text_condition(column: &str, operation: u8, values: &[Value]) ->
                     if s.is_empty() {
                         preds.push("1".into());
                     } else {
-                        let chars = s.chars().count() as i64;
+                        let text = needle(s, case_sensitive);
+                        let chars = text.chars().count() as i64;
                         preds.push(format!("(length({column}) >= ? AND substr({column}, -?) = ?)"));
                         params.push(SqlValue::Integer(chars));
                         params.push(SqlValue::Integer(chars));
-                        params.push(SqlValue::Text(s.clone()));
+                        params.push(SqlValue::Text(text));
                     }
                 }
             }
@@ -426,10 +455,20 @@ mod tests {
     use serde_json::json;
 
     fn condition(path: &[&str], operation: u8, values: Vec<Value>) -> FilterNode {
+        condition_cased(path, operation, values, false)
+    }
+
+    fn condition_cased(
+        path: &[&str],
+        operation: u8,
+        values: Vec<Value>,
+        case_sensitive: bool,
+    ) -> FilterNode {
         FilterNode::Condition {
             path: path.iter().map(|s| s.to_string()).collect(),
             operation,
             values,
+            case_sensitive,
         }
     }
 
@@ -450,11 +489,40 @@ mod tests {
 
     #[test]
     fn equals_compiles_to_index_subquery() {
-        let compiled = compile(&condition(&["ProcessName"], EQUALS, vec![json!("firefox")]));
+        let compiled = compile(&condition_cased(&["ProcessName"], EQUALS, vec![json!("firefox")], true));
         assert!(compiled.expr.contains("h.id IN (SELECT history_id FROM tag_index"));
         assert!(compiled.expr.contains("value_text = ?"));
         assert_eq!(compiled.params.len(), 2);
         assert!(compiled.exact);
+    }
+
+    #[test]
+    fn case_insensitive_conditions_target_the_fold_expression() {
+        let compiled = compile(&condition(&["ProcessName"], EQUALS, vec![json!("FireFox")]));
+        assert!(compiled.expr.contains("rosemyne_fold(value_text) = ?"));
+        assert_eq!(compiled.params[1], SqlValue::Text("firefox".into()));
+        assert!(compiled.exact);
+
+        let sensitive = compile(&condition_cased(&["ProcessName"], EQUALS, vec![json!("FireFox")], true));
+        assert!(!sensitive.expr.contains(FOLD_FN));
+        assert_eq!(sensitive.params[1], SqlValue::Text("FireFox".into()));
+    }
+
+    #[test]
+    fn case_insensitive_file_columns_fold_the_column_and_needle() {
+        let compiled = compile(&condition(&["$file", "Name"], CONTAINS, vec![json!("SHOT")]));
+        assert!(compiled.expr.contains("instr(rosemyne_fold(h.file_name), ?)"));
+        assert_eq!(compiled.params[0], SqlValue::Text("shot".into()));
+        assert!(compiled.exact);
+    }
+
+    #[test]
+    fn folded_affix_lengths_measure_the_folded_needle() {
+        // `İ` lowercases to two chars, so a raw `chars().count()` would be wrong.
+        let compiled = compile(&condition(&["a"], STARTS_WITH, vec![json!("İ")]));
+        let folded = fold("İ");
+        assert_eq!(compiled.params[1], SqlValue::Integer(folded.chars().count() as i64));
+        assert_eq!(compiled.params[2], SqlValue::Text(folded));
     }
 
     #[test]

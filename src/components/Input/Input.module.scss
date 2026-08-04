@@ -30,6 +30,16 @@
   &.Borderless {
     border-color: transparent;
     background-color: transparent;
+
+    &:hover:not(.Focused):not(.Disabled) {
+      background-color: var(--control-bg);
+      border-color: transparent;
+    }
+
+    &.Focused:not(.Disabled) {
+      background-color: var(--control-bg);
+      border-color: var(--input-accent);
+    }
   }
 
   &.NoRadius {

@@ -41,7 +41,7 @@ function DurationField(props: { valueMs: number, onChange: (ms: number) => void 
         value={displayValue()}
         onInput={e => updateNumber(e.currentTarget.value)}
       />
-      <Select value={unit()} items={UNIT_ITEMS} onItemClick={item => setUnit(item.value)} />
+      <Select borderless value={unit()} items={UNIT_ITEMS} onItemClick={item => setUnit(item.value)} />
     </div>
   );
 }

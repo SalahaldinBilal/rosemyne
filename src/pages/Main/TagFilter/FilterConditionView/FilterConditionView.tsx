@@ -8,7 +8,7 @@ import Select from "../../../../components/Select/Select";
 import FilterValueField from "../controls/FilterValueField";
 import DurationField from "../controls/DurationField";
 import FileSizeField from "../controls/FileSizeField";
-import { Plus, Trash2, X } from "lucide-solid";
+import { CaseSensitive, Plus, Trash2, X } from "lucide-solid";
 
 type Level = { options: string[], selected: string | null, depth: number };
 
@@ -35,7 +35,7 @@ function formatFieldValue(type: FilterValueType, value: string | number): string
 }
 
 function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTypeMap, pathPrefix?: string[] }) {
-  const { setConditionPath, setOperation, addValue, setValue, removeValue, removeNode } = useTagFilterState;
+  const { setConditionPath, setOperation, setCaseSensitive, addValue, setValue, removeValue, removeNode } = useTagFilterState;
 
   const suggestPath = createMemo(() => [...(props.pathPrefix ?? []), ...props.node.path]);
 
@@ -83,6 +83,7 @@ function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTyp
             <>
               <Show when={index() > 0}><span class={styles.Sep}>›</span></Show>
               <Select
+                borderless
                 value={level.selected ?? ""}
                 items={level.options.map(key => ({ id: key, value: key, label: keyLabel(key) }))}
                 placeholder="Select tag…"
@@ -93,7 +94,19 @@ function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTyp
         </div>
 
         <Show when={props.node.values.length > 0}>
-          <Select accent value={props.node.operation} items={operationItems()} onItemClick={item => setOperation(props.node.id, item.value)} />
+          <Select accent borderless value={props.node.operation} items={operationItems()} onItemClick={item => setOperation(props.node.id, item.value)} />
+
+          <Show when={props.node.valueType === "string"}>
+            <Button
+              isIcon
+              filled={props.node.caseSensitive}
+              tooltip={props.node.caseSensitive ? "Matching case sensitively" : "Matching case insensitively"}
+              style={ICON_STYLE}
+              onClick={() => setCaseSensitive(props.node.id, !props.node.caseSensitive)}
+            >
+              <CaseSensitive size={15} />
+            </Button>
+          </Show>
 
           <div class={styles.Values}>
             <Index each={props.node.values}>{(value, index) =>
@@ -107,7 +120,7 @@ function FilterConditionView(props: { node: FilterCondition, tagMap: TagValueTyp
                   />
                 }>
                   <Match when={props.node.valueType === "boolean"}>
-                    <Select value={String(value())} items={BOOLEAN_ITEMS} onItemClick={item => setValue(props.node.id, index, item.value)} />
+                    <Select borderless value={String(value())} items={BOOLEAN_ITEMS} onItemClick={item => setValue(props.node.id, index, item.value)} />
                   </Match>
                   <Match when={props.node.valueType === "time"}>
                     <DurationField valueMs={value() as number} onChange={ms => setValue(props.node.id, index, ms)} />

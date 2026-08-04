@@ -44,6 +44,7 @@ function FilterGroupView(props: { node: FilterGroup, tagMap: TagValueTypeMap, pa
             <div class={styles.Scope}>
               <span class={styles.ScopeLabel}>Match in</span>
               <Select
+                borderless
                 value={scopeKey()}
                 items={scopeItems()}
                 onItemClick={item => setGroupScope(props.node.id, item.value)}

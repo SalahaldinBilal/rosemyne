@@ -41,7 +41,7 @@ function FileSizeField(props: { valueBytes: number, onChange: (bytes: number) =>
         value={displayValue()}
         onInput={e => updateNumber(e.currentTarget.value)}
       />
-      <Select value={unit()} items={UNIT_ITEMS} onItemClick={item => setUnit(item.value)} />
+      <Select borderless value={unit()} items={UNIT_ITEMS} onItemClick={item => setUnit(item.value)} />
     </div>
   );
 }

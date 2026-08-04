@@ -80,6 +80,7 @@ function SavedFilterBar() {
         <Bookmark size={15} /> Saved filter
       </div>
       <Select
+        borderless
         style={{ "min-width": "180px" }}
         value={activeFilterName() ?? NO_FILTER}
         items={items()}

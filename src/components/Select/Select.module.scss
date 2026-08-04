@@ -36,6 +36,17 @@
   &.Borderless {
     border-color: transparent;
     background-color: transparent;
+
+    &:hover {
+      background-color: var(--control-bg);
+      border-color: transparent;
+    }
+
+    &:focus-visible,
+    &.Open {
+      background-color: var(--control-bg);
+      border-color: var(--base-blue);
+    }
   }
 
   &.NoRadius {

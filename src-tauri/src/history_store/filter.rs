@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use fuzzy_matcher::FuzzyMatcher;
@@ -21,10 +22,15 @@ pub enum FilterNode {
         scope: Vec<String>,
         children: Vec<FilterNode>,
     },
+    // Struct-variant fields need their own `rename_all`; the enum's only cases the tag.
+    #[serde(rename_all = "camelCase")]
     Condition {
         path: Vec<String>,
         operation: u8,
         values: Vec<Value>,
+        /// Absent in filters saved before this existed, which read as insensitive.
+        #[serde(default)]
+        case_sensitive: bool,
     },
 }
 
@@ -44,7 +50,20 @@ pub(super) const FUZZY: u8 = 10;
 // `FilterRelationOperations`: and = 0, or = 1.
 pub(super) const RELATION_OR: u8 = 1;
 
-static FUZZY_MATCHER: LazyLock<SkimMatcherV2> = LazyLock::new(SkimMatcherV2::default);
+// Insensitive conditions fold both sides first, so smart-case would only misfire.
+static FUZZY_MATCHER: LazyLock<SkimMatcherV2> = LazyLock::new(|| SkimMatcherV2::default().respect_case());
+
+/// SQL mirror of [`fold`]; `store::SCHEMA`'s expression indexes are built on it.
+pub(super) const FOLD_FN: &str = "rosemyne_fold";
+
+/// Both evaluators, the compiled SQL and the fold indexes must agree byte for byte.
+pub fn fold(value: &str) -> String {
+    value.to_lowercase()
+}
+
+fn cased(value: &str, case_sensitive: bool) -> Cow<'_, str> {
+    if case_sensitive { Cow::Borrowed(value) } else { Cow::Owned(fold(value)) }
+}
 
 /// A resolved path candidate: either a scalar value or a "missing key" marker,
 /// mirroring how the JS matcher lets `undefined` flow through `resolvePath`.
@@ -81,6 +100,7 @@ pub fn eval(node: &FilterNode, tags: &Value) -> bool {
             path,
             operation,
             values,
+            case_sensitive,
         } => {
             if path.is_empty() || values.is_empty() {
                 return true;
@@ -89,7 +109,7 @@ pub fn eval(node: &FilterNode, tags: &Value) -> bool {
             candidates.iter().any(|actual| {
                 values
                     .iter()
-                    .any(|value| apply_operation(*operation, value, actual))
+                    .any(|value| apply_operation(*operation, value, actual, *case_sensitive))
             })
         }
     }
@@ -171,11 +191,11 @@ fn resolve_path<'a>(value: &'a Value, path: &[String]) -> Vec<Candidate<'a>> {
     }
 }
 
-fn apply_operation(operation: u8, filter: &Value, actual: &Candidate) -> bool {
+fn apply_operation(operation: u8, filter: &Value, actual: &Candidate, case_sensitive: bool) -> bool {
     // equals/notEquals use JS `===`/`!==`, which also apply to a missing candidate.
     match operation {
-        EQUALS => return strict_eq(actual, filter),
-        NOT_EQUALS => return !strict_eq(actual, filter),
+        EQUALS => return strict_eq(actual, filter, case_sensitive),
+        NOT_EQUALS => return !strict_eq(actual, filter, case_sensitive),
         _ => {}
     }
 
@@ -195,11 +215,13 @@ fn apply_operation(operation: u8, filter: &Value, actual: &Candidate) -> bool {
     }
 
     if let (Value::String(a), Value::String(f)) = (actual, filter) {
+        let (a, f) = (cased(a, case_sensitive), cased(f, case_sensitive));
+        let (a, f) = (a.as_ref(), f.as_ref());
         match operation {
-            CONTAINS => return a.contains(f.as_str()),
-            NOT_CONTAINS => return !a.contains(f.as_str()),
-            STARTS_WITH => return a.starts_with(f.as_str()),
-            ENDS_WITH => return a.ends_with(f.as_str()),
+            CONTAINS => return a.contains(f),
+            NOT_CONTAINS => return !a.contains(f),
+            STARTS_WITH => return a.starts_with(f),
+            ENDS_WITH => return a.ends_with(f),
             FUZZY => return f.is_empty() || FUZZY_MATCHER.fuzzy_match(a, f).is_some(),
             _ => {}
         }
@@ -208,13 +230,13 @@ fn apply_operation(operation: u8, filter: &Value, actual: &Candidate) -> bool {
     false
 }
 
-fn strict_eq(actual: &Candidate, filter: &Value) -> bool {
+fn strict_eq(actual: &Candidate, filter: &Value, case_sensitive: bool) -> bool {
     let Candidate::Scalar(actual) = actual else {
         return false;
     };
     match (actual, filter) {
         (Value::Number(a), Value::Number(f)) => a.as_f64() == f.as_f64(),
-        (Value::String(a), Value::String(f)) => a == f,
+        (Value::String(a), Value::String(f)) => cased(a, case_sensitive) == cased(f, case_sensitive),
         (Value::Bool(a), Value::Bool(f)) => a == f,
         _ => false,
     }
@@ -254,6 +276,21 @@ pub fn augment_tags(
 /// Holds the filter for the currently-running query. Reads happen inside
 /// `filter_match` on the same (Mutex-serialized) thread that set it.
 pub type FilterSlot = Arc<Mutex<Option<Arc<FilterNode>>>>;
+
+/// Must run before `SCHEMA` and on every writing connection: the fold indexes call it.
+pub fn register_fold(conn: &Connection) -> rusqlite::Result<()> {
+    conn.create_scalar_function(
+        FOLD_FN,
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            Ok(match ctx.get_raw(0) {
+                rusqlite::types::ValueRef::Text(bytes) => Some(fold(&String::from_utf8_lossy(bytes))),
+                _ => None,
+            })
+        },
+    )
+}
 
 /// Registers `filter_match(tags, file_name, file_path, type, date_time_ms, file_size)`;
 /// it evaluates the node currently in `slot` against the row's tags augmented
@@ -295,10 +332,15 @@ mod tests {
     use serde_json::json;
 
     fn cond(path: &[&str], operation: u8, values: Vec<Value>) -> FilterNode {
+        cond_cased(path, operation, values, false)
+    }
+
+    fn cond_cased(path: &[&str], operation: u8, values: Vec<Value>, case_sensitive: bool) -> FilterNode {
         FilterNode::Condition {
             path: path.iter().map(|s| s.to_string()).collect(),
             operation,
             values,
+            case_sensitive,
         }
     }
 
@@ -385,6 +427,52 @@ mod tests {
         assert!(matches(&cond(&["WindowTitle"], FUZZY, vec![json!("ffx")]), tags.clone()));
         assert!(matches(&cond(&["WindowTitle"], FUZZY, vec![json!("")]), tags.clone()));
         assert!(!matches(&cond(&["WindowTitle"], FUZZY, vec![json!("zzz")]), tags));
+    }
+
+    #[test]
+    fn case_sensitivity_is_per_condition() {
+        let tags = json!({ "ProcessName": "FireFox" });
+        for (operation, value) in [
+            (EQUALS, "firefox"),
+            (CONTAINS, "FOX"),
+            (STARTS_WITH, "fire"),
+            (ENDS_WITH, "FOX"),
+        ] {
+            assert!(matches(&cond(&["ProcessName"], operation, vec![json!(value)]), tags.clone()));
+            assert!(!matches(&cond_cased(&["ProcessName"], operation, vec![json!(value)], true), tags.clone()));
+        }
+        // notContains inverts, so insensitivity makes it fail where sensitivity passes.
+        assert!(!matches(&cond(&["ProcessName"], NOT_CONTAINS, vec![json!("FOX")]), tags.clone()));
+        assert!(matches(&cond_cased(&["ProcessName"], NOT_CONTAINS, vec![json!("FOX")], true), tags));
+    }
+
+    #[test]
+    fn case_folding_is_unicode_aware() {
+        let tags = json!({ "WindowTitle": "ÉCOLE", "Process": "ПРИВЕТ" });
+        assert!(matches(&cond(&["WindowTitle"], EQUALS, vec![json!("école")]), tags.clone()));
+        assert!(matches(&cond(&["Process"], CONTAINS, vec![json!("привет")]), tags.clone()));
+        assert!(!matches(&cond_cased(&["WindowTitle"], EQUALS, vec![json!("école")], true), tags));
+    }
+
+    #[test]
+    fn case_sensitive_defaults_to_false_when_absent() {
+        // Filters saved before the flag existed carry no `caseSensitive` key.
+        let json = r#"{ "kind": "condition", "path": ["ProcessName"], "operation": 0, "values": ["FIREFOX"] }"#;
+        let node: FilterNode = serde_json::from_str(json).unwrap();
+        assert!(eval(&node, &json!({ "ProcessName": "firefox" })));
+    }
+
+    #[test]
+    fn case_sensitive_decodes_from_the_camel_case_key() {
+        // The frontend sends `caseSensitive`; a snake_case field would silently
+        // miss it and `serde(default)` would swallow the mismatch as `false`.
+        let json = r#"{ "id": 1, "kind": "condition", "path": ["ProcessName"],
+                        "valueType": "string", "operation": 0, "values": ["FIREFOX"],
+                        "caseSensitive": true }"#;
+        let node: FilterNode = serde_json::from_str(json).unwrap();
+        assert!(matches!(node, FilterNode::Condition { case_sensitive: true, .. }));
+        assert!(!eval(&node, &json!({ "ProcessName": "firefox" })));
+        assert!(eval(&node, &json!({ "ProcessName": "FIREFOX" })));
     }
 
     #[test]

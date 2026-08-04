@@ -10,19 +10,20 @@
   height: 34px;
   width: 90px;
   padding: 0 10px;
-  background-color: var(--control-bg);
-  border: 1px solid var(--control-border);
+  background-color: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--base-font-color);
   font-size: 13px;
   font-family: inherit;
-  transition: border-color .15s;
+  transition: border-color .15s, background-color .15s;
 
   &:hover:not(:focus) {
-    border-color: var(--control-border-hover);
+    background-color: var(--control-bg);
   }
 
   &:focus {
+    background-color: var(--control-bg);
     border-color: var(--base-blue);
   }
 
