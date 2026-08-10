@@ -1,23 +1,31 @@
-import { createEffect, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import styles from "./CropSelectionBox.module.scss";
 import { useAnnotationState } from "../../states/annotationContext";
 import ResizableBox from "../ResizableBox/ResizableBox";
 import { Tools } from "../../types";
 
-// Defaults to the whole image, resetting on every new image since a restitch can change its height.
+const MIN_CROP_SIZE = 5;
+
+// The box defaults to the whole image (so saving without cropping keeps it all)
+// but stays invisible until the Crop tool actually drags one out. Resets on
+// every new image since a restitch can change its height.
 function CropSelectionBox() {
   const {
     selectedBox, setSelectedBox, image, toImageCoords, setIsOverlayInteracting,
     mouseEventHandler, currentTool,
   } = useAnnotationState();
 
+  const [cropped, setCropped] = createSignal(false);
   let dragStart: { x: number, y: number } | null = null;
 
-  createEffect(() => {
+  function selectWholeImage() {
     const base = image();
     if (!base) return;
     setSelectedBox({ x: 0, y: 0, width: base.naturalWidth, height: base.naturalHeight });
-  });
+    setCropped(false);
+  }
+
+  createEffect(selectWholeImage);
 
   // Lets the Crop tool drag out a fresh selection, same gesture as creating a box overlay.
   function mouseDownHandler(event: MouseEvent) {
@@ -25,6 +33,7 @@ function CropSelectionBox() {
 
     dragStart = toImageCoords(event.clientX, event.clientY);
     setSelectedBox({ x: dragStart.x, y: dragStart.y, width: 0, height: 0 });
+    setCropped(true);
     setIsOverlayInteracting(true);
     window.addEventListener("mousemove", mouseMoveHandler);
     window.addEventListener("mouseup", stopDrag);
@@ -44,7 +53,11 @@ function CropSelectionBox() {
   function stopDrag() {
     window.removeEventListener("mousemove", mouseMoveHandler);
     window.removeEventListener("mouseup", stopDrag);
-    if (dragStart) setIsOverlayInteracting(false);
+    if (dragStart) {
+      setIsOverlayInteracting(false);
+      // A bare click with the Crop tool isn't a crop, keep the whole image.
+      if (selectedBox.width < MIN_CROP_SIZE || selectedBox.height < MIN_CROP_SIZE) selectWholeImage();
+    }
     dragStart = null;
   }
 
@@ -58,21 +71,23 @@ function CropSelectionBox() {
     <ResizableBox
       borderWidth={3}
       pointRadius={18}
-      show
+      show={cropped()}
       toContainerCoords={toImageCoords}
       onResize={dims => setSelectedBox(dims)}
       onResizeStart={() => setIsOverlayInteracting(true)}
       onResizeEnd={() => setIsOverlayInteracting(false)}
     >
       {ref => (
-        <div
-          ref={ref}
-          class={styles.CropBox}
-          style={{
-            left: `${selectedBox.x}px`, top: `${selectedBox.y}px`,
-            width: `${selectedBox.width}px`, height: `${selectedBox.height}px`,
-          }}
-        />
+        <Show when={cropped()}>
+          <div
+            ref={ref}
+            class={styles.CropBox}
+            style={{
+              left: `${selectedBox.x}px`, top: `${selectedBox.y}px`,
+              width: `${selectedBox.width}px`, height: `${selectedBox.height}px`,
+            }}
+          />
+        </Show>
       )}
     </ResizableBox>
   );

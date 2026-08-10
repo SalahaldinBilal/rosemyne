@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The history toolbar now shows how many images, videos and files are in the listing, reflecting the active filter when one is applied.
 
+### Changed
+
+- Editing a saved image no longer opens with a crop selection drawn around the whole image; the crop box and its handles only appear once the Crop tool has been used to drag one out. Saving without cropping still keeps the full image.
+
 ## [0.2.3] - 2026-08-04
 
 ### Added
