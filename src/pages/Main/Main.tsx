@@ -3,7 +3,7 @@ import styles from "./Main.module.scss";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
 import { createStore, produce, reconcile } from "solid-js/store";
-import { HistoryCursor, HistorySort, ImageEditSession, ImageHistoryData, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
+import { HistoryCursor, HistorySort, HistoryTypeCounts, ImageEditSession, ImageHistoryData, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
 import { ImageViewerApi } from "../../types";
 import { saveScreenshot } from "@core/helpers/saveScreenshot";
 import TagFilters from "./TagFilter/TagFilters";
@@ -41,7 +41,7 @@ const OVERSCAN_ROWS = 3;
 
 function Main() {
   const [items, setItems] = createStore<Array<ImageHistoryData>>([]);
-  const [total, setTotal] = createSignal(0);
+  const [counts, setCounts] = createStore<HistoryTypeCounts>({ image: 0, video: 0, file: 0 });
   const [sort, setSort] = createSignal<HistorySort>({ field: "date", direction: "desc" });
   const [loading, setLoading] = createSignal(true);
   const [metadata, setMetadata] = createSignal<TagMetadata | null>(null);
@@ -72,6 +72,7 @@ function Main() {
   let filtersEl: HTMLDivElement | undefined;
 
   const filterActive = createMemo(() => root.children.length > 0);
+  const total = createMemo(() => counts.image + counts.video + counts.file);
 
   const columns = createMemo(() => Math.max(1, Math.floor((viewportWidth() + GAP) / (MIN_COL_WIDTH + GAP))));
   const loadedRows = createMemo(() => Math.ceil(items.length / columns()));
@@ -97,7 +98,7 @@ function Main() {
     try {
       const page = await safeInvoke("query_history", { filter: filterSnapshot(), sort: sort(), cursor: null, limit: PAGE_SIZE });
       if (token !== requestToken) return;
-      setTotal(page.total ?? 0);
+      setCounts(page.counts ?? { image: 0, video: 0, file: 0 });
       nextCursor = page.nextCursor;
       setItems(reconcile(page.items, { key: "fileName" }));
       if (scrollEl) scrollEl.scrollTop = 0;
@@ -187,7 +188,7 @@ function Main() {
       const augmented = augmentTags(tags, fileName, filePath, type, new Date(dateTime).getTime(), fileSize);
       if (matchTagsToFilter(root, augmented)) {
         setItems(produce(screenshots => screenshots.unshift(event.payload)));
-        setTotal(current => current + 1);
+        setCounts(type, current => current + 1);
       }
       pushToast("Saved to history", "success", 3000);
     });
@@ -514,7 +515,7 @@ function Main() {
     try {
       await safeInvoke("delete_screenshot", { fileName: screenshot.fileName });
       setItems(items.filter(e => e.fileName !== screenshot.fileName));
-      setTotal(current => Math.max(0, current - 1));
+      setCounts(screenshot.type, current => Math.max(0, current - 1));
     } catch (error) {
       flashStatus(screenshot.fileName, errorText(error));
     }
@@ -575,7 +576,7 @@ function Main() {
       <div class={styles.ScreenshotListing} ref={scrollEl} onScroll={onScroll}>
         <div class={styles.FiltersHeader} ref={filtersEl}>
           <div class={styles.FilterPanel}>
-            <FilterToolbar sort={sort()} onSortChange={setSort} />
+            <FilterToolbar sort={sort()} onSortChange={setSort} counts={counts} />
             <Show when={filtersOpen()}>
               <SavedFilterBar />
               <Show when={metadata()}>

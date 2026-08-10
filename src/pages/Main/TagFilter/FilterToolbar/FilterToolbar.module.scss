@@ -10,6 +10,41 @@
   }
 }
 
+.Counts {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.Count, .Total {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.Total {
+  color: var(--base-font-color);
+  font-weight: 500;
+}
+
+.Separator {
+  width: 1px;
+  height: 14px;
+  background-color: var(--border-color);
+}
+
 .Toggle {
   display: inline-flex;
   align-items: center;

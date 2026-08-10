@@ -76,8 +76,30 @@ const METADATA_STATUS_BUILT: &str = "built-v1";
 pub struct HistoryPage {
     pub items: Vec<ImageHistoryData>,
     /// Computed only on the first page (no cursor); later pages reuse it.
-    pub total: Option<u64>,
+    pub counts: Option<HistoryTypeCounts>,
     pub next_cursor: Option<HistoryCursor>,
+}
+
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryTypeCounts {
+    pub image: u64,
+    pub video: u64,
+    pub file: u64,
+}
+
+impl HistoryTypeCounts {
+    pub fn total(&self) -> u64 {
+        self.image + self.video + self.file
+    }
+
+    fn add(&mut self, item_type: HistoryItemType, count: u64) {
+        match item_type {
+            HistoryItemType::Image => self.image += count,
+            HistoryItemType::Video => self.video += count,
+            HistoryItemType::File => self.file += count,
+        }
+    }
 }
 
 /// Keyset cursor: the sort column's value on the last row (number for date,
@@ -689,14 +711,23 @@ impl HistoryStore {
             where_expr.push_str(" AND filter_match(tags, file_name, file_path, type, date_time_ms, file_size)");
         }
 
-        let total = match cursor {
+        let counts = match cursor {
             Some(_) => None,
             None => {
-                let count: i64 = inner
-                    .conn
-                    .prepare_cached(&format!("SELECT COUNT(*) FROM history AS h WHERE {where_expr}"))?
-                    .query_row(params_from_iter(compiled.params.iter()), |row| row.get(0))?;
-                Some(count as u64)
+                let mut stmt = inner.conn.prepare_cached(&format!(
+                    "SELECT type, COUNT(*) FROM history AS h WHERE {where_expr} GROUP BY type"
+                ))?;
+                let rows = stmt
+                    .query_map(params_from_iter(compiled.params.iter()), |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+
+                let mut counts = HistoryTypeCounts::default();
+                for (item_type, count) in rows {
+                    counts.add(HistoryItemType::from_str(&item_type), count as u64);
+                }
+                Some(counts)
             }
         };
 
@@ -761,7 +792,7 @@ impl HistoryStore {
         });
         Ok(HistoryPage {
             items: rows.into_iter().map(|(entry, _, _)| entry).collect(),
-            total,
+            counts,
             next_cursor,
         })
     }
@@ -1455,6 +1486,10 @@ mod tests {
         group(0, &[], vec![])
     }
 
+    fn page_total(page: &HistoryPage) -> Option<u64> {
+        page.counts.as_ref().map(HistoryTypeCounts::total)
+    }
+
     fn group(relation: u8, scope: &[&str], children: Vec<FilterNode>) -> FilterNode {
         FilterNode::Group {
             relation,
@@ -1501,13 +1536,13 @@ mod tests {
             .unwrap();
 
         let page = store.query(empty_filter(), None, None, 2).unwrap();
-        assert_eq!(page.total, Some(3));
+        assert_eq!(page_total(&page), Some(3));
         assert_eq!(page.items.len(), 2);
         assert_eq!(page.items[0].file_name, "c.png");
         assert_eq!(page.items[1].file_name, "b.png");
 
         let page = store.query(empty_filter(), None, page.next_cursor, 2).unwrap();
-        assert_eq!(page.total, None);
+        assert_eq!(page_total(&page), None);
         assert_eq!(page.items.len(), 1);
         assert_eq!(page.items[0].file_name, "a.png");
 
@@ -1528,7 +1563,7 @@ mod tests {
             .unwrap();
 
         let page = store.query(equals(&["ProcessName"], json!("firefox")), None, None, 50).unwrap();
-        assert_eq!(page.total, Some(2));
+        assert_eq!(page_total(&page), Some(2));
         assert_eq!(page.items.len(), 2);
         assert!(page.items.iter().all(|item| item
             .tags
@@ -1557,7 +1592,7 @@ mod tests {
         let page = store
             .query(equals(&["Windows", "Window Name"], json!("firefox")), None, None, 50)
             .unwrap();
-        assert_eq!(page.total, Some(1));
+        assert_eq!(page_total(&page), Some(1));
         assert_eq!(page.items[0].file_name, "a.png");
     }
 
@@ -1581,7 +1616,7 @@ mod tests {
         loop {
             let page = store.query(filter.clone(), None, cursor.clone(), 1).unwrap();
             if cursor.is_none() {
-                total = page.total;
+                total = page_total(&page);
             }
             if page.items.is_empty() {
                 break;
@@ -1695,7 +1730,7 @@ mod tests {
 
         // The rebuild also populated tag_index: an exact filter finds the row.
         let page = store.query(equals(&["ProcessName"], json!("firefox")), None, None, 10).unwrap();
-        assert_eq!(page.total, Some(1));
+        assert_eq!(page_total(&page), Some(1));
         assert_eq!(page.items[0].file_name, "x.png");
     }
 
@@ -1735,9 +1770,9 @@ mod tests {
         store.delete_with_file("a.png").unwrap();
 
         let page = store.query(equals(&["ProcessName"], json!("firefox")), None, None, 10).unwrap();
-        assert_eq!(page.total, Some(0));
+        assert_eq!(page_total(&page), Some(0));
         let page = store.query(equals(&["ProcessName"], json!("chrome")), None, None, 10).unwrap();
-        assert_eq!(page.total, Some(1));
+        assert_eq!(page_total(&page), Some(1));
     }
 
     #[test]
@@ -1749,7 +1784,7 @@ mod tests {
             .unwrap();
 
         let page = store.query(equals(&["ProcessName"], json!("firefox")), None, None, 10).unwrap();
-        assert_eq!(page.total, Some(1));
+        assert_eq!(page_total(&page), Some(1));
         assert_eq!(page.items[0].file_name, saved.file_name);
 
         std::fs::remove_file(&saved.file_path).ok();
@@ -1932,7 +1967,7 @@ mod tests {
             let actual: Vec<&str> = page.items.iter().map(|item| item.file_name.as_str()).collect();
 
             assert_eq!(actual, expected, "filter {filter:?} diverged from reference eval");
-            assert_eq!(page.total, Some(expected.len() as u64), "count diverged for {filter:?}");
+            assert_eq!(page_total(&page), Some(expected.len() as u64), "count diverged for {filter:?}");
         }
     }
 

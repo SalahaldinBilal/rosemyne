@@ -104,9 +104,11 @@ export type HistorySort = {
   direction: "asc" | "desc",
 }
 
+export type HistoryTypeCounts = Record<HistoryItemType, number>
+
 export type HistoryPage = {
   items: Array<ImageHistoryData>,
-  total: number | null,
+  counts: HistoryTypeCounts | null,
   nextCursor: HistoryCursor | null,
 }
 
