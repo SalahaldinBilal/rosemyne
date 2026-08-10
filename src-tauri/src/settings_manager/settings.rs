@@ -47,6 +47,10 @@ pub struct GeneralSettings {
     pub check_for_updates_on_startup: bool,
     /// Windows only; Linux has no composited frame border to strip.
     pub strip_window_border: bool,
+    /// A region drag smaller than this on either axis is treated as a click on
+    /// the window under the cursor instead of a region selection.
+    pub min_selection_width: u32,
+    pub min_selection_height: u32,
 }
 
 impl Default for GeneralSettings {
@@ -64,6 +68,8 @@ impl Default for GeneralSettings {
             has_completed_onboarding: false,
             check_for_updates_on_startup: true,
             strip_window_border: true,
+            min_selection_width: 15,
+            min_selection_height: 15,
         }
     }
 }

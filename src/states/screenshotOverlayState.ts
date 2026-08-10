@@ -19,6 +19,21 @@ function useScreenshotOverlayStateInner() {
     scrollDistance: { type: "percent", data: 80 },
   });
 
+  // A drag smaller than this on either axis counts as a click on the window
+  // under the cursor. Re-read on every capture, since this window is never
+  // recreated and would otherwise keep whatever was set when it first loaded.
+  const [minSelectionSize, setMinSelectionSize] = createStore({ width: 15, height: 15 });
+
+  createEffect(() => {
+    if (!imageData()) return;
+
+    safeInvoke("get_general_settings")
+      .then(settings => setMinSelectionSize({ width: settings.minSelectionWidth, height: settings.minSelectionHeight }))
+      .catch(() => {
+        // Best-effort; the selector just keeps whatever it already had.
+      });
+  });
+
   createEffect(() => {
     if (imageData()?.scrollCapture !== true) return;
 
@@ -137,7 +152,7 @@ function useScreenshotOverlayStateInner() {
   return {
     ...annotation,
     imageData, setImageData, selectedWindow, setSelectedWindow,
-    closeOverlay, cancelCurrentAction, previewUrl,
+    closeOverlay, cancelCurrentAction, previewUrl, minSelectionSize,
     scrollCaptureParams, setScrollCaptureParams,
   };
 }

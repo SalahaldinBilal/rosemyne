@@ -28,6 +28,8 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   hasCompletedOnboarding: false,
   checkForUpdatesOnStartup: true,
   stripWindowBorder: true,
+  minSelectionWidth: 15,
+  minSelectionHeight: 15,
 };
 
 function Onboarding() {

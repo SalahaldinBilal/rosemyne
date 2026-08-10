@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - The history toolbar now shows how many images, videos and files are in the listing, reflecting the active filter when one is applied.
+- Settings → General has a new "Minimum selection size" option (default 15 × 15): a region drag smaller than that on either axis is treated as a click and captures the window under the cursor instead, so a slight wobble while clicking no longer loses the window. Set it to 0 to always keep the drawn region.
 
 ### Changed
 

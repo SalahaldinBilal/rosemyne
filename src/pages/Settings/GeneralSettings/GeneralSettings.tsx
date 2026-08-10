@@ -27,12 +27,16 @@ function GeneralSettings() {
     hasCompletedOnboarding: false,
     checkForUpdatesOnStartup: true,
     stripWindowBorder: true,
+    minSelectionWidth: 15,
+    minSelectionHeight: 15,
   });
   const [availableCodecs, setAvailableCodecs] = createSignal<VideoCodec[]>(["h264"]);
   const [directoryInput, setDirectoryInput] = createSignal("");
   const [uploadPathInput, setUploadPathInput] = createSignal("");
   const [fileNameInput, setFileNameInput] = createSignal("");
   const [fpsInput, setFpsInput] = createSignal("30");
+  const [minWidthInput, setMinWidthInput] = createSignal("15");
+  const [minHeightInput, setMinHeightInput] = createSignal("15");
   const { pushToast } = useToastState;
 
   onMount(async () => {
@@ -42,6 +46,8 @@ function GeneralSettings() {
     setUploadPathInput(saved.uploadPath ?? "");
     setFileNameInput(saved.fileNameTemplate ?? "");
     setFpsInput(String(saved.recordFps));
+    setMinWidthInput(String(saved.minSelectionWidth));
+    setMinHeightInput(String(saved.minSelectionHeight));
 
     // Only offer codecs the running hardware/drivers can actually initialize;
     // always keep the currently-saved one selectable even if the probe didn't
@@ -67,6 +73,8 @@ function GeneralSettings() {
       setUploadPathInput(previous.uploadPath ?? "");
       setFileNameInput(previous.fileNameTemplate ?? "");
       setFpsInput(String(previous.recordFps));
+      setMinWidthInput(String(previous.minSelectionWidth));
+      setMinHeightInput(String(previous.minSelectionHeight));
       pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
     }
   }
@@ -75,6 +83,16 @@ function GeneralSettings() {
     const parsed = Math.round(Number(fpsInput()));
     return Number.isFinite(parsed) ? Math.min(240, Math.max(1, parsed)) : general.recordFps;
   }
+
+  function normalizedMinSize(input: string, fallback: number): number {
+    const parsed = Math.round(Number(input));
+    return Number.isFinite(parsed) ? Math.min(1000, Math.max(0, parsed)) : fallback;
+  }
+
+  const minSelection = createMemo(() => ({
+    width: normalizedMinSize(minWidthInput(), general.minSelectionWidth),
+    height: normalizedMinSize(minHeightInput(), general.minSelectionHeight),
+  }));
 
   const codecItems = createMemo<SelectItem<VideoCodec>[]>(() =>
     availableCodecs().map(codec => ({ id: codec, value: codec, label: CODEC_LABELS[codec] }))
@@ -146,6 +164,44 @@ function GeneralSettings() {
         </div>
       </label>
     </Show>
+    <div class={styles.SettingRow}>
+      <div class={styles.SettingText} style={{ width: '100%' }}>
+        <span>Minimum selection size</span>
+        <span class={styles.Hint}>
+          A region drag smaller than this (in pixels, on either axis) is treated as a click and captures
+          the window under the cursor instead. Set to 0 to always keep the drawn region. Default: 15 × 15.
+        </span>
+        <div class={styles.DirectoryRow}>
+          <Input
+            type="number"
+            min={0}
+            max={1000}
+            value={minWidthInput()}
+            style={{ width: '110px' }}
+            onChange={e => setMinWidthInput(e.currentTarget.value)}
+          />
+          <span class={styles.Hint}>×</span>
+          <Input
+            type="number"
+            min={0}
+            max={1000}
+            value={minHeightInput()}
+            style={{ width: '110px' }}
+            onChange={e => setMinHeightInput(e.currentTarget.value)}
+          />
+          <Button
+            disabled={minSelection().width === general.minSelectionWidth && minSelection().height === general.minSelectionHeight}
+            onClick={() => {
+              setMinWidthInput(String(minSelection().width));
+              setMinHeightInput(String(minSelection().height));
+              apply({ minSelectionWidth: minSelection().width, minSelectionHeight: minSelection().height });
+            }}
+          >
+            Apply
+          </Button>
+        </div>
+      </div>
+    </div>
     <div class={styles.SettingRow}>
       <div class={styles.SettingText} style={{ width: '100%' }}>
         <span>Recording video codec</span>

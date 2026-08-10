@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import styles from "./SelectionBox.module.scss";
 import useScreenshotOverlayStateInner from "../../../states/screenshotOverlayState";
 import WindowSelectionBox from "./WindowSelectionBox/WindowSelectionBox";
@@ -7,10 +7,15 @@ import { createStore } from "solid-js/store";
 import { findClosestWindowAtPoint } from "../../../helpers";
 
 function SelectionBox() {
-  const { imageData, selectedBox, previewUrl, currentTool, setSelectedBox, setSelectedWindow, closeOverlay, mouseEventHandler, suppressNextClick, setIsSelectingRegion } = useScreenshotOverlayStateInner;
+  const { imageData, selectedBox, previewUrl, currentTool, setSelectedBox, setSelectedWindow, closeOverlay, mouseEventHandler, suppressNextClick, setIsSelectingRegion, minSelectionSize } = useScreenshotOverlayStateInner;
   const [isMouseDown, setIsMouseDown] = createSignal<boolean>(false);
   const [hasMovedOnce, setHasMovedOnce] = createSignal<boolean>(false);
   const [mouseDownLocation, setMouseDownLocation] = createStore<{ x: number, y: number }>({ x: 0, y: 0 });
+  // Floored at 1px, so a zero-area drag never captures even when the setting is 0.
+  const minSelection = createMemo(() => ({
+    width: Math.max(1, minSelectionSize.width),
+    height: Math.max(1, minSelectionSize.height),
+  }));
   let lastMousePosition = { x: 0, y: 0 };
 
   onMount(() => {
@@ -121,9 +126,15 @@ function SelectionBox() {
 
     if (!moved) return;
 
-    if (selectedBox.width > 5 && selectedBox.height > 5) {
-      closeOverlay(imageData()!.imageId);
+    // Too small to be a deliberate region: fall back to the window under the
+    // cursor, exactly like a plain click would.
+    if (selectedBox.width < minSelection().width || selectedBox.height < minSelection().height) {
+      selectWindowAtPoint(lastMousePosition);
+      if (selectedBox.width > 0 && selectedBox.height > 0) closeOverlay(imageData()!.imageId);
+      return;
     }
+
+    closeOverlay(imageData()!.imageId);
   }
 
   function cleanup() {

@@ -94,6 +94,8 @@ export type GeneralSettings = {
   hasCompletedOnboarding: boolean,
   checkForUpdatesOnStartup: boolean,
   stripWindowBorder: boolean,
+  minSelectionWidth: number,
+  minSelectionHeight: number,
 }
 
 // Windows' own custom-format-picture token syntax (`yyyy`, `MM`, `dd`, `HH`,
