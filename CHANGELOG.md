@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-08-14
+
+### Added
+
+- **Undo/redo while annotating**: every editing action (placing, moving, resizing and deleting overlays, attribute edits, draw/erase strokes, clearing the drawing) now goes into one shared history that Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) and new Undo/Redo toolbar buttons step through. Works in the capture overlay, saved-image editing and the scrolling-capture review alike.
+- **Image overlay tool**: stamp images onto a capture, with adjustable opacity. Images come from a new persistent library under Settings → Overlay Defaults (added images are copied as WebP, so moving or deleting the original file doesn't break them), and the toolbar can also pick a one-off image just for the current capture.
+- **Line and Arrow tools** for annotating, with configurable color, thickness and arrow head size; their starting values are customizable under Settings → Overlay Defaults like the other tools.
+- Settings → General has a new "Include the mouse cursor in screenshots" option. The cursor is placed on the capture as a regular image overlay, so it can still be moved, resized or removed before saving. Settings → Overlay Defaults picks what gets placed: the cursor exactly as it looked at capture time, or a fixed choice from the system's installed cursors.
+
+### Changed
+
+- Double-clicking a placed overlay now opens its settings menu, same as right-clicking it.
+- Resize handles now shrink on small overlay items instead of overlapping each other, so tiny items like a placed cursor stay resizable.
+
 ## [0.2.4] - 2026-08-10
 
 ### Added
