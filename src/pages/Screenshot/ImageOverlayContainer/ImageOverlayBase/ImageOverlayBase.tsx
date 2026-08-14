@@ -17,7 +17,7 @@ import OverlayAttributeList from "@core/components/OverlayAttributeList/OverlayA
 const HANDLES_ON_TOP_BOOST = 100_000;
 
 function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragged?: boolean, handlesOnTop?: boolean, children: JSX.Element }) {
-  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, creatingItemIndex, toImageCoords } = useAnnotationState();
+  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, creatingItemIndex, toImageCoords, history } = useAnnotationState();
   const { show: showContextMenu, id: menuId } = useContextMenu();
   const draggable = createDraggable(props.index, { item: props.item });
   const isBeingDragged = createMemo(() => draggable.isActiveDraggable);
@@ -53,6 +53,7 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
 
   function editAttribute(name: string, value: any) {
     setOverlayItems(props.index, "attributes", name as never, "value" as never, value);
+    history.commit(`attr:${props.index}:${name}`);
   }
 
   return <>
@@ -61,7 +62,7 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
       pointRadius={18}
       onResize={(dims) => !isBeingDragged() && onDimsChange(dims)}
       onResizeStart={() => setIsOverlayInteracting(true)}
-      onResizeEnd={() => setIsOverlayInteracting(false)}
+      onResizeEnd={() => { setIsOverlayInteracting(false); history.commit(); }}
       show={canBeEdited() && !isBeingDragged() && !suppressHandlesWhileCreating()}
       toContainerCoords={toImageCoords}
       // Only the resize border/handles are lifted above whatever is covering this
@@ -99,7 +100,10 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
       <div class={styles.MenuHeader}>{beautifyCamelOrPascalCase(props.item.type)} Overlay</div>
       <OverlayAttributeList attributes={props.item.attributes} onChange={editAttribute} />
       <div class={styles.Divider} />
-      <ContextMenuItem icon={{ icon: CircleX }} danger onClick={() => setOverlayItems(overlayItems.filter((_, index) => index !== props.index))}>
+      <ContextMenuItem icon={{ icon: CircleX }} danger onClick={() => {
+        setOverlayItems(overlayItems.filter((_, index) => index !== props.index));
+        history.commit();
+      }}>
         Remove Overlay
       </ContextMenuItem>
     </ContextMenu>

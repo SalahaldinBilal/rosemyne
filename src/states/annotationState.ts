@@ -1,11 +1,12 @@
-import { createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
+import { batch, createSignal } from "solid-js";
+import { createStore, unwrap } from "solid-js/store";
 import { createAsync } from "@solidjs/router";
 import mitt from "mitt";
 import { Dimensions, Position, Tools } from "../types";
-import { ImageOverlay } from "../types/imageOverlay";
+import { DrawStroke, ImageOverlay } from "../types/imageOverlay";
 import { loadImage } from "../helpers";
 import { DEFAULT_OVERLAY_IMAGE_NAME } from "../constants";
+import { createAnnotationHistory } from "./annotationHistory";
 
 // Point-based (not MouseEvent-based) so it also converts getBoundingClientRect() reads, not just live pointer events.
 export type ToImageCoords = (clientX: number, clientY: number) => Position;
@@ -61,6 +62,20 @@ export function createAnnotationState(
     effectLayers.delete(order);
   }
 
+  // Replayed by DrawLayer's canvas; same non-reactive-container + version-signal shape as effectLayers.
+  const strokes: DrawStroke[] = [];
+  const [strokesVersion, setStrokesVersion] = createSignal(0);
+  const bumpStrokes = () => setStrokesVersion(v => v + 1);
+
+  const history = createAnnotationHistory(
+    () => ({ items: structuredClone(unwrap(overlayItems)), strokes: [...strokes] }),
+    snapshot => batch(() => {
+      setOverlayItems(structuredClone(snapshot.items));
+      strokes.splice(0, strokes.length, ...snapshot.strokes);
+      bumpStrokes();
+    }),
+  );
+
   // A just-cancelled drag/selection still has a pending mouseup, which fires
   // a trailing click, don't let it confirm-select. Armed only when a
   // button was actually down.
@@ -90,23 +105,24 @@ export function createAnnotationState(
   // There's only ever one draw layer, so "clear" just removes it outright ,
   // the next stroke lazily creates a fresh one (see DrawLayer.tsx).
   function clearDrawing() {
-    const drawItem = overlayItems.find(item => item.type === "draw");
-    if (!drawItem) return;
+    if (!overlayItems.some(item => item.type === "draw")) return;
 
-    const canvas = effectLayers.get(drawItem.order);
-    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-
-    removeEffectLayer(drawItem.order);
+    strokes.length = 0;
+    bumpStrokes();
     setOverlayItems(overlayItems.filter(item => item.type !== "draw"));
+    history.commit();
   }
 
   function resetEditing() {
     setSelectedBox({ x: 0, y: 0, width: 0, height: 0 });
     setOverlayItems([]);
     effectLayers.clear();
+    strokes.length = 0;
+    bumpStrokes();
     // The next capture should always start in selection mode, not
     // whatever annotation tool happened to be active last time.
     setCurrentTool(Tools.Screenshot);
+    history.rebaseline();
   }
 
   return {
@@ -116,6 +132,7 @@ export function createAnnotationState(
     isOverlayInteracting, setIsOverlayInteracting, creatingItemIndex, setCreatingItemIndex, overlayItems, setOverlayItems, addOverlayItem, clearDrawing,
     image, mouseEventHandler, effectLayers, layerVersions, bumpLayerVersion, removeEffectLayer,
     suppressNextClick, consumeSuppressedClick, toImageCoords, toImageDelta, resetEditing,
+    strokes, strokesVersion, bumpStrokes, history,
   };
 }
 

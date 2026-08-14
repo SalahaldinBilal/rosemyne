@@ -5,7 +5,7 @@ import { useAnnotationState } from "../../states/annotationContext";
 import { beautifyCamelOrPascalCase } from "../../helpers";
 import Button from "../Button/Button";
 import Input from "../Input/Input";
-import { ArrowUpRight, BookAIcon, Droplets, Eraser, Grid3X3Icon, ImageIcon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, Slash, SquareMousePointer, Trash2, X } from "lucide-solid";
+import { ArrowUpRight, BookAIcon, Droplets, Eraser, Grid3X3Icon, ImageIcon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, Redo2, Slash, SquareMousePointer, Trash2, Undo2, X } from "lucide-solid";
 import { SelectItem, Tools } from "../../types";
 import Select from "../Select/Select";
 import useOverlayImagesState from "../../states/overlayImagesState";
@@ -41,9 +41,9 @@ const ALL_TOOLS = TOOL_GROUPS.flat();
 // onClose is omitted by embedded callers that already offer their own cancel/discard chrome (e.g. ScrollCaptureResult's TopBar).
 function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorScale?: () => number, screenshotToolLabel?: string }) {
   const {
-    currentTool, setCurrentTool, isOverlayInteracting,
+    currentTool, setCurrentTool, isOverlayInteracting, isSelectingRegion,
     drawColor, setDrawColor, brushSize, setBrushSize, eraserSize, setEraserSize,
-    overlayItems, clearDrawing, selectedImage, setSelectedImage,
+    overlayItems, clearDrawing, selectedImage, setSelectedImage, history,
   } = useAnnotationState();
   const { names: imageNames, addSessionImage } = useOverlayImagesState;
   const hasDrawing = createMemo(() => overlayItems.some(item => item.type === "draw"));
@@ -98,6 +98,21 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
     if (tool) setCurrentTool(tool.tool);
   });
 
+  makeEventListener(window, "keydown", event => {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const target = event.target as HTMLElement;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable) return;
+    if (isOverlayInteracting() || isSelectingRegion()) return;
+
+    if (event.code === "KeyZ" && !event.shiftKey) {
+      event.preventDefault();
+      history.undo();
+    } else if (event.code === "KeyY" || (event.code === "KeyZ" && event.shiftKey)) {
+      event.preventDefault();
+      history.redo();
+    }
+  });
+
   return (<>
     <div class={styles.ToolBoxColumn} classList={{ [styles.Interacting]: isOverlayInteracting() }}>
       <div class={styles.ToolBox}>
@@ -136,6 +151,23 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
             </Show>
           </>}
         </For>
+        <div class={styles.Divider} />
+        <Button
+          isIcon
+          tooltip="Undo (Ctrl+Z)"
+          disabled={!history.canUndo()}
+          style={{ width: "36px", height: "36px", "border-radius": "9px" }}
+          children={<Undo2 size={18} />}
+          onClick={history.undo}
+        />
+        <Button
+          isIcon
+          tooltip="Redo (Ctrl+Y)"
+          disabled={!history.canRedo()}
+          style={{ width: "36px", height: "36px", "border-radius": "9px" }}
+          children={<Redo2 size={18} />}
+          onClick={history.redo}
+        />
         <Show when={props.onClose}>
           <div class={styles.Divider} />
           <Button

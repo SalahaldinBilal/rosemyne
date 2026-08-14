@@ -19,7 +19,7 @@ const HIDDEN_BEHIND_COVERAGE = 0.9;
 const MIN_DRAG_DISTANCE = 4;
 
 function ImageOverlayContainer() {
-  const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting, setCreatingItemIndex, toImageCoords, toImageDelta, selectedImage } = useAnnotationState();
+  const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting, setCreatingItemIndex, toImageCoords, toImageDelta, selectedImage, history } = useAnnotationState();
   const { defaultAttributesFor } = useOverlayDefaultsState;
   const { bitmapFor, names } = useOverlayImagesState;
   const transform = createMutable({ x: 0, y: 0 });
@@ -180,6 +180,7 @@ function ImageOverlayContainer() {
     setIsOverlayInteracting(false);
     currentItemIndex = -1;
     setCreatingItemIndex(null);
+    history.commit();
   }
 
   return (
@@ -201,6 +202,7 @@ function ImageOverlayContainer() {
         transform.x = 0;
         transform.y = 0;
         setIsOverlayInteracting(false);
+        history.commit();
       }}
     >
       <DragDropSensors>

@@ -61,11 +61,11 @@ function useScreenshotOverlayStateInner() {
   const annotation = createAnnotationState(previewUrl);
   const {
     selectedBox, overlayItems, setOverlayItems, addOverlayItem, image, mouseEventHandler, effectLayers,
-    isSelectingRegion, isOverlayInteracting, resetEditing, setSelectedImage,
+    isSelectingRegion, isOverlayInteracting, resetEditing, setSelectedImage, history,
   } = annotation;
 
   // Lets a later-arriving cursor re-place itself, but only while the user hasn't touched it.
-  let autoPlacedCursor: { index: number, dimensions: Dimensions, mouse: Position } | null = null;
+  let autoPlacedCursor: { dimensions: Dimensions, mouse: Position } | null = null;
 
   function cursorDimensions(cursor: CursorImageInfo, mouse: Position): Dimensions {
     return {
@@ -74,6 +74,10 @@ function useScreenshotOverlayStateInner() {
       width: cursor.width,
       height: cursor.height,
     };
+  }
+
+  function dimsEqual(a: Dimensions, b: Dimensions): boolean {
+    return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
   }
 
   // Untracked: placing reads the overlay list, which would re-run this on every later edit.
@@ -86,7 +90,7 @@ function useScreenshotOverlayStateInner() {
       if (!data.autoPlaceCursor || !data.cursor) return;
 
       const dimensions = cursorDimensions(data.cursor, data.mousePosition);
-      const index = addOverlayItem({
+      addOverlayItem({
         type: "image",
         attributes: {
           // Its own name leads: the live cursor isn't in the pickable list, and this
@@ -99,11 +103,16 @@ function useScreenshotOverlayStateInner() {
           opacity: { type: "number", value: 100, min: 0, max: 100 },
         },
         dimensions,
+        autoPlaced: true,
       });
+      history.rebaseline();
 
       // Only the live cursor is still being rendered; a picked one is already final.
+      // Copied: addOverlayItem shares `dimensions` with the store row, and path-set
+      // merges mutate that row object in place, so the untouched check below would
+      // otherwise compare the row against itself and always pass.
       autoPlacedCursor = data.cursorImageName === CURSOR_IMAGE_NAME
-        ? { index, dimensions, mouse: data.mousePosition }
+        ? { dimensions: { ...dimensions }, mouse: data.mousePosition }
         : null;
     });
   });
@@ -111,14 +120,17 @@ function useScreenshotOverlayStateInner() {
   listen<CursorImageInfo>("cursor://updated", event => {
     if (!autoPlacedCursor) return;
 
-    const placed = overlayItems[autoPlacedCursor.index];
+    const placedIndex = overlayItems.findIndex(item => item.type === "image" && item.autoPlaced);
+    const placed = overlayItems[placedIndex];
     const previous = autoPlacedCursor.dimensions;
-    if (!placed || placed.type !== "image") return;
-    if (placed.dimensions.x !== previous.x || placed.dimensions.y !== previous.y
-      || placed.dimensions.width !== previous.width || placed.dimensions.height !== previous.height) return;
+    if (!placed || placed.type !== "image" || !dimsEqual(placed.dimensions, previous)) return;
 
     const dimensions = cursorDimensions(event.payload, autoPlacedCursor.mouse);
-    setOverlayItems(autoPlacedCursor.index, "dimensions", dimensions);
+    setOverlayItems(placedIndex, "dimensions", dimensions);
+    history.patchAll(snapshot => {
+      const item = snapshot.items.find(it => it.type === "image" && it.autoPlaced && dimsEqual(it.dimensions, previous));
+      if (item) item.dimensions = { ...dimensions };
+    });
     autoPlacedCursor.dimensions = dimensions;
   });
 

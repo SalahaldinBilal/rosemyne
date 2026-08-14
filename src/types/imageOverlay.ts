@@ -60,13 +60,20 @@ export type PixelateImageOverlay = ImageOverlayBase<"pixelate", {
 export type ImageImageOverlay = ImageOverlayBase<"image", {
   "image": { type: "select", value: "Arrow", options: ["Arrow"] },
   "opacity": { type: "number", value: 100, min: 0, max: 100 },
-}>;
+}> & { autoPlaced?: boolean };
 
 // Freehand strokes painted straight onto a persistent full-capture layer, see
 // DrawLayer.tsx. Unlike every other overlay type it has no meaningful editable
 // box: `dimensions` always covers the whole capture and `attributes` is empty,
 // since brush color/size are global tool settings, not per-item.
 export type DrawImageOverlay = ImageOverlayBase<"draw", {}>;
+
+export type DrawStroke = {
+  erase: boolean,
+  color: `#${string}`,
+  size: number,
+  points: Array<{ x: number, y: number }>,
+};
 
 // Which corner of `dimensions` the line/arrow's start (tail) sits at.
 export type LineCorner = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
