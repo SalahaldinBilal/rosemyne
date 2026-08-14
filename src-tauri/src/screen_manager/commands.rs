@@ -11,8 +11,10 @@ use crate::{
     HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWebview, ScreenshotWindowHandler,
     SettingsHandler,
     capture::{CapManager, capture_trait::CaptureManager},
-    cursor_image::{CursorImageHandler, CursorImageInfo},
+    cursor_image::{CursorImageHandler, CursorImageInfo, CursorSource, SystemCursorsHandler},
     dimensions::impls::{Dimensions, Position},
+    overlay_images::CURSOR_IMAGE_NAME,
+    settings_manager::settings::GeneralSettings,
     emit_on_main_thread,
     screen_manager::{
         screenshot_manager::{EncodeError, TagValue, now_ms},
@@ -127,6 +129,7 @@ async fn show_live_overlay(
         record: matches!(mode, OverlayMode::Record),
         scroll_capture: matches!(mode, OverlayMode::ScrollCapture),
         cursor: None,
+        cursor_image_name: CURSOR_IMAGE_NAME.to_string(),
         auto_place_cursor: false,
         monitor_positions: webview
             .monitor_positions
@@ -360,6 +363,8 @@ pub(crate) struct Data {
     pub scroll_capture: bool,
     /// The cursor cached when the capture ran; a fresher one follows over `cursor://updated`.
     pub cursor: Option<CursorImageInfo>,
+    /// Overlay-image library entry the placed cursor references.
+    pub cursor_image_name: String,
     pub auto_place_cursor: bool,
 }
 
@@ -394,7 +399,10 @@ pub async fn take_screenshot(
         move || crate::cursor_image::capture_moment(&app_handle)
     });
 
-    let auto_place_cursor = settings_handle.read().await.get_general().include_cursor;
+    crate::cursor_image::refresh_system_cursors(app_handle);
+
+    let general = settings_handle.read().await.get_general().clone();
+    let auto_place_cursor = general.include_cursor;
 
     let window_handler = window_handler.read().await;
     let mut screenshot_manager = screenshot_manager.write().await;
@@ -432,10 +440,9 @@ pub async fn take_screenshot(
         drop(screenshot_manager);
 
         // Read last, giving this capture's own render the longest chance to land.
-        let cursor_handler = app_handle.state::<CursorImageHandler>().inner().clone();
-        let cursor = cursor_handler.read().await.as_ref().map(|cursor| cursor.info);
+        let (cursor, cursor_image_name) = resolve_cursor(app_handle, &general).await;
 
-        emit_editor_data(window_handler, app_handle, id, windows, cursor, cursor_position, auto_place_cursor);
+        emit_editor_data(window_handler, app_handle, id, windows, cursor, cursor_image_name, cursor_position, auto_place_cursor);
     }
 
     Ok(())
@@ -450,6 +457,7 @@ fn emit_editor_data<R: tauri::Runtime>(
     image_id: u16,
     windows: Vec<WindowInfo>,
     cursor: Option<CursorImageInfo>,
+    cursor_image_name: String,
     cursor_position: Option<(i32, i32)>,
     auto_place_cursor: bool,
 ) {
@@ -473,6 +481,7 @@ fn emit_editor_data<R: tauri::Runtime>(
         record: false,
         scroll_capture: false,
         cursor,
+        cursor_image_name,
         auto_place_cursor,
         monitor_positions: webview
             .monitor_positions
@@ -482,6 +491,44 @@ fn emit_editor_data<R: tauri::Runtime>(
     };
 
     emit_on_main_thread!(webview.window, "screenshot://data", data);
+}
+
+/// Falls back to the live cursor whenever the pick is unset or no longer in the scheme.
+async fn resolve_cursor(
+    app_handle: &AppHandle,
+    general: &GeneralSettings,
+) -> (Option<CursorImageInfo>, String) {
+    if general.cursor_source == CursorSource::Picked {
+        let system_cursors = app_handle.state::<SystemCursorsHandler>().inner().clone();
+        let cached = system_cursors.read().await;
+        let picked = general.picked_cursor.as_deref();
+
+        // Nothing picked yet falls to the first of the scheme, which is Arrow.
+        let found = picked
+            .and_then(|picked| cached.iter().find(|cursor| cursor.info.id == picked))
+            .or_else(|| cached.first())
+            .map(|cursor| {
+                (
+                    CursorImageInfo {
+                        version: cursor.info.version,
+                        width: cursor.info.width,
+                        height: cursor.info.height,
+                        hotspot_x: cursor.info.hotspot_x,
+                        hotspot_y: cursor.info.hotspot_y,
+                    },
+                    cursor.info.name.clone(),
+                )
+            });
+
+        if let Some((info, name)) = found {
+            return (Some(info), name);
+        }
+    }
+
+    let cursor_image = app_handle.state::<CursorImageHandler>().inner().clone();
+    let live = cursor_image.read().await.as_ref().map(|cursor| cursor.info);
+
+    (live, CURSOR_IMAGE_NAME.to_string())
 }
 
 /// Immediate capture with no overlay: grab the target's bounds, tag the windows

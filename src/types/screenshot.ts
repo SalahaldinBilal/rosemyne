@@ -10,6 +10,7 @@ export type Data = {
   record?: boolean,
   scrollCapture?: boolean,
   cursor: CursorImageInfo | null,
+  cursorImageName: string,
   autoPlaceCursor: boolean,
 }
 
@@ -21,6 +22,14 @@ export type CursorImageInfo = {
   hotspotX: number,
   hotspotY: number,
 }
+
+// The user's own cursor scheme, re-read alongside the live cursor and pushed as "cursors://updated".
+export type SystemCursorInfo = CursorImageInfo & {
+  id: string,
+  name: string,
+}
+
+export type CursorSource = "live" | "picked";
 
 export type OverlayImage = {
   name: string,

@@ -1,6 +1,9 @@
 import styles from "./OverlayDefaultsSettings.module.scss";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
+import { safeInvoke } from "@core/helpers/safeInvoke";
+import { CursorSource, GeneralSettings, SelectItem } from "@core/types";
+import Select from "@core/components/Select/Select";
 import useOverlayDefaultsState from "@core/states/overlayDefaultsState";
 import useOverlayImagesState from "@core/states/overlayImagesState";
 import useToastState from "@core/states/toastState";
@@ -16,14 +19,62 @@ import { RotateCcw, Trash2 } from "lucide-solid";
 // whose attributes are always empty, see DrawImageOverlay).
 const OVERLAY_TYPES = [...new Set(Object.values(TOOL_TO_OVERLAY))] as Exclude<ImageOverlay["type"], "draw">[];
 
+const CURSOR_SOURCE_ITEMS: SelectItem<CursorSource>[] = [
+  { id: "live", value: "live", label: "Copy the cursor as it was" },
+  { id: "picked", value: "picked", label: "Always use a chosen cursor" },
+];
+
 function OverlayDefaultsSettings() {
   const { merged, setOverrideValue, resetOverrides } = useOverlayDefaultsState;
-  const { entries, names, addFromFile, remove, rename } = useOverlayImagesState;
+  const { entries, names, systemCursors, addFromFile, remove, rename } = useOverlayImagesState;
   const { pushToast } = useToastState;
   const [busy, setBusy] = createSignal(false);
+  const [general, setGeneral] = createSignal<GeneralSettings | null>(null);
 
-  const cursor = createMemo(() => entries.find(entry => entry.name === CURSOR_IMAGE_NAME));
-  const library = createMemo(() => entries.filter(entry => entry.name !== CURSOR_IMAGE_NAME));
+  onMount(async () => {
+    try {
+      setGeneral(await safeInvoke("get_general_settings"));
+    } catch (error) {
+      console.error("Failed to load general settings for the cursor options", error);
+    }
+  });
+
+  async function applyGeneral(update: Partial<GeneralSettings>) {
+    const previous = general();
+    if (!previous) return;
+
+    const next = { ...previous, ...update };
+    setGeneral(next);
+
+    try {
+      await safeInvoke("set_general_settings", { general: next });
+    } catch (error) {
+      setGeneral(previous);
+      report(error);
+    }
+  }
+
+  const cursorSource = createMemo<CursorSource>(() => general()?.cursorSource ?? "live");
+
+  // The scheme cursors are library images like any other, only never user-removable.
+  const systemCursorNames = createMemo(() => new Set(systemCursors().map(cursor => cursor.name)));
+  const library = createMemo(() => entries.filter(entry =>
+    !entry.hidden && !systemCursorNames().has(entry.name)
+  ));
+
+  const systemCursorItems = createMemo<SelectItem<string>[]>(() =>
+    systemCursors().map(cursor => ({ id: cursor.id, value: cursor.id, label: cursor.name }))
+  );
+
+  // Matches the backend: nothing picked yet means the first of the scheme, which is Arrow.
+  const pickedCursor = createMemo(() =>
+    systemCursors().find(cursor => cursor.id === general()?.pickedCursor) ?? systemCursors()[0]
+  );
+
+  const placedCursor = createMemo(() => {
+    const name = cursorSource() === "picked" ? pickedCursor()?.name : CURSOR_IMAGE_NAME;
+    return name ? entries.find(entry => entry.name === name) : undefined;
+  });
 
   function report(error: unknown) {
     pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
@@ -86,15 +137,30 @@ function OverlayDefaultsSettings() {
         <code> overlay-images/ </code> as WebP, so moving or deleting the original doesn't break them.
       </div>
 
-      <Show when={cursor()}>
-        {entry => <div class={styles.Row}>
-          <div class={styles.Preview}><img src={entry().url} /></div>
-          <div class={styles.RowBody}>
-            <span>{CURSOR_IMAGE_NAME}</span>
-            <span class={styles.Hint}>Built in. Default.</span>
+      <div class={styles.Row}>
+        <div class={styles.Preview}><img src={placedCursor()?.url} /></div>
+        <div class={styles.RowBody}>
+          <span>Cursor placed on a capture</span>
+          <span class={styles.Hint}>
+            Only used when "Include the mouse cursor in screenshots" is on, under General.
+          </span>
+          <div class={styles.CursorControls}>
+            <Select
+              value={cursorSource()}
+              items={CURSOR_SOURCE_ITEMS}
+              onItemClick={item => applyGeneral({ cursorSource: item.value })}
+            />
+            <Show when={cursorSource() === "picked"}>
+              <Select
+                style={{ "margin-left": "5px" }}
+                value={pickedCursor()?.id ?? ""}
+                items={systemCursorItems()}
+                onItemClick={item => applyGeneral({ pickedCursor: item.value })}
+              />
+            </Show>
           </div>
-        </div>}
-      </Show>
+        </div>
+      </div>
 
       <For each={library()} fallback={<div class={styles.Empty}>No images added yet.</div>}>
         {entry => <div class={styles.Row}>

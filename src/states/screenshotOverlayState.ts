@@ -89,13 +89,22 @@ function useScreenshotOverlayStateInner() {
       const index = addOverlayItem({
         type: "image",
         attributes: {
-          image: { type: "select", value: CURSOR_IMAGE_NAME, options: useOverlayImagesState.names() },
+          // Its own name leads: the live cursor isn't in the pickable list, and this
+          // item's menu would otherwise open on a value its options don't contain.
+          image: {
+            type: "select",
+            value: data.cursorImageName,
+            options: [data.cursorImageName, ...useOverlayImagesState.names().filter(name => name !== data.cursorImageName)],
+          },
           opacity: { type: "number", value: 100, min: 0, max: 100 },
         },
         dimensions,
       });
 
-      autoPlacedCursor = { index, dimensions, mouse: data.mousePosition };
+      // Only the live cursor is still being rendered; a picked one is already final.
+      autoPlacedCursor = data.cursorImageName === CURSOR_IMAGE_NAME
+        ? { index, dimensions, mouse: data.mousePosition }
+        : null;
     });
   });
 

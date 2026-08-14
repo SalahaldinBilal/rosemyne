@@ -2,18 +2,21 @@ import { createMemo, createRoot, createSignal, onMount } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { listen } from "@tauri-apps/api/event";
 import { safeInvoke } from "@core/helpers/safeInvoke";
-import { CursorImageInfo } from "@core/types";
+import { CursorImageInfo, SystemCursorInfo } from "@core/types";
 import { CURSOR_IMAGE_NAME } from "@core/constants";
 
 export type OverlayImageEntry = {
   name: string,
   url: string,
   removable: boolean,
+  // Still rendered when an overlay references it, just never offered as a choice.
+  hidden?: boolean,
 };
 
 function useOverlayImagesStateInner() {
   const [entries, setEntries] = createStore<OverlayImageEntry[]>([]);
   const [cursorInfo, setCursorInfo] = createSignal<CursorImageInfo | null>(null);
+  const [systemCursors, setSystemCursors] = createSignal<SystemCursorInfo[]>([]);
 
   // Non-reactive like annotationState's effect layers; the version bump is the change signal.
   const bitmaps = new Map<string, HTMLImageElement>();
@@ -40,28 +43,50 @@ function useOverlayImagesStateInner() {
     });
   }
 
-  function cursorEntry(info: CursorImageInfo): OverlayImageEntry {
-    return { name: CURSOR_IMAGE_NAME, url: `http://rosemyne-photo.localhost/cursor/${info.version}`, removable: false };
+  function upsertEntry(entry: OverlayImageEntry) {
+    setEntries(produce(current => {
+      const index = current.findIndex(existing => existing.name === entry.name);
+      if (index === -1) current.push(entry);
+      else current[index] = entry;
+    }));
   }
 
   async function applyCursor(info: CursorImageInfo | null) {
     setCursorInfo(info);
     if (!info) return;
 
-    const entry = cursorEntry(info);
-    setEntries(produce(current => {
-      const index = current.findIndex(existing => existing.name === CURSOR_IMAGE_NAME);
-      if (index === -1) current.unshift(entry);
-      else current[index] = entry;
-    }));
+    // Hidden: it only means something for a capture, where it's placed automatically.
+    const entry: OverlayImageEntry = {
+      name: CURSOR_IMAGE_NAME,
+      url: `http://rosemyne-photo.localhost/cursor/${info.version}`,
+      removable: false,
+      hidden: true,
+    };
 
+    upsertEntry(entry);
     await registerBitmap(entry.name, entry.url);
   }
 
+  async function applySystemCursors(cursors: SystemCursorInfo[]) {
+    setSystemCursors(cursors);
+
+    await Promise.all(cursors.map(cursor => {
+      const entry: OverlayImageEntry = {
+        name: cursor.name,
+        url: `http://rosemyne-photo.localhost/system-cursor/${cursor.id}/${cursor.version}`,
+        removable: false,
+      };
+
+      upsertEntry(entry);
+      return registerBitmap(entry.name, entry.url);
+    }));
+  }
+
   async function load() {
-    const [saved, cursor] = await Promise.all([
+    const [saved, cursor, cursors] = await Promise.all([
       safeInvoke("get_overlay_images"),
       safeInvoke("get_cursor_image"),
+      safeInvoke("get_system_cursors"),
     ]);
 
     const library = saved.map(image => ({
@@ -78,6 +103,7 @@ function useOverlayImagesStateInner() {
 
     await Promise.all([
       applyCursor(cursor),
+      applySystemCursors(cursors),
       ...library.map(entry => registerBitmap(entry.name, entry.url)),
     ]);
   }
@@ -85,13 +111,14 @@ function useOverlayImagesStateInner() {
   onMount(() => {
     load();
     listen<CursorImageInfo>("cursor://updated", event => applyCursor(event.payload));
+    listen<SystemCursorInfo[]>("cursors://updated", event => applySystemCursors(event.payload));
   });
 
   function bitmapFor(name: string): HTMLImageElement | undefined {
     return bitmaps.get(name);
   }
 
-  const names = createMemo(() => entries.map(entry => entry.name));
+  const names = createMemo(() => entries.filter(entry => !entry.hidden).map(entry => entry.name));
 
   async function addFromFile(path: string) {
     const added = await safeInvoke("add_overlay_image", { path });
@@ -138,7 +165,7 @@ function useOverlayImagesStateInner() {
   }
 
   return {
-    entries, cursorInfo, bitmapFor, bitmapVersions, names,
+    entries, cursorInfo, systemCursors, bitmapFor, bitmapVersions, names,
     addFromFile, addSessionImage, remove, rename, refresh: load,
   };
 }

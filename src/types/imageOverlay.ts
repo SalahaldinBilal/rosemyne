@@ -58,7 +58,7 @@ export type PixelateImageOverlay = ImageOverlayBase<"pixelate", {
 
 // Referenced by library name, not URL, so a placed item survives the library reloading.
 export type ImageImageOverlay = ImageOverlayBase<"image", {
-  "image": { type: "select", value: "Cursor", options: ["Cursor"] },
+  "image": { type: "select", value: "Arrow", options: ["Arrow"] },
   "opacity": { type: "number", value: 100, min: 0, max: 100 },
 }>;
 

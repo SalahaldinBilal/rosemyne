@@ -3,7 +3,7 @@ use capture_preview::CAPTURE_PREVIEW_LABEL;
 use capture_preview::commands::{
     create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
 };
-use cursor_image::{CursorImageHandler, get_cursor_image};
+use cursor_image::{CursorImageHandler, SystemCursorsHandler, get_cursor_image, get_system_cursors};
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
 use history_store::commands::{
@@ -559,11 +559,13 @@ pub fn run() {
         Arc::new(tauri::async_runtime::RwLock::new(None));
 
     let cursor_image: CursorImageHandler = Arc::new(RwLock::new(None));
+    let system_cursors: SystemCursorsHandler = Arc::new(RwLock::new(Vec::new()));
 
     let scheme_manager_ref = screenshot_manager.clone();
     let scheme_store_ref = history_store.clone();
     let scheme_pending_ref = pending_scroll_capture.clone();
     let scheme_cursor_ref = cursor_image.clone();
+    let scheme_system_cursors_ref = system_cursors.clone();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -591,6 +593,7 @@ pub fn run() {
                 let history_store = scheme_store_ref.clone();
                 let pending_scroll_capture = scheme_pending_ref.clone();
                 let cursor_image = scheme_cursor_ref.clone();
+                let system_cursors = scheme_system_cursors_ref.clone();
 
                 tauri::async_runtime::spawn(async move {
                     let split_uri: Vec<_> = request
@@ -685,6 +688,25 @@ pub fn run() {
                                     .header("Content-Type", "image/webp")
                                     .header("Access-Control-Allow-Origin", "*")
                                     .body(data)
+                                    .expect("Valid response"),
+                                None => status_response(404),
+                            };
+                            responder.respond(response);
+                        }
+                        ["system-cursor", id, _version] => {
+                            let png = system_cursors
+                                .read()
+                                .await
+                                .iter()
+                                .find(|cursor| cursor.info.id == *id)
+                                .map(|cursor| cursor.png.clone());
+
+                            let response = match png {
+                                Some(png) => Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", "image/png")
+                                    .header("Access-Control-Allow-Origin", "*")
+                                    .body(png)
                                     .expect("Valid response"),
                                 None => status_response(404),
                             };
@@ -855,6 +877,7 @@ pub fn run() {
             remove_overlay_image,
             rename_overlay_image,
             get_cursor_image,
+            get_system_cursors,
             get_capture_preview_settings,
             set_capture_preview_settings,
             show_capture_preview_window,
@@ -902,6 +925,7 @@ pub fn run() {
     app.manage(scroll_capture_manager);
     app.manage(pending_scroll_capture);
     app.manage(cursor_image);
+    app.manage(system_cursors);
     app.manage(Arc::new(reqwest::Client::new()));
     app.manage(Arc::new(Mouse::new()));
 
@@ -940,6 +964,7 @@ async fn run_callback(
             create_overlay_windows(app_handle);
             create_capture_preview_window(app_handle);
             cursor_image::refresh(app_handle);
+            cursor_image::refresh_system_cursors(app_handle);
         }
         tauri::RunEvent::WindowEvent {
             label,
@@ -1066,6 +1091,7 @@ async fn create_screenshot_window(
 
 fn focus_or_open_config_window(app: &AppHandle, name: &str) {
     cursor_image::refresh(app);
+    cursor_image::refresh_system_cursors(app);
 
     match app.get_webview_window(name) {
         Some(window) => {

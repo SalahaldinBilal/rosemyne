@@ -5,7 +5,10 @@ import { ImageOverlay } from "../types/imageOverlay";
 export const TEXT_FONT_OPTIONS: string[] = ["serif", "sans-serif", "monospace", "cursive"];
 
 // Mirrors CURSOR_IMAGE_NAME in overlay_images/mod.rs (Rust rejects it as a user image name).
+// The live cursor is only meaningful for a capture, so it's placed automatically
+// rather than offered as a choice; hence a real scheme cursor as the default.
 export const CURSOR_IMAGE_NAME = "Cursor";
+export const DEFAULT_OVERLAY_IMAGE_NAME = "Arrow";
 
 export const OVERLAY_DEFAULT_ATTRIBUTES: { [Type in ImageOverlay["type"]]: Extract<ImageOverlay, { type: Type }>["attributes"] } = {
   box: {
@@ -26,7 +29,7 @@ export const OVERLAY_DEFAULT_ATTRIBUTES: { [Type in ImageOverlay["type"]]: Extra
     intensity: { type: "number", value: 5 },
   },
   image: {
-    image: { type: "select", value: CURSOR_IMAGE_NAME, options: [CURSOR_IMAGE_NAME] },
+    image: { type: "select", value: DEFAULT_OVERLAY_IMAGE_NAME, options: [DEFAULT_OVERLAY_IMAGE_NAME] },
     opacity: { type: "number", value: 100, min: 0, max: 100 },
   },
   draw: {},

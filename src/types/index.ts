@@ -1,5 +1,5 @@
 import type { clickOutside } from '../directives';
-import { Dimensions } from './screenshot';
+import { CursorSource, Dimensions } from './screenshot';
 import { ImageOverlay } from './imageOverlay';
 
 export * from './componentProps'
@@ -98,6 +98,8 @@ export type GeneralSettings = {
   checkForUpdatesOnStartup: boolean,
   stripWindowBorder: boolean,
   includeCursor: boolean,
+  cursorSource: CursorSource,
+  pickedCursor: string | null,
   minSelectionWidth: number,
   minSelectionHeight: number,
 }

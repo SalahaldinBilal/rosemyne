@@ -9,6 +9,7 @@ use tauri::AppHandle;
 
 use super::{SettingsError, shortcuts::ShortcutBinding};
 use crate::capture_preview::CapturePreviewSettings;
+use crate::cursor_image::CursorSource;
 use crate::image_uploader::SavedUploader;
 use crate::overlay_images::OverlayImage;
 use crate::recording::recorder_trait::VideoCodec;
@@ -50,6 +51,9 @@ pub struct GeneralSettings {
     pub strip_window_border: bool,
     /// Auto-places the cursor overlay on each capture; recordings capture their own.
     pub include_cursor: bool,
+    pub cursor_source: CursorSource,
+    /// System cursor id used when `cursor_source` is `Picked`.
+    pub picked_cursor: Option<String>,
     /// A region drag smaller than this on either axis is treated as a click on
     /// the window under the cursor instead of a region selection.
     pub min_selection_width: u32,
@@ -72,6 +76,8 @@ impl Default for GeneralSettings {
             check_for_updates_on_startup: true,
             strip_window_border: true,
             include_cursor: false,
+            cursor_source: CursorSource::default(),
+            picked_cursor: None,
             min_selection_width: 15,
             min_selection_height: 15,
         }

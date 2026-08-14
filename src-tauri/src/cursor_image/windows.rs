@@ -7,8 +7,19 @@ use windows::Win32::{
         BITMAP, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, DIB_RGB_COLORS, DeleteDC,
         DeleteObject, GetDC, GetDIBits, GetObjectW, HBITMAP, HDC, ReleaseDC,
     },
-    UI::WindowsAndMessaging::{CURSOR_SHOWING, CURSORINFO, GetCursorInfo, GetIconInfo, HICON, ICONINFO},
+    System::Registry::{
+        HKEY, HKEY_CURRENT_USER, KEY_READ, RRF_RT_REG_EXPAND_SZ, RRF_RT_REG_SZ, RegCloseKey,
+        RegEnumValueW, RegGetValueW, RegOpenKeyExW,
+    },
+    UI::WindowsAndMessaging::{
+        CURSOR_SHOWING, CURSORINFO, DestroyCursor, GetCursorInfo, GetIconInfo, HCURSOR, HICON,
+        ICONINFO, IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_HELP, IDC_IBEAM, IDC_NO,
+        IDC_PERSON, IDC_PIN, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE,
+        IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR, LR_DEFAULTSIZE, LR_LOADFROMFILE, LoadCursorW,
+        LoadImageW,
+    },
 };
+use windows_core::{PCWSTR, PWSTR, w};
 
 use super::{CursorSnapshot, RenderedCursor};
 
@@ -26,26 +37,216 @@ pub fn snapshot_cursor() -> Option<CursorSnapshot> {
             return None;
         }
 
-        let mut icon_info = ICONINFO::default();
-        if let Err(err) = GetIconInfo(HICON(info.hCursor.0), &mut icon_info) {
-            eprintln!("GetIconInfo failed for the current cursor: {err}");
-            return None;
+        let mut snapshot = snapshot_from_handle(info.hCursor.0 as usize)?;
+        snapshot.screen_x = info.ptScreenPos.x;
+        snapshot.screen_y = info.ptScreenPos.y;
+
+        Some(snapshot)
+    }
+}
+
+/// The scheme the user actually configured, so custom entries and slots with no
+/// `IDC_*` constant of their own are covered without a hardcoded list.
+pub fn render_scheme_cursors() -> Vec<(String, String, RenderedCursor)> {
+    scheme_entries()
+        .into_iter()
+        .filter_map(|(id, path)| {
+            let (cursor, owned) = load_scheme_cursor(&id, &path)?;
+            let rendered = snapshot_from_handle(cursor.0 as usize).and_then(render_cursor);
+
+            if owned && let Err(err) = unsafe { DestroyCursor(cursor) } {
+                eprintln!("DestroyCursor failed for the {id} cursor: {err}");
+            }
+
+            Some((slot_label(&id), id, rendered?))
+        })
+        .map(|(name, id, rendered)| (id, name, rendered))
+        .collect()
+}
+
+/// An empty value means the slot is left at the Windows default rather than a file.
+fn load_scheme_cursor(id: &str, path: &str) -> Option<(HCURSOR, bool)> {
+    if !path.is_empty() {
+        let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+        let loaded = unsafe {
+            LoadImageW(
+                None,
+                PCWSTR(wide.as_ptr()),
+                IMAGE_CURSOR,
+                0,
+                0,
+                LR_LOADFROMFILE | LR_DEFAULTSIZE,
+            )
+        };
+
+        match loaded {
+            Ok(handle) => return Some((HCURSOR(handle.0), true)),
+            Err(err) => eprintln!("LoadImageW failed for the {id} cursor at {path}: {err}"),
+        }
+    }
+
+    let fallback = default_slot(id)?;
+    unsafe { LoadCursorW(None, fallback) }.ok().map(|cursor| (cursor, false))
+}
+
+fn default_slot(id: &str) -> Option<PCWSTR> {
+    Some(match id {
+        "arrow" => IDC_ARROW,
+        "ibeam" => IDC_IBEAM,
+        "hand" => IDC_HAND,
+        "wait" => IDC_WAIT,
+        "appstarting" => IDC_APPSTARTING,
+        "crosshair" => IDC_CROSS,
+        "help" => IDC_HELP,
+        "no" => IDC_NO,
+        "sizeall" => IDC_SIZEALL,
+        "sizens" => IDC_SIZENS,
+        "sizewe" => IDC_SIZEWE,
+        "sizenwse" => IDC_SIZENWSE,
+        "sizenesw" => IDC_SIZENESW,
+        "uparrow" => IDC_UPARROW,
+        "person" => IDC_PERSON,
+        "pin" => IDC_PIN,
+        "nwpen" => IDC_NWPEN,
+        _ => return None,
+    })
+}
+
+/// Not in the windows crate, but the OEM id the Pen slot has always used.
+const IDC_NWPEN: PCWSTR = PCWSTR(32631u16 as _);
+
+/// Arrow first: it's the default pick and the one most people mean by "the cursor".
+const SLOT_ORDER: [&str; 17] = [
+    "arrow", "ibeam", "hand", "wait", "appstarting", "crosshair", "help", "no", "sizeall",
+    "sizens", "sizewe", "sizenwse", "sizenesw", "uparrow", "nwpen", "person", "pin",
+];
+
+fn slot_rank(id: &str) -> usize {
+    SLOT_ORDER.iter().position(|slot| *slot == id).unwrap_or(SLOT_ORDER.len())
+}
+
+fn slot_label(id: &str) -> String {
+    match id {
+        "arrow" => "Arrow",
+        "ibeam" => "I-beam",
+        "hand" => "Hand",
+        "wait" => "Busy",
+        "appstarting" => "Working",
+        "crosshair" => "Crosshair",
+        "help" => "Help",
+        "no" => "Unavailable",
+        "sizeall" => "Move",
+        "sizens" => "Resize vertical",
+        "sizewe" => "Resize horizontal",
+        "sizenwse" => "Resize diagonal",
+        "sizenesw" => "Resize counter-diagonal",
+        "uparrow" => "Up arrow",
+        "person" => "Person",
+        "pin" => "Location",
+        "nwpen" => "Pen",
+        other => other,
+    }
+    .to_string()
+}
+
+/// Value name (lowercased as the id) plus its expanded file path, empty when unset.
+fn scheme_entries() -> Vec<(String, String)> {
+    let mut key = HKEY::default();
+
+    let opened = unsafe {
+        RegOpenKeyExW(HKEY_CURRENT_USER, w!("Control Panel\\Cursors"), None, KEY_READ, &mut key)
+    };
+
+    if opened.is_err() {
+        eprintln!("RegOpenKeyExW failed for the cursor scheme: {opened:?}");
+        return Vec::new();
+    }
+
+    let mut entries = Vec::new();
+
+    for index in 0.. {
+        let mut name = [0u16; 256];
+        let mut length = name.len() as u32;
+
+        let read = unsafe {
+            RegEnumValueW(key, index, Some(PWSTR(name.as_mut_ptr())), &mut length, None, None, None, None)
+        };
+
+        if read.is_err() {
+            break;
         }
 
-        let size = cursor_size(&icon_info);
-        release_icon_bitmaps(&icon_info);
-        let (width, height) = size?;
+        let value = String::from_utf16_lossy(&name[..length as usize]);
+        // The unnamed default holds the scheme's display name, not a cursor.
+        if value.is_empty() || value.eq_ignore_ascii_case("Scheme Source") {
+            continue;
+        }
 
-        Some(CursorSnapshot {
-            handle: info.hCursor.0 as usize,
-            width,
-            height,
-            hotspot_x: icon_info.xHotspot as i32,
-            hotspot_y: icon_info.yHotspot as i32,
-            screen_x: info.ptScreenPos.x,
-            screen_y: info.ptScreenPos.y,
-        })
+        let path = scheme_value(key, &name[..length as usize + 1]);
+        entries.push((value.to_ascii_lowercase(), path));
     }
+
+    let _ = unsafe { RegCloseKey(key) };
+
+    // Registry order is alphabetical, which buries Arrow; anything unrecognized keeps its place at the end.
+    entries.sort_by_key(|(id, _)| slot_rank(id));
+    entries
+}
+
+fn scheme_value(key: HKEY, name: &[u16]) -> String {
+    let mut size = 0u32;
+    let flags = RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ;
+
+    let measured = unsafe {
+        RegGetValueW(key, None, PCWSTR(name.as_ptr()), flags, None, None, Some(&mut size))
+    };
+
+    if measured.is_err() || size == 0 {
+        return String::new();
+    }
+
+    let mut buffer = vec![0u16; size as usize / 2 + 1];
+    let read = unsafe {
+        RegGetValueW(
+            key,
+            None,
+            PCWSTR(name.as_ptr()),
+            flags,
+            None,
+            Some(buffer.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+    };
+
+    if read.is_err() {
+        return String::new();
+    }
+
+    let end = buffer.iter().position(|unit| *unit == 0).unwrap_or(buffer.len());
+    String::from_utf16_lossy(&buffer[..end])
+}
+
+fn snapshot_from_handle(handle: usize) -> Option<CursorSnapshot> {
+    let mut icon_info = ICONINFO::default();
+
+    if let Err(err) = unsafe { GetIconInfo(HICON(handle as *mut c_void), &mut icon_info) } {
+        eprintln!("GetIconInfo failed for a cursor: {err}");
+        return None;
+    }
+
+    let size = cursor_size(&icon_info);
+    release_icon_bitmaps(&icon_info);
+    let (width, height) = size?;
+
+    Some(CursorSnapshot {
+        handle,
+        width,
+        height,
+        hotspot_x: icon_info.xHotspot as i32,
+        hotspot_y: icon_info.yHotspot as i32,
+        screen_x: 0,
+        screen_y: 0,
+    })
 }
 
 /// A monochrome cursor's mask stacks its AND and XOR halves, so the real height is half of it.
@@ -140,10 +341,19 @@ fn from_mask(mask: &[u8], count: usize) -> Vec<u8> {
 
     for index in 0..count {
         // Below the AND half sits the XOR half: white paints white, black paints black.
+        let paints = mask_alpha(mask, index) == 255;
         let white = mask.get((count + index) * 4).is_some_and(|channel| *channel != 0);
-        let luminance = if white { 255 } else { 0 };
 
-        pixels.extend_from_slice(&[luminance, luminance, luminance, mask_alpha(mask, index)]);
+        // AND set with XOR set means "invert whatever is behind", which a still image
+        // can't do, and it's the entire glyph on the stock I-beam and crosshair. Black
+        // is the closest single choice, since they're most often over light content.
+        let (luminance, alpha) = match (paints, white) {
+            (true, white) => (if white { 255 } else { 0 }, 255),
+            (false, true) => (0, 255),
+            (false, false) => (0, 0),
+        };
+
+        pixels.extend_from_slice(&[luminance, luminance, luminance, alpha]);
     }
 
     pixels

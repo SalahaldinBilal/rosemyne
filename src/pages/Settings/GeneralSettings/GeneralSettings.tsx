@@ -28,6 +28,8 @@ function GeneralSettings() {
     checkForUpdatesOnStartup: true,
     stripWindowBorder: true,
     includeCursor: false,
+    cursorSource: "live",
+    pickedCursor: null,
     minSelectionWidth: 15,
     minSelectionHeight: 15,
   });

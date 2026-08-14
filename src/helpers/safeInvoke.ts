@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
+import { CapturePreviewSettings, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -75,6 +75,7 @@ type Commands = {
   'remove_overlay_image': Command<{ name: string }>,
   'rename_overlay_image': Command<{ name: string, newName: string }, OverlayImage>,
   'get_cursor_image': Command<undefined, CursorImageInfo | null>,
+  'get_system_cursors': Command<undefined, SystemCursorInfo[]>,
   'get_capture_preview_settings': Command<undefined, CapturePreviewSettings>,
   'set_capture_preview_settings': Command<{ capturePreview: CapturePreviewSettings }>,
   'show_capture_preview_window': Command<{ width: number, height: number }>,

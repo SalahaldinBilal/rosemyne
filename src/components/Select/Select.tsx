@@ -28,6 +28,7 @@ function Select<T>(props: SelectProps<T>) {
         ? { bottom: (window.innerHeight - rect.top + MENU_MARGIN) + "px" }
         : { top: (rect.bottom + MENU_MARGIN) + "px" }),
     });
+    followHighlight = true;
     setHighlight(Math.max(0, props.items.findIndex(item => item.id === props.value)));
     setOpen(true);
   }
@@ -56,9 +57,24 @@ function Select<T>(props: SelectProps<T>) {
     });
   });
 
+  // Hover must never scroll: the list shifting under a still pointer fires another
+  // mouseenter, highlighting again, and the menu creeps on its own.
+  let followHighlight = false;
+
   createEffect(() => {
-    if (!open() || !menuRef) return;
-    menuRef.children[highlight()]?.scrollIntoView({ block: "nearest" });
+    const index = highlight();
+    if (!open() || !menuRef || !followHighlight) return;
+
+    followHighlight = false;
+    const item = menuRef.children[index] as HTMLElement | undefined;
+    if (!item) return;
+
+    // Only ever scrolls the menu; scrollIntoView would also scroll the page behind it.
+    if (item.offsetTop < menuRef.scrollTop) {
+      menuRef.scrollTop = item.offsetTop;
+    } else if (item.offsetTop + item.offsetHeight > menuRef.scrollTop + menuRef.clientHeight) {
+      menuRef.scrollTop = item.offsetTop + item.offsetHeight - menuRef.clientHeight;
+    }
   });
 
   function onKeyDown(event: KeyboardEvent) {
@@ -73,15 +89,19 @@ function Select<T>(props: SelectProps<T>) {
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
+        followHighlight = true;
         return setHighlight(index => Math.min(index + 1, props.items.length - 1));
       case "ArrowUp":
         event.preventDefault();
+        followHighlight = true;
         return setHighlight(index => Math.max(index - 1, 0));
       case "Home":
         event.preventDefault();
+        followHighlight = true;
         return setHighlight(0);
       case "End":
         event.preventDefault();
+        followHighlight = true;
         return setHighlight(props.items.length - 1);
       case "Enter":
       case " ": {

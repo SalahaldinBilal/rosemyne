@@ -3,7 +3,13 @@ use std::path::PathBuf;
 use tauri::State;
 
 use super::{CURSOR_IMAGE_NAME, OverlayImage};
+use crate::cursor_image::SystemCursorsHandler;
 use crate::{HistoryStoreHandler, SettingsHandler};
+
+/// The system cursors are library entries too, so a user image can't take one of their names.
+async fn reserved_names(system_cursors: &SystemCursorsHandler) -> Vec<String> {
+    system_cursors.read().await.iter().map(|cursor| cursor.info.name.clone()).collect()
+}
 
 #[tauri::command]
 pub async fn get_overlay_images(
@@ -16,6 +22,7 @@ pub async fn get_overlay_images(
 pub async fn add_overlay_image(
     settings_handle: State<'_, SettingsHandler>,
     history_store: State<'_, HistoryStoreHandler>,
+    system_cursors: State<'_, SystemCursorsHandler>,
     path: String,
 ) -> Result<OverlayImage, String> {
     let source = PathBuf::from(path);
@@ -31,11 +38,12 @@ pub async fn add_overlay_image(
         .map_err(|err| err.to_string())?
         .map_err(|err| err.to_string())?;
 
+    let reserved = reserved_names(&system_cursors).await;
     let mut settings = settings_handle.write().await;
     let mut images = settings.get_overlay_images().clone();
 
     let image = OverlayImage {
-        name: unique_name(&images, &stem),
+        name: unique_name(&images, &reserved, &stem),
         file_name,
     };
 
@@ -72,9 +80,11 @@ pub async fn remove_overlay_image(
 #[tauri::command]
 pub async fn rename_overlay_image(
     settings_handle: State<'_, SettingsHandler>,
+    system_cursors: State<'_, SystemCursorsHandler>,
     name: String,
     new_name: String,
 ) -> Result<OverlayImage, String> {
+    let reserved = reserved_names(&system_cursors).await;
     let mut settings = settings_handle.write().await;
     let mut images = settings.get_overlay_images().clone();
 
@@ -89,7 +99,7 @@ pub async fn rename_overlay_image(
         .map(|(_, image)| image.clone())
         .collect();
 
-    images[index].name = unique_name(&others, &new_name);
+    images[index].name = unique_name(&others, &reserved, &new_name);
     let renamed = images[index].clone();
     settings.set_overlay_images(images).map_err(|err| err.to_string())?;
 
@@ -97,9 +107,10 @@ pub async fn rename_overlay_image(
 }
 
 /// Names are the identifier a placed overlay stores, so collisions get a counter.
-fn unique_name(existing: &[OverlayImage], desired: &str) -> String {
+fn unique_name(existing: &[OverlayImage], reserved: &[String], desired: &str) -> String {
     let taken = |candidate: &str| {
         candidate.eq_ignore_ascii_case(CURSOR_IMAGE_NAME)
+            || reserved.iter().any(|name| name.eq_ignore_ascii_case(candidate))
             || existing.iter().any(|image| image.name.eq_ignore_ascii_case(candidate))
     };
 
