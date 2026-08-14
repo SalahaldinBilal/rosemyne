@@ -48,7 +48,7 @@ function OverlayDefaultsSettings() {
 
   return <div class={styles.OverlayDefaultsSettings}>
     <div class={styles.Intro}>
-      <span>Starting values for newly placed Box, Text, Blur, Pixelate and Image overlays.</span>
+      <span>Starting values for newly placed Box, Text, Blur, Pixelate, Image, Arrow and Line overlays.</span>
       <span class={styles.Hint}>Only affects overlays placed after this point, anything already drawn on a screenshot keeps its own values.</span>
     </div>
     <For each={OVERLAY_TYPES}>

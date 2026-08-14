@@ -30,6 +30,15 @@ export const OVERLAY_DEFAULT_ATTRIBUTES: { [Type in ImageOverlay["type"]]: Extra
     opacity: { type: "number", value: 100, min: 0, max: 100 },
   },
   draw: {},
+  arrow: {
+    color: { type: "color", value: "#ff0000" },
+    thickness: { type: "number", value: 5, min: 1 },
+    headSize: { type: "number", value: 30, min: 1 },
+  },
+  line: {
+    color: { type: "color", value: "#ff0000" },
+    thickness: { type: "number", value: 5, min: 1 },
+  },
 };
 
 export const TOOL_TO_OVERLAY = {
@@ -38,6 +47,8 @@ export const TOOL_TO_OVERLAY = {
   [Tools.BlurOverlay]: "blur",
   [Tools.PixelateOverly]: "pixelate",
   [Tools.ImageOverlay]: "image",
+  [Tools.ArrowOverlay]: "arrow",
+  [Tools.LineOverlay]: "line",
 } as const;
 
 export const OVERLAY_TO_TOOL = flipObject(TOOL_TO_OVERLAY);

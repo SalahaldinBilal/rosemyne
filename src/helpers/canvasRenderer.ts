@@ -1,6 +1,6 @@
 import { Dimensions } from "../types/screenshot";
-import { BlurImageOverlay, BoxImageOverlay, ImageOverlay, PixelateImageOverlay, TextImageOverlay } from "../types/imageOverlay";
-import { effectIntensity } from "./index";
+import { ArrowImageOverlay, BlurImageOverlay, BoxImageOverlay, ImageOverlay, LineImageOverlay, PixelateImageOverlay, TextImageOverlay } from "../types/imageOverlay";
+import { effectIntensity, lineEndpoints } from "./index";
 
 export type RenderedImage = { image: ImageData, x: number, y: number, width: number, height: number };
 
@@ -111,6 +111,52 @@ export function drawTextOverlay(ctx: CanvasRenderingContext2D, overlay: TextImag
   ctx.restore();
 }
 
+const ARROW_HEAD_ANGLE = Math.PI / 7;
+
+// A preview canvas sized to exactly the endpoint-to-endpoint box would clip the
+// round line cap and, for arrows, the head's sideways spread past that box.
+export function lineStrokeMargin(overlay: LineImageOverlay | ArrowImageOverlay): number {
+  const thickness = effectIntensity(overlay.attributes.thickness.value);
+  const headSize = overlay.type === "arrow" ? effectIntensity(overlay.attributes.headSize.value) : 0;
+  return Math.ceil(thickness / 2) + headSize;
+}
+
+export function drawLineOverlay(ctx: CanvasRenderingContext2D, overlay: LineImageOverlay | ArrowImageOverlay, offsetX: number, offsetY: number) {
+  const thickness = effectIntensity(overlay.attributes.thickness.value);
+  if (thickness <= 0) return;
+
+  const { start, end } = lineEndpoints(overlay.dimensions, overlay.startCorner);
+  const x1 = start.x - offsetX, y1 = start.y - offsetY;
+  const x2 = end.x - offsetX, y2 = end.y - offsetY;
+  if (x1 === x2 && y1 === y2) return;
+
+  ctx.save();
+  ctx.strokeStyle = overlay.attributes.color.value;
+  ctx.fillStyle = overlay.attributes.color.value;
+  ctx.lineWidth = thickness;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  if (overlay.type === "arrow") {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const headLength = effectIntensity(overlay.attributes.headSize.value);
+
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLength * Math.cos(angle - ARROW_HEAD_ANGLE), y2 - headLength * Math.sin(angle - ARROW_HEAD_ANGLE));
+    ctx.lineTo(x2 - headLength * Math.cos(angle + ARROW_HEAD_ANGLE), y2 - headLength * Math.sin(angle + ARROW_HEAD_ANGLE));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /**
  * Applies a blur/pixelate to the overlay's rect on `scene` in place, sampling
  * an expanded surrounding area. `originX/originY` are the absolute capture
@@ -194,6 +240,9 @@ export function drawOverlayOnto(
       return drawBoxOverlay(ctx, overlay, originX, originY);
     case "text":
       return drawTextOverlay(ctx, overlay, originX, originY);
+    case "line":
+    case "arrow":
+      return drawLineOverlay(ctx, overlay, originX, originY);
     default: {
       const layer = effectLayers.get(overlay.order);
       if (!layer || layer.width === 0 || layer.height === 0) return;
@@ -242,6 +291,10 @@ export function renderFinalImage(base: HTMLImageElement, box: Dimensions, overla
         break;
       case "text":
         drawTextOverlay(ctx, overlay, sceneLeft, sceneTop);
+        break;
+      case "line":
+      case "arrow":
+        drawLineOverlay(ctx, overlay, sceneLeft, sceneTop);
         break;
       case "draw":
       case "image":

@@ -4,6 +4,7 @@ import ImageOverlayBoxElem from "../ImageOverlays/ImageOverlayBoxElem";
 import ImageOverlayTextElem from "../ImageOverlays/ImageOverlayTextElem";
 import ImageOverlayEffectElem from "../ImageOverlays/ImageOverlayEffectElem";
 import ImageOverlayImageElem from "../ImageOverlays/ImageOverlayImageElem";
+import ImageOverlayLineElem from "../ImageOverlays/ImageOverlayLineElem";
 
 function ImageOverlayElem(props: ImageOverlayProps<ImageOverlay>) {
   return <Switch>
@@ -18,6 +19,9 @@ function ImageOverlayElem(props: ImageOverlayProps<ImageOverlay>) {
     </Match>
     <Match when={props.item.type === "image"}>
       <ImageOverlayImageElem {...props as any} />
+    </Match>
+    <Match when={props.item.type === "line" || props.item.type === "arrow"}>
+      <ImageOverlayLineElem {...props as any} />
     </Match>
   </Switch>
 }

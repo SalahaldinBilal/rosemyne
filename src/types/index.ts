@@ -38,7 +38,9 @@ export enum Tools {
   PixelateOverly,
   DrawOverlay,
   EraseOverlay,
-  ImageOverlay
+  ImageOverlay,
+  ArrowOverlay,
+  LineOverlay,
 }
 
 

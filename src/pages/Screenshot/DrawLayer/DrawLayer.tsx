@@ -75,7 +75,9 @@ function DrawLayer() {
     lastPoint = point;
   }
 
-  function stopStroke() {
+  // event is only present for the native mouseup listener, not the mitt "cancelDrag" call.
+  function stopStroke(event?: MouseEvent) {
+    if (event && event.button !== 0) return;
     if (!isDrawing) return;
 
     isDrawing = false;

@@ -30,7 +30,7 @@ const MOVE_MIN_INTERVAL_MS = 12;
 const MOVE_ACCELERATION = 0.85;
 
 function Screenshot() {
-  const { imageData, setImageData, cancelCurrentAction, mouseEventHandler, selectedBox } = useScreenshotOverlayStateInner;
+  const { imageData, setImageData, cancelCurrentAction, hasActiveInteraction, mouseEventHandler, selectedBox } = useScreenshotOverlayStateInner;
   const { refresh: refreshOverlayDefaults } = useOverlayDefaultsState;
   const { refresh: refreshOverlayImages } = useOverlayImagesState;
   const mouseMovement = { x: 0, y: 0 };
@@ -90,13 +90,15 @@ function Screenshot() {
     });
   })
 
-  // Right-click cancels the current action, same as Escape, regardless of
-  // what's under the cursor (background, a window box, mid-drag, ...).
+  // preventDefault always (a resize handle has no onContextMenu of its own to do it);
+  // capture phase + stopPropagation below only when canceling, to still win over a placed item's own menu.
   makeEventListener(window, "contextmenu", event => {
     if (!imageData()) return;
     event.preventDefault();
+    if (!hasActiveInteraction()) return;
+    event.stopPropagation();
     cancelCurrentAction();
-  });
+  }, { capture: true });
 
   makeEventListener(window, "keydown", event => {
     if (!imageData()) return;

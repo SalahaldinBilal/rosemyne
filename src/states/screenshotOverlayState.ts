@@ -191,11 +191,16 @@ function useScreenshotOverlayStateInner() {
     }
   }
 
+  // Single source of truth for "something cancelable is in progress", shared
+  // by cancelCurrentAction (Escape) and Screenshot.tsx's contextmenu capture
+  // gate (right-click): those two gestures must never diverge on this check.
+  const hasActiveInteraction = () => isSelectingRegion() || isOverlayInteracting();
+
   // Right-click and Escape both go through this; the active selection UI's
   // own `cancelDrag` handler owns re-selecting the hovered window. Only closes
   // the overlay when nothing's in progress.
   function cancelCurrentAction() {
-    if (isSelectingRegion() || isOverlayInteracting()) {
+    if (hasActiveInteraction()) {
       mouseEventHandler.emit("cancelDrag");
       return;
     }
@@ -206,7 +211,7 @@ function useScreenshotOverlayStateInner() {
   return {
     ...annotation,
     imageData, setImageData, selectedWindow, setSelectedWindow,
-    closeOverlay, cancelCurrentAction, previewUrl, minSelectionSize,
+    closeOverlay, cancelCurrentAction, hasActiveInteraction, previewUrl, minSelectionSize,
     scrollCaptureParams, setScrollCaptureParams,
   };
 }

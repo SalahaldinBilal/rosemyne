@@ -1,5 +1,6 @@
 import { Dimensions, DimensionsWithOrder, WindowInfo } from "../types/screenshot";
 import { Position } from '../types';
+import { LineCorner } from "../types/imageOverlay";
 
 export function isNotNullish<T>(val: T | null | undefined): val is T {
   return val !== null && val !== undefined;
@@ -56,6 +57,42 @@ export function getIntersection(base: Dimensions, other: Dimensions): Dimensions
 
 export function effectIntensity(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+export function lineCornerFor(start: Position, end: Position): LineCorner {
+  const isLeft = start.x <= end.x;
+  const isTop = start.y <= end.y;
+  return isLeft ? (isTop ? "topLeft" : "bottomLeft") : (isTop ? "topRight" : "bottomRight");
+}
+
+export function lineEndpoints(dims: Dimensions, corner: LineCorner): { start: Position, end: Position } {
+  const left = { x: dims.x, y: dims.y };
+  const right = { x: dims.x + dims.width, y: dims.y };
+  const bottomLeft = { x: dims.x, y: dims.y + dims.height };
+  const bottomRight = { x: dims.x + dims.width, y: dims.y + dims.height };
+
+  switch (corner) {
+    case "topLeft": return { start: left, end: bottomRight };
+    case "topRight": return { start: right, end: bottomLeft };
+    case "bottomLeft": return { start: bottomLeft, end: right };
+    case "bottomRight": return { start: bottomRight, end: left };
+  }
+}
+
+// ResizableBox's anchor corner stays exact across a drag, so nearest = same point.
+export function nearestLineCorner(point: Position, dims: Dimensions): LineCorner {
+  const candidates: Array<[LineCorner, Position]> = [
+    ["topLeft", { x: dims.x, y: dims.y }],
+    ["topRight", { x: dims.x + dims.width, y: dims.y }],
+    ["bottomLeft", { x: dims.x, y: dims.y + dims.height }],
+    ["bottomRight", { x: dims.x + dims.width, y: dims.y + dims.height }],
+  ];
+
+  return candidates.reduce((closest, candidate) =>
+    Math.hypot(candidate[1].x - point.x, candidate[1].y - point.y) < Math.hypot(closest[1].x - point.x, closest[1].y - point.y)
+      ? candidate
+      : closest
+  )[0];
 }
 
 export function hexColorOpacity(color: string): number {

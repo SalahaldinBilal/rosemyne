@@ -5,7 +5,7 @@ import { useAnnotationState } from "../../states/annotationContext";
 import { beautifyCamelOrPascalCase } from "../../helpers";
 import Button from "../Button/Button";
 import Input from "../Input/Input";
-import { BookAIcon, Droplets, Eraser, Grid3X3Icon, ImageIcon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, SquareMousePointer, Trash2, X } from "lucide-solid";
+import { ArrowUpRight, BookAIcon, Droplets, Eraser, Grid3X3Icon, ImageIcon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, Slash, SquareMousePointer, Trash2, X } from "lucide-solid";
 import { SelectItem, Tools } from "../../types";
 import Select from "../Select/Select";
 import useOverlayImagesState from "../../states/overlayImagesState";
@@ -31,6 +31,8 @@ const TOOL_GROUPS: ToolEntry[][] = [
     { tool: Tools.BlurOverlay, icon: Droplets },
     { tool: Tools.PixelateOverly, icon: Grid3X3Icon },
     { tool: Tools.ImageOverlay, icon: ImageIcon },
+    { tool: Tools.ArrowOverlay, icon: ArrowUpRight },
+    { tool: Tools.LineOverlay, icon: Slash },
   ],
 ];
 const ALL_TOOLS = TOOL_GROUPS.flat();
@@ -111,7 +113,7 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
 
                 return <Button
                   isIcon
-                  tooltip={`${label} (${shortcutIndex + 1})`}
+                  tooltip={shortcutIndex < 9 ? `${label} (${shortcutIndex + 1})` : label}
                   color={isActive() ? "var(--base-blue)" : undefined}
                   style={{
                     width: "36px", height: "36px", "border-radius": "9px",

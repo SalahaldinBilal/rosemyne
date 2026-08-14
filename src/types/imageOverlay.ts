@@ -68,7 +68,22 @@ export type ImageImageOverlay = ImageOverlayBase<"image", {
 // since brush color/size are global tool settings, not per-item.
 export type DrawImageOverlay = ImageOverlayBase<"draw", {}>;
 
-export type ImageOverlay = BoxImageOverlay | TextImageOverlay | BlurImageOverlay | PixelateImageOverlay | ImageImageOverlay | DrawImageOverlay;
+// Which corner of `dimensions` the line/arrow's start (tail) sits at.
+export type LineCorner = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+
+export type LineAttributes = {
+  "color": { type: "color", value: `#FF0000` },
+  "thickness": { type: "number", value: 5, min: 1 },
+};
+
+export type ArrowAttributes = LineAttributes & {
+  "headSize": { type: "number", value: 15, min: 1 },
+};
+
+export type ArrowImageOverlay = ImageOverlayBase<"arrow", ArrowAttributes> & { startCorner: LineCorner };
+export type LineImageOverlay = ImageOverlayBase<"line", LineAttributes> & { startCorner: LineCorner };
+
+export type ImageOverlay = BoxImageOverlay | TextImageOverlay | BlurImageOverlay | PixelateImageOverlay | ImageImageOverlay | DrawImageOverlay | ArrowImageOverlay | LineImageOverlay;
 
 export type ImageOverlayElem = (props: { item: ImageOverlay, onChange: SetStoreFunction<ImageOverlay> }) => JSX.Element;
 export type ImageOverlayProps<T extends ImageOverlay> = { index: number, item: T, beingDragged?: boolean, handlesOnTop?: boolean };

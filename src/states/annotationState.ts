@@ -39,6 +39,8 @@ export function createAnnotationState(
   const [selectedImage, setSelectedImage] = createSignal<string>(CURSOR_IMAGE_NAME);
   // True while an overlay item is actively being moved or resized, so chrome like the toolbox can get out of the way.
   const [isOverlayInteracting, setIsOverlayInteracting] = createSignal(false);
+  // Index of the item currently being drawn out by its creation drag, null once that drag ends.
+  const [creatingItemIndex, setCreatingItemIndex] = createSignal<number | null>(null);
   const [overlayItems, setOverlayItems] = createStore<Array<ImageOverlay>>([]);
   const image = createAsync<HTMLImageElement | undefined>(() => previewUrl() ? loadImage(previewUrl()!) : new Promise(res => res(undefined)));
   // `cancelDrag` tells the active selection UI to drop its own in-progress
@@ -111,7 +113,7 @@ export function createAnnotationState(
     selectedBox, setSelectedBox, isSelectingRegion, setIsSelectingRegion,
     currentTool, setCurrentTool, drawColor, setDrawColor, brushSize, setBrushSize, eraserSize, setEraserSize,
     selectedImage, setSelectedImage,
-    isOverlayInteracting, setIsOverlayInteracting, overlayItems, setOverlayItems, addOverlayItem, clearDrawing,
+    isOverlayInteracting, setIsOverlayInteracting, creatingItemIndex, setCreatingItemIndex, overlayItems, setOverlayItems, addOverlayItem, clearDrawing,
     image, mouseEventHandler, effectLayers, layerVersions, bumpLayerVersion, removeEffectLayer,
     suppressNextClick, consumeSuppressedClick, toImageCoords, toImageDelta, resetEditing,
   };

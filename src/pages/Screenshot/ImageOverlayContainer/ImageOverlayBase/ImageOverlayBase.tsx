@@ -6,7 +6,7 @@ import ResizableBox from "../../../../components/ResizableBox/ResizableBox";
 import { useAnnotationState } from "../../../../states/annotationContext";
 import { Dimensions, Tools } from "../../../../types";
 import { useContextMenu } from "../../../../components/ContextMenu/useContextMenu";
-import { beautifyCamelOrPascalCase } from "../../../../helpers";
+import { beautifyCamelOrPascalCase, lineEndpoints, nearestLineCorner } from "../../../../helpers";
 import ContextMenu from "@core/components/ContextMenu/ContextMenu";
 import { OVERLAY_TO_TOOL } from "../../../../constants";
 import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/ContextMenuItem";
@@ -17,7 +17,7 @@ import OverlayAttributeList from "@core/components/OverlayAttributeList/OverlayA
 const HANDLES_ON_TOP_BOOST = 100_000;
 
 function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragged?: boolean, handlesOnTop?: boolean, children: JSX.Element }) {
-  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, toImageCoords } = useAnnotationState();
+  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, creatingItemIndex, toImageCoords } = useAnnotationState();
   const { show: showContextMenu, id: menuId } = useContextMenu();
   const draggable = createDraggable(props.index, { item: props.item });
   const isBeingDragged = createMemo(() => draggable.isActiveDraggable);
@@ -25,6 +25,10 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
   // doesn't, see DrawLayer.tsx), so the lookup can legitimately miss.
   const ownTool = (OVERLAY_TO_TOOL as Partial<Record<ImageOverlay["type"], Tools>>)[props.item.type];
   const canBeEdited = createMemo(() => currentTool() === ownTool || currentTool() === Tools.Move)
+  const isLineType = props.item.type === "arrow" || props.item.type === "line";
+  const isBeingCreated = createMemo(() => creatingItemIndex() === props.index);
+  // A line/arrow's bounding-box handles look wrong around a thin diagonal stroke while it's still being dragged out.
+  const suppressHandlesWhileCreating = createMemo(() => isLineType && isBeingCreated());
   const style = createMemo(() => {
     const dims = props.item.dimensions;
 
@@ -38,6 +42,12 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
   })
 
   function onDimsChange(dims: Dimensions) {
+    if (props.item.type === "arrow" || props.item.type === "line") {
+      const { start } = lineEndpoints(props.item.dimensions, props.item.startCorner);
+      setOverlayItems(props.index, { dimensions: dims, startCorner: nearestLineCorner(start, dims) } as any);
+      return;
+    }
+
     setOverlayItems(props.index, "dimensions", dims);
   }
 
@@ -52,7 +62,7 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
       onResize={(dims) => !isBeingDragged() && onDimsChange(dims)}
       onResizeStart={() => setIsOverlayInteracting(true)}
       onResizeEnd={() => setIsOverlayInteracting(false)}
-      show={canBeEdited() && !isBeingDragged()}
+      show={canBeEdited() && !isBeingDragged() && !suppressHandlesWhileCreating()}
       toContainerCoords={toImageCoords}
       // Only the resize border/handles are lifted above whatever is covering this
       // item; the overlay's own pixels stay in creation order (see the style memo).
@@ -67,9 +77,16 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
           use:draggable
           onContextMenu={ev => {
             ev.preventDefault();
-            // Without this, the window-level contextmenu listener in
-            // Screenshot.tsx (right-click = cancel/close) also sees this
-            // event and closes the overlay right after opening the menu.
+            // Screenshot.tsx's own contextmenu listener runs in the capture
+            // phase and already wins whenever there's a drag to cancel, so
+            // reaching here at all means this is a right-click on an idle item.
+            ev.stopPropagation();
+            showContextMenu(ev);
+          }}
+          onDblClick={ev => {
+            if (isBeingCreated()) return;
+
+            // Same reasoning as onContextMenu: ImageViewer's own dblclick (zoom) would otherwise also fire.
             ev.stopPropagation();
             showContextMenu(ev);
           }}

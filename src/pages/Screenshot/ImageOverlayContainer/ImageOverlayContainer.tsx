@@ -7,8 +7,9 @@ import { useAnnotationState } from "../../../states/annotationContext";
 import useOverlayDefaultsState from "../../../states/overlayDefaultsState";
 import useOverlayImagesState from "../../../states/overlayImagesState";
 import { Dimensions, Position, Tools } from "../../../types";
+import { LineCorner } from "../../../types/imageOverlay";
 import { OVERLAY_TOOLS, TOOL_TO_OVERLAY } from "../../../constants";
-import { getIntersection } from "../../../helpers";
+import { getIntersection, lineCornerFor } from "../../../helpers";
 
 const HIDDEN_BEHIND_COVERAGE = 0.9;
 
@@ -18,7 +19,7 @@ const HIDDEN_BEHIND_COVERAGE = 0.9;
 const MIN_DRAG_DISTANCE = 4;
 
 function ImageOverlayContainer() {
-  const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting, toImageCoords, toImageDelta, selectedImage } = useAnnotationState();
+  const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting, setCreatingItemIndex, toImageCoords, toImageDelta, selectedImage } = useAnnotationState();
   const { defaultAttributesFor } = useOverlayDefaultsState;
   const { bitmapFor, names } = useOverlayImagesState;
   const transform = createMutable({ x: 0, y: 0 });
@@ -86,6 +87,10 @@ function ImageOverlayContainer() {
     mouseDownScreenPoint = { x: event.clientX, y: event.clientY };
     window.addEventListener("mouseup", mouseUpHandler);
     window.addEventListener("mousemove", mouseMoveHandler);
+    // Set immediately, not once MIN_DRAG_DISTANCE clears: cancelCurrentAction
+    // must see this as "in progress" from the very first mousedown, or a
+    // right-click/Escape before the item exists falls through to closeOverlay.
+    setIsOverlayInteracting(true);
     // currentItemIndex stays -1 (no item yet) until the drag clears MIN_DRAG_DISTANCE.
   }
 
@@ -96,8 +101,9 @@ function ImageOverlayContainer() {
       if (Math.hypot(dx, dy) < MIN_DRAG_DISTANCE) return;
 
       const overlayType = TOOL_TO_OVERLAY[currentTool() as keyof typeof TOOL_TO_OVERLAY];
+      const isLine = overlayType === "arrow" || overlayType === "line";
 
-      const overlay: Omit<ImageOverlay, "order"> = {
+      const overlay: Omit<ImageOverlay, "order"> & { startCorner?: LineCorner } = {
         type: overlayType,
         attributes: attributesFor(overlayType),
         dimensions: {
@@ -105,23 +111,30 @@ function ImageOverlayContainer() {
           y: mouseDownLocation.y,
           width: 0,
           height: 0
-        }
+        },
+        ...(isLine ? { startCorner: "topLeft" as LineCorner } : {}),
       }
 
       currentItemIndex = addOverlayItem(overlay);
-      setIsOverlayInteracting(true);
+      setCreatingItemIndex(currentItemIndex);
     }
 
     if (!overlayItems[currentItemIndex]) return;
 
     const point = toImageCoords(event.clientX, event.clientY);
-
-    setOverlayItems(currentItemIndex, "dimensions", {
+    const dims: Dimensions = {
       x: point.x < mouseDownLocation.x ? point.x : mouseDownLocation.x,
       y: point.y < mouseDownLocation.y ? point.y : mouseDownLocation.y,
       width: Math.abs(point.x - mouseDownLocation.x),
       height: Math.abs(point.y - mouseDownLocation.y)
-    })
+    };
+
+    const currentItem = overlayItems[currentItemIndex];
+    if (currentItem.type === "arrow" || currentItem.type === "line") {
+      setOverlayItems(currentItemIndex, { dimensions: dims, startCorner: lineCornerFor(mouseDownLocation, point) } as any);
+    } else {
+      setOverlayItems(currentItemIndex, "dimensions", dims);
+    }
   }
 
 
@@ -152,7 +165,11 @@ function ImageOverlayContainer() {
     });
   }
 
-  function mouseUpHandler() {
+  function mouseUpHandler(event: MouseEvent) {
+    // A right-click's own mouseup fires before its contextmenu event, and would
+    // otherwise finalize/commit this drag before cancelCurrentAction runs (see SelectionBox.tsx).
+    if (event.button !== 0) return;
+
     if (currentItemIndex === -1 && currentTool() === Tools.ImageOverlay) placeImageAtNaturalSize();
     cleanup();
   }
@@ -160,8 +177,9 @@ function ImageOverlayContainer() {
   function cleanup() {
     window.removeEventListener("mouseup", mouseUpHandler);
     window.removeEventListener("mousemove", mouseMoveHandler);
-    if (currentItemIndex !== -1) setIsOverlayInteracting(false);
+    setIsOverlayInteracting(false);
     currentItemIndex = -1;
+    setCreatingItemIndex(null);
   }
 
   return (
