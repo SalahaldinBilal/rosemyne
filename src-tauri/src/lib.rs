@@ -3,6 +3,7 @@ use capture_preview::CAPTURE_PREVIEW_LABEL;
 use capture_preview::commands::{
     create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
 };
+use cursor_image::{CursorImageHandler, get_cursor_image};
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
 use history_store::commands::{
@@ -13,6 +14,9 @@ use history_store::commands::{
 use image::RgbaImage;
 use image_uploader::commands::{is_uploader_valid, maybe_auto_upload, test_uploader, upload_image};
 use mouse_rs::Mouse;
+use overlay_images::commands::{
+    add_overlay_image, get_overlay_images, remove_overlay_image, rename_overlay_image,
+};
 use recording::commands::{
     RecordingManagerHandler, cancel_recording, get_available_video_codecs, get_recording_status,
     start_recording, stop_recording,
@@ -66,12 +70,14 @@ use tauri::{Emitter, State};
 pub mod capture;
 pub mod capture_overlay;
 pub mod capture_preview;
+pub mod cursor_image;
 pub mod dimensions;
 pub mod error_serializers;
 pub mod file_clipboard;
 pub mod history_store;
 pub mod image_uploader;
 pub mod locale;
+pub mod overlay_images;
 pub mod recording;
 pub mod screen_manager;
 pub mod screenshot_window;
@@ -552,9 +558,12 @@ pub fn run() {
     let pending_scroll_capture: PendingScrollCaptureHandler =
         Arc::new(tauri::async_runtime::RwLock::new(None));
 
+    let cursor_image: CursorImageHandler = Arc::new(RwLock::new(None));
+
     let scheme_manager_ref = screenshot_manager.clone();
     let scheme_store_ref = history_store.clone();
     let scheme_pending_ref = pending_scroll_capture.clone();
+    let scheme_cursor_ref = cursor_image.clone();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -581,6 +590,7 @@ pub fn run() {
                 let screenshot_manager = scheme_manager_ref.clone();
                 let history_store = scheme_store_ref.clone();
                 let pending_scroll_capture = scheme_pending_ref.clone();
+                let cursor_image = scheme_cursor_ref.clone();
 
                 tauri::async_runtime::spawn(async move {
                     let split_uri: Vec<_> = request
@@ -663,6 +673,37 @@ pub fn run() {
                                         .expect("Valid response"),
                                 ),
                             };
+                        }
+                        ["overlay", file_name] => {
+                            let data = history_store
+                                .overlay_image_path(file_name)
+                                .and_then(|path| std::fs::read(path).ok());
+
+                            let response = match data {
+                                Some(data) => Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", "image/webp")
+                                    .header("Access-Control-Allow-Origin", "*")
+                                    .body(data)
+                                    .expect("Valid response"),
+                                None => status_response(404),
+                            };
+                            responder.respond(response);
+                        }
+                        // The version is only ever a cache buster; the cache holds one cursor.
+                        ["cursor", _version] => {
+                            let png = cursor_image.read().await.as_ref().map(|cursor| cursor.png.clone());
+
+                            let response = match png {
+                                Some(png) => Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", "image/png")
+                                    .header("Access-Control-Allow-Origin", "*")
+                                    .body(png)
+                                    .expect("Valid response"),
+                                None => status_response(404),
+                            };
+                            responder.respond(response);
                         }
                         ["scroll-frame", session_id, index] => {
                             let (session_id, index): (u16, usize) =
@@ -809,6 +850,11 @@ pub fn run() {
             set_general_settings,
             get_overlay_defaults,
             set_overlay_defaults,
+            get_overlay_images,
+            add_overlay_image,
+            remove_overlay_image,
+            rename_overlay_image,
+            get_cursor_image,
             get_capture_preview_settings,
             set_capture_preview_settings,
             show_capture_preview_window,
@@ -855,6 +901,7 @@ pub fn run() {
     app.manage(recording_manager);
     app.manage(scroll_capture_manager);
     app.manage(pending_scroll_capture);
+    app.manage(cursor_image);
     app.manage(Arc::new(reqwest::Client::new()));
     app.manage(Arc::new(Mouse::new()));
 
@@ -892,6 +939,7 @@ async fn run_callback(
             create_screenshot_window(app_handle, screenshot_window).await;
             create_overlay_windows(app_handle);
             create_capture_preview_window(app_handle);
+            cursor_image::refresh(app_handle);
         }
         tauri::RunEvent::WindowEvent {
             label,
@@ -1017,6 +1065,8 @@ async fn create_screenshot_window(
 }
 
 fn focus_or_open_config_window(app: &AppHandle, name: &str) {
+    cursor_image::refresh(app);
+
     match app.get_webview_window(name) {
         Some(window) => {
             let _ = window.show();

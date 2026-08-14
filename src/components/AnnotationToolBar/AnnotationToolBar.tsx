@@ -5,8 +5,10 @@ import { useAnnotationState } from "../../states/annotationContext";
 import { beautifyCamelOrPascalCase } from "../../helpers";
 import Button from "../Button/Button";
 import Input from "../Input/Input";
-import { BookAIcon, Droplets, Eraser, Grid3X3Icon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, SquareMousePointer, Trash2, X } from "lucide-solid";
-import { Tools } from "../../types";
+import { BookAIcon, Droplets, Eraser, Grid3X3Icon, ImageIcon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, SquareMousePointer, Trash2, X } from "lucide-solid";
+import { SelectItem, Tools } from "../../types";
+import Select from "../Select/Select";
+import useOverlayImagesState from "../../states/overlayImagesState";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { DefaultColorPicker } from "@thednp/solid-color-picker";
 
@@ -28,6 +30,7 @@ const TOOL_GROUPS: ToolEntry[][] = [
     { tool: Tools.TextOverlay, icon: BookAIcon },
     { tool: Tools.BlurOverlay, icon: Droplets },
     { tool: Tools.PixelateOverly, icon: Grid3X3Icon },
+    { tool: Tools.ImageOverlay, icon: ImageIcon },
   ],
 ];
 const ALL_TOOLS = TOOL_GROUPS.flat();
@@ -38,11 +41,27 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
   const {
     currentTool, setCurrentTool, isOverlayInteracting,
     drawColor, setDrawColor, brushSize, setBrushSize, eraserSize, setEraserSize,
-    overlayItems, clearDrawing,
+    overlayItems, clearDrawing, selectedImage, setSelectedImage,
   } = useAnnotationState();
+  const { names: imageNames, addSessionImage } = useOverlayImagesState;
   const hasDrawing = createMemo(() => overlayItems.some(item => item.type === "draw"));
   const isDrawTool = createMemo(() => currentTool() === Tools.DrawOverlay);
   const isEraseTool = createMemo(() => currentTool() === Tools.EraseOverlay);
+  const isImageTool = createMemo(() => currentTool() === Tools.ImageOverlay);
+  const imageItems = createMemo<SelectItem<string>[]>(() =>
+    imageNames().map(name => ({ id: name, value: name, label: name }))
+  );
+
+  let filePicker: HTMLInputElement | undefined;
+
+  async function pickOneOffImage(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    setSelectedImage(await addSessionImage(file));
+  }
 
   // Position set imperatively (not a reactive style), mousemove fires too often to route through a signal.
   let brushCursor: HTMLDivElement | undefined;
@@ -155,6 +174,21 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
             style={{ width: "60px" }}
             inputStyle={{ height: "26px", padding: "0 8px" }}
           />
+        </div>
+      </Show>
+      <Show when={isImageTool()}>
+        <div class={styles.ToolOptions}>
+          <span class={styles.ToolOptionsLabel}>Image</span>
+          <Select
+            value={selectedImage()}
+            items={imageItems()}
+            onItemClick={item => setSelectedImage(item.value)}
+            style={{ "min-width": "130px", height: "26px", padding: "0 8px", "font-size": "12px" }}
+          />
+          <Button style={{ height: "26px", "font-size": "12px" }} onClick={() => filePicker?.click()}>
+            Add image…
+          </Button>
+          <input ref={filePicker} type="file" accept="image/*" style={{ display: "none" }} onChange={pickOneOffImage} />
         </div>
       </Show>
       <Show when={props.hint}>

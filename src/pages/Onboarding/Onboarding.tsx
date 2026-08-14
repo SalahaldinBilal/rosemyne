@@ -28,6 +28,7 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   hasCompletedOnboarding: false,
   checkForUpdatesOnStartup: true,
   stripWindowBorder: true,
+  includeCursor: false,
   minSelectionWidth: 15,
   minSelectionHeight: 15,
 };

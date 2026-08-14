@@ -9,6 +9,22 @@ export type Data = {
   pickRegion?: boolean,
   record?: boolean,
   scrollCapture?: boolean,
+  cursor: CursorImageInfo | null,
+  autoPlaceCursor: boolean,
+}
+
+// Emitted as "cursor://updated" once a fresher grab finishes encoding.
+export type CursorImageInfo = {
+  version: number,
+  width: number,
+  height: number,
+  hotspotX: number,
+  hotspotY: number,
+}
+
+export type OverlayImage = {
+  name: string,
+  fileName: string,
 }
 
 export type RecordingStatus = {

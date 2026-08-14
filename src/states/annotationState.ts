@@ -5,6 +5,7 @@ import mitt from "mitt";
 import { Dimensions, Position, Tools } from "../types";
 import { ImageOverlay } from "../types/imageOverlay";
 import { loadImage } from "../helpers";
+import { CURSOR_IMAGE_NAME } from "../constants";
 
 // Point-based (not MouseEvent-based) so it also converts getBoundingClientRect() reads, not just live pointer events.
 export type ToImageCoords = (clientX: number, clientY: number) => Position;
@@ -34,6 +35,8 @@ export function createAnnotationState(
   const [drawColor, setDrawColor] = createSignal<`#${string}`>("#ff0000");
   const [brushSize, setBrushSize] = createSignal(5);
   const [eraserSize, setEraserSize] = createSignal(24);
+  // Which library image the image tool places next; seeded from the saved default, never written back.
+  const [selectedImage, setSelectedImage] = createSignal<string>(CURSOR_IMAGE_NAME);
   // True while an overlay item is actively being moved or resized, so chrome like the toolbox can get out of the way.
   const [isOverlayInteracting, setIsOverlayInteracting] = createSignal(false);
   const [overlayItems, setOverlayItems] = createStore<Array<ImageOverlay>>([]);
@@ -107,6 +110,7 @@ export function createAnnotationState(
   return {
     selectedBox, setSelectedBox, isSelectingRegion, setIsSelectingRegion,
     currentTool, setCurrentTool, drawColor, setDrawColor, brushSize, setBrushSize, eraserSize, setEraserSize,
+    selectedImage, setSelectedImage,
     isOverlayInteracting, setIsOverlayInteracting, overlayItems, setOverlayItems, addOverlayItem, clearDrawing,
     image, mouseEventHandler, effectLayers, layerVersions, bumpLayerVersion, removeEffectLayer,
     suppressNextClick, consumeSuppressedClick, toImageCoords, toImageDelta, resetEditing,

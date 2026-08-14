@@ -1,11 +1,12 @@
 import { createEffect, createMemo, For, onCleanup, onMount } from "solid-js";
 import { createMutable } from "solid-js/store";
-import { ImageOverlay } from "../../../types/imageOverlay";
+import { ImageImageOverlay, ImageOverlay } from "../../../types/imageOverlay";
 import { DragDropProvider, DragDropSensors, DragOverlay } from "@thisbeyond/solid-dnd";
 import ImageOverlayElem from "./ImageOverlayElem/ImageOverlayElem";
 import { useAnnotationState } from "../../../states/annotationContext";
 import useOverlayDefaultsState from "../../../states/overlayDefaultsState";
-import { Dimensions, Position } from "../../../types";
+import useOverlayImagesState from "../../../states/overlayImagesState";
+import { Dimensions, Position, Tools } from "../../../types";
 import { OVERLAY_TOOLS, TOOL_TO_OVERLAY } from "../../../constants";
 import { getIntersection } from "../../../helpers";
 
@@ -17,8 +18,9 @@ const HIDDEN_BEHIND_COVERAGE = 0.9;
 const MIN_DRAG_DISTANCE = 4;
 
 function ImageOverlayContainer() {
-  const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting, toImageCoords, toImageDelta } = useAnnotationState();
+  const { overlayItems, setOverlayItems, addOverlayItem, mouseEventHandler, currentTool, setIsOverlayInteracting, toImageCoords, toImageDelta, selectedImage } = useAnnotationState();
   const { defaultAttributesFor } = useOverlayDefaultsState;
+  const { bitmapFor, names } = useOverlayImagesState;
   const transform = createMutable({ x: 0, y: 0 });
   let mouseDownLocation: Position;
   let mouseDownScreenPoint: Position;
@@ -94,11 +96,10 @@ function ImageOverlayContainer() {
       if (Math.hypot(dx, dy) < MIN_DRAG_DISTANCE) return;
 
       const overlayType = TOOL_TO_OVERLAY[currentTool() as keyof typeof TOOL_TO_OVERLAY];
-      const defaultAttributes = defaultAttributesFor(overlayType);
 
       const overlay: Omit<ImageOverlay, "order"> = {
         type: overlayType,
-        attributes: defaultAttributes,
+        attributes: attributesFor(overlayType),
         dimensions: {
           x: mouseDownLocation.x,
           y: mouseDownLocation.y,
@@ -124,7 +125,35 @@ function ImageOverlayContainer() {
   }
 
 
+  function attributesFor(type: ImageOverlay["type"]) {
+    const attributes = defaultAttributesFor(type);
+    if (type !== "image") return attributes;
+
+    const imageAttributes = attributes as ImageImageOverlay["attributes"];
+    imageAttributes.image.options = names();
+    imageAttributes.image.value = selectedImage();
+    return imageAttributes;
+  }
+
+  // An image has a size of its own, so a plain click places it 1:1 instead of creating nothing.
+  function placeImageAtNaturalSize() {
+    const bitmap = bitmapFor(selectedImage());
+    if (!bitmap) return;
+
+    addOverlayItem({
+      type: "image",
+      attributes: attributesFor("image") as ImageImageOverlay["attributes"],
+      dimensions: {
+        x: mouseDownLocation.x,
+        y: mouseDownLocation.y,
+        width: bitmap.naturalWidth,
+        height: bitmap.naturalHeight,
+      },
+    });
+  }
+
   function mouseUpHandler() {
+    if (currentItemIndex === -1 && currentTool() === Tools.ImageOverlay) placeImageAtNaturalSize();
     cleanup();
   }
 

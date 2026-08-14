@@ -3,19 +3,25 @@ import { ResizeDirection } from "../../../types";
 import { createMemo, JSX } from "solid-js";
 
 function ResizePoint(props: { direction: ResizeDirection, pointRadius: number, onMouseDown: () => void }): JSX.Element {
-  const pointStyles = createMemo(() => directionToFlexSpace(props.direction, props.pointRadius));
+  const anchor = createMemo(() => directionAnchor(props.direction));
   const pointRadiusPixels = createMemo(() => props.pointRadius + 'px');
 
   return (
-    <div
-      class={styles.PointParent}
-      style={pointStyles().parentStyles}
+    <svg
+      viewBox="0 0 20 20"
+      xmlns="http://www.w3.org/2000/svg"
+      class={styles.Point}
+      style={{
+        width: pointRadiusPixels(),
+        height: pointRadiusPixels(),
+        left: anchor().left,
+        top: anchor().top,
+        cursor: directionCursor(props.direction),
+      }}
       onMouseDown={props.onMouseDown}
     >
-      <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style={{ width: pointRadiusPixels(), height: pointRadiusPixels(), ...pointStyles().childStyles }}>
-        <circle cx="10" cy="10" r="10" />
-      </svg>
-    </div>
+      <circle cx="10" cy="10" r="8.5" />
+    </svg>
   );
 }
 
@@ -76,53 +82,38 @@ export function directionCursor(direction: ResizeDirection): string {
   }
 }
 
-function directionToFlexSpace(direction: ResizeDirection, circleRadius: number) {
-  const parentStyles: JSX.CSSProperties = {};
-  const childStyles: JSX.CSSProperties = {};
-  const translateBy = circleRadius / 2;
-  let xTranslate = 0;
-  let yTranslate = 0;
+// Percentages of the box itself, so a point stays on its own corner/edge at any
+// size; laying them out inside grid cells breaks once a cell is thinner than the point.
+function directionAnchor(direction: ResizeDirection): { left: string, top: string } {
+  const top = (() => {
+    switch (direction) {
+      case ResizeDirection.TopLeft:
+      case ResizeDirection.Top:
+      case ResizeDirection.TopRight:
+        return "0%";
+      case ResizeDirection.BottomLeft:
+      case ResizeDirection.Bottom:
+      case ResizeDirection.BottomRight:
+        return "100%";
+      default:
+        return "50%";
+    }
+  })();
 
-  switch (direction) {
-    case ResizeDirection.TopLeft:
-    case ResizeDirection.Top:
-    case ResizeDirection.TopRight:
-      parentStyles['align-items'] = 'flex-start';
-      yTranslate = -translateBy;
-      break;
-    case ResizeDirection.BottomRight:
-    case ResizeDirection.Bottom:
-    case ResizeDirection.BottomLeft:
-      parentStyles['align-items'] = 'flex-end';
-      yTranslate = translateBy;
-      break;
-    case ResizeDirection.Right:
-    case ResizeDirection.Left:
-      parentStyles['align-items'] = 'center';
-      break;
-  }
+  const left = (() => {
+    switch (direction) {
+      case ResizeDirection.TopLeft:
+      case ResizeDirection.Left:
+      case ResizeDirection.BottomLeft:
+        return "0%";
+      case ResizeDirection.TopRight:
+      case ResizeDirection.Right:
+      case ResizeDirection.BottomRight:
+        return "100%";
+      default:
+        return "50%";
+    }
+  })();
 
-  switch (direction) {
-    case ResizeDirection.TopLeft:
-    case ResizeDirection.Left:
-    case ResizeDirection.BottomLeft:
-      parentStyles['justify-content'] = 'flex-start';
-      xTranslate = -translateBy;
-      break;
-    case ResizeDirection.BottomRight:
-    case ResizeDirection.Right:
-    case ResizeDirection.TopRight:
-      parentStyles['justify-content'] = 'flex-end';
-      xTranslate = +translateBy;
-      break;
-    case ResizeDirection.Top:
-    case ResizeDirection.Bottom:
-      parentStyles['justify-content'] = 'center';
-      break;
-  }
-
-  childStyles.cursor = directionCursor(direction);
-  childStyles.transform = `translate(${xTranslate}px, ${yTranslate}px)`;
-
-  return { parentStyles, childStyles };
+  return { left, top };
 }

@@ -27,6 +27,7 @@ function GeneralSettings() {
     hasCompletedOnboarding: false,
     checkForUpdatesOnStartup: true,
     stripWindowBorder: true,
+    includeCursor: false,
     minSelectionWidth: 15,
     minSelectionHeight: 15,
   });
@@ -149,6 +150,17 @@ function GeneralSettings() {
       <div class={styles.SettingText}>
         <span>Check for updates on startup</span>
         <span class={styles.Hint}>Silently checks when the app opens; you'll get a notification if one's found.</span>
+      </div>
+    </label>
+    <label class={styles.SettingRow}>
+      <input
+        type="checkbox"
+        checked={general.includeCursor}
+        onChange={e => apply({ includeCursor: e.currentTarget.checked })}
+      />
+      <div class={styles.SettingText}>
+        <span>Include the mouse cursor in screenshots</span>
+        <span class={styles.Hint}>Places the cursor as an image overlay where it was when the capture ran, ready to move, resize or delete before saving.</span>
       </div>
     </label>
     <Show when={IS_WINDOWS}>

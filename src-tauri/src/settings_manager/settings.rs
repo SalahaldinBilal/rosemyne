@@ -10,6 +10,7 @@ use tauri::AppHandle;
 use super::{SettingsError, shortcuts::ShortcutBinding};
 use crate::capture_preview::CapturePreviewSettings;
 use crate::image_uploader::SavedUploader;
+use crate::overlay_images::OverlayImage;
 use crate::recording::recorder_trait::VideoCodec;
 use crate::screen_manager::screenshot_manager::ScreenshotImageFormat;
 use crate::scrolling_capture::ScrollingCaptureSettings;
@@ -47,6 +48,8 @@ pub struct GeneralSettings {
     pub check_for_updates_on_startup: bool,
     /// Windows only; Linux has no composited frame border to strip.
     pub strip_window_border: bool,
+    /// Auto-places the cursor overlay on each capture; recordings capture their own.
+    pub include_cursor: bool,
     /// A region drag smaller than this on either axis is treated as a click on
     /// the window under the cursor instead of a region selection.
     pub min_selection_width: u32,
@@ -68,6 +71,7 @@ impl Default for GeneralSettings {
             has_completed_onboarding: false,
             check_for_updates_on_startup: true,
             strip_window_border: true,
+            include_cursor: false,
             min_selection_width: 15,
             min_selection_height: 15,
         }
@@ -100,6 +104,7 @@ pub struct UserSettings {
     general: GeneralSettings,
     sound: SoundSettings,
     overlay_defaults: OverlayDefaultOverrides,
+    overlay_images: Vec<OverlayImage>,
     capture_preview: CapturePreviewSettings,
     scrolling_capture: ScrollingCaptureSettings,
 }
@@ -235,6 +240,15 @@ impl Settings {
 
     pub fn set_overlay_defaults(&mut self, overlay_defaults: OverlayDefaultOverrides) -> Result<(), SettingsError> {
         self.user_settings.overlay_defaults = overlay_defaults;
+        self.save_settings()
+    }
+
+    pub fn get_overlay_images(&self) -> &Vec<OverlayImage> {
+        &self.user_settings.overlay_images
+    }
+
+    pub fn set_overlay_images(&mut self, overlay_images: Vec<OverlayImage>) -> Result<(), SettingsError> {
+        self.user_settings.overlay_images = overlay_images;
         self.save_settings()
     }
 

@@ -37,7 +37,8 @@ export enum Tools {
   BlurOverlay,
   PixelateOverly,
   DrawOverlay,
-  EraseOverlay
+  EraseOverlay,
+  ImageOverlay
 }
 
 
@@ -94,6 +95,7 @@ export type GeneralSettings = {
   hasCompletedOnboarding: boolean,
   checkForUpdatesOnStartup: boolean,
   stripWindowBorder: boolean,
+  includeCursor: boolean,
   minSelectionWidth: number,
   minSelectionHeight: number,
 }

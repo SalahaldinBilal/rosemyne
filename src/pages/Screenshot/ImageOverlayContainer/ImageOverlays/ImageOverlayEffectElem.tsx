@@ -34,7 +34,7 @@ function ImageOverlayEffectElem(props: ImageOverlayProps<BlurImageOverlay | Pixe
     // Subscribe to lower effect/draw layers re-rendering; box/text changes are
     // tracked through the attribute reads inside the draw calls below.
     for (const other of below) {
-      if (other.type === "blur" || other.type === "pixelate" || other.type === "draw") layerVersions[other.order];
+      if (other.type !== "box" && other.type !== "text") layerVersions[other.order];
     }
 
     const margin = effectMargin(props.item);

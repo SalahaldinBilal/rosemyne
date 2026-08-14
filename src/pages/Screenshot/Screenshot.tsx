@@ -4,6 +4,7 @@ import { Data } from "../../types/screenshot";
 import useScreenshotOverlayStateInner from "../../states/screenshotOverlayState";
 import AnnotationContext from "../../states/annotationContext";
 import useOverlayDefaultsState from "../../states/overlayDefaultsState";
+import useOverlayImagesState from "../../states/overlayImagesState";
 import ImageOverlayContainer from "./ImageOverlayContainer/ImageOverlayContainer";
 import DrawLayer from "./DrawLayer/DrawLayer";
 import ToolBox from "./ToolBox/ToolBox";
@@ -31,6 +32,7 @@ const MOVE_ACCELERATION = 0.85;
 function Screenshot() {
   const { imageData, setImageData, cancelCurrentAction, mouseEventHandler, selectedBox } = useScreenshotOverlayStateInner;
   const { refresh: refreshOverlayDefaults } = useOverlayDefaultsState;
+  const { refresh: refreshOverlayImages } = useOverlayImagesState;
   const mouseMovement = { x: 0, y: 0 };
   let movementTimer: ReturnType<typeof setTimeout> | undefined;
   let movementInterval = MOVE_START_INTERVAL_MS;
@@ -84,6 +86,7 @@ function Screenshot() {
     getCurrentWebviewWindow().listen("screenshot://data", (event: TauriEvent<Data>) => {
       setImageData(event.payload);
       refreshOverlayDefaults();
+      refreshOverlayImages();
     });
   })
 

@@ -1,11 +1,15 @@
-import { createEffect, createMemo, createRoot, createSignal } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, untrack } from "solid-js";
 import { createStore, unwrap } from "solid-js/store";
-import { Data, WindowInfo } from "../types/screenshot";
-import { ScrollCaptureOverrides } from "../types";
+import { listen } from "@tauri-apps/api/event";
+import { CursorImageInfo, Data, WindowInfo } from "../types/screenshot";
+import { Dimensions, Position, ScrollCaptureOverrides } from "../types";
+import { CURSOR_IMAGE_NAME } from "../constants";
 import { renderFinalImage } from "../helpers/canvasRenderer";
 import { saveScreenshot } from "../helpers/saveScreenshot";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import useToastState from "./toastState";
+import useOverlayDefaultsState from "./overlayDefaultsState";
+import useOverlayImagesState from "./overlayImagesState";
 import { createAnnotationState } from "./annotationState";
 
 function useScreenshotOverlayStateInner() {
@@ -56,9 +60,58 @@ function useScreenshotOverlayStateInner() {
 
   const annotation = createAnnotationState(previewUrl);
   const {
-    selectedBox, overlayItems, image, mouseEventHandler, effectLayers,
-    isSelectingRegion, isOverlayInteracting, resetEditing,
+    selectedBox, overlayItems, setOverlayItems, addOverlayItem, image, mouseEventHandler, effectLayers,
+    isSelectingRegion, isOverlayInteracting, resetEditing, setSelectedImage,
   } = annotation;
+
+  // Lets a later-arriving cursor re-place itself, but only while the user hasn't touched it.
+  let autoPlacedCursor: { index: number, dimensions: Dimensions, mouse: Position } | null = null;
+
+  function cursorDimensions(cursor: CursorImageInfo, mouse: Position): Dimensions {
+    return {
+      x: mouse.x - cursor.hotspotX,
+      y: mouse.y - cursor.hotspotY,
+      width: cursor.width,
+      height: cursor.height,
+    };
+  }
+
+  // Untracked: placing reads the overlay list, which would re-run this on every later edit.
+  createEffect(() => {
+    const data = imageData();
+    if (!data || data.pickRegion || data.record || data.scrollCapture) return;
+
+    untrack(() => {
+      setSelectedImage(useOverlayDefaultsState.merged.image.image.value);
+      if (!data.autoPlaceCursor || !data.cursor) return;
+
+      const dimensions = cursorDimensions(data.cursor, data.mousePosition);
+      const index = addOverlayItem({
+        type: "image",
+        attributes: {
+          image: { type: "select", value: CURSOR_IMAGE_NAME, options: useOverlayImagesState.names() },
+          opacity: { type: "number", value: 100, min: 0, max: 100 },
+        },
+        dimensions,
+      });
+
+      autoPlacedCursor = { index, dimensions, mouse: data.mousePosition };
+    });
+  });
+
+  listen<CursorImageInfo>("cursor://updated", event => {
+    if (!autoPlacedCursor) return;
+
+    const placed = overlayItems[autoPlacedCursor.index];
+    const previous = autoPlacedCursor.dimensions;
+    if (!placed || placed.type !== "image") return;
+    if (placed.dimensions.x !== previous.x || placed.dimensions.y !== previous.y
+      || placed.dimensions.width !== previous.width || placed.dimensions.height !== previous.height) return;
+
+    const dimensions = cursorDimensions(event.payload, autoPlacedCursor.mouse);
+    setOverlayItems(autoPlacedCursor.index, "dimensions", dimensions);
+    autoPlacedCursor.dimensions = dimensions;
+  });
 
   async function closeOverlay(imageIdToSave?: number) {
     const box = { ...unwrap(selectedBox) };
@@ -72,6 +125,7 @@ function useScreenshotOverlayStateInner() {
     const finishEditingSession = () => {
       setImageData(null);
       setSelectedWindow(null);
+      autoPlacedCursor = null;
       resetEditing();
     };
 

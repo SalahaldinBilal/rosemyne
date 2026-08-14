@@ -6,6 +6,10 @@ import { dimensionToStyle } from "../../helpers";
 import { createMutationObserver } from "@solid-primitives/mutation-observer";
 import ResizePoint, { composeDirection, directionCursor, horizontalAnchor, verticalAnchor } from "./ResizePoint/ResizePoint";
 
+const MIN_POINT_RADIUS = 8;
+
+const ALL_DIRECTIONS = Object.values(ResizeDirection).filter(value => typeof value === "number") as ResizeDirection[];
+
 function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number, toContainerCoords?: (clientX: number, clientY: number) => { x: number, y: number }, zIndexBoost?: number }): JSX.Element {
   // Identity by default; a host whose positioned ancestor scrolls/zooms must supply its own.
   const toContainerCoords = createMemo(() => props.toContainerCoords ?? ((clientX: number, clientY: number) => ({ x: clientX, y: clientY })));
@@ -20,9 +24,22 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
   const pointRadius = createMemo(() => {
     const desiredRadius = props.pointRadius ?? 25;
     // Each point sits in one of 3 equal rows/columns; keep a full cell of slack (desiredRadius)
-    // between the point and the cell edge so it vanishes well before neighboring points could overlap.
+    // between the point and the cell edge so it shrinks before neighboring points could overlap.
     const cellSize = Math.min(boxPosition.width, boxPosition.height) / 3;
-    return Math.max(0, Math.min(desiredRadius, cellSize - desiredRadius));
+    // Floored: only the points take pointer events, so shrinking to 0 leaves a
+    // small item (a placed cursor is ~20px) with no way to resize at all.
+    return Math.max(MIN_POINT_RADIUS, Math.min(desiredRadius, cellSize - desiredRadius));
+  });
+
+  // Corners always; an edge's midpoint only once that side can hold it clear of them.
+  const visibleDirections = createMemo(() => {
+    const clearance = pointRadius() * 3;
+
+    return ALL_DIRECTIONS.filter(direction => {
+      if (direction === ResizeDirection.Top || direction === ResizeDirection.Bottom) return boxPosition.width >= clearance;
+      if (direction === ResizeDirection.Left || direction === ResizeDirection.Right) return boxPosition.height >= clearance;
+      return true;
+    });
   });
 
   // Fixed opposite edge/corner for the active drag; stays valid even after the dragged corner flips past it.
@@ -120,8 +137,7 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
       {props.children(setElementRef)}
       <Show when={shouldShow()}>
         <div class={styles.ResizeBox} style={style()}>
-          <div style={{ "grid-area": '2 / 2 / 2 / 2' }}></div>
-          <For each={Object.values(ResizeDirection).filter(e => typeof e === "number")}>
+          <For each={visibleDirections()}>
             {direction => <ResizePoint direction={direction} pointRadius={pointRadius()} onMouseDown={() => startDrag(direction)} />}
           </For>
         </div>

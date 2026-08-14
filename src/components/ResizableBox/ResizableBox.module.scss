@@ -1,9 +1,9 @@
 .ResizeBox {
   resize: both;
   position: fixed;
-  border: black solid;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  border: solid rgba(255, 255, 255, 0.92);
+  // Dark hairlines on both sides of the light border, so neither tone disappears
+  // into the capture behind it.
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }

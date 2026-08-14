@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use image::RgbaImage;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State, image::Image};
+use tauri::{AppHandle, Emitter, Manager, State, image::Image};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -11,6 +11,7 @@ use crate::{
     HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWebview, ScreenshotWindowHandler,
     SettingsHandler,
     capture::{CapManager, capture_trait::CaptureManager},
+    cursor_image::{CursorImageHandler, CursorImageInfo},
     dimensions::impls::{Dimensions, Position},
     emit_on_main_thread,
     screen_manager::{
@@ -125,6 +126,8 @@ async fn show_live_overlay(
         pick_region: matches!(mode, OverlayMode::PickRegion),
         record: matches!(mode, OverlayMode::Record),
         scroll_capture: matches!(mode, OverlayMode::ScrollCapture),
+        cursor: None,
+        auto_place_cursor: false,
         monitor_positions: webview
             .monitor_positions
             .iter()
@@ -355,6 +358,9 @@ pub(crate) struct Data {
     /// When true the overlay picks a region live (like `pick_region`) and
     /// starts a scrolling capture of it on selection.
     pub scroll_capture: bool,
+    /// The cursor cached when the capture ran; a fresher one follows over `cursor://updated`.
+    pub cursor: Option<CursorImageInfo>,
+    pub auto_place_cursor: bool,
 }
 
 /// Absolute virtual-desktop rectangle chosen by the region picker, reported to
@@ -381,44 +387,55 @@ pub async fn take_screenshot(
         return instant_capture(target, history_store, settings_handle, app_handle).await;
     }
 
+    // Runs alongside the capture below, not before it: the pointer and its shape are
+    // read at the moment of the screenshot, while the overlay is still hidden.
+    let cursor_moment = tauri::async_runtime::spawn_blocking({
+        let app_handle = app_handle.clone();
+        move || crate::cursor_image::capture_moment(&app_handle)
+    });
+
+    let auto_place_cursor = settings_handle.read().await.get_general().include_cursor;
+
     let window_handler = window_handler.read().await;
     let mut screenshot_manager = screenshot_manager.write().await;
 
     if let Some(window_handler) = window_handler.deref() {
-        let image = CapManager::capture(&window_handler.position);
-
-        match image {
-            Ok(image) => {
-                let mut windows = CapManager::get_visible_windows(&window_handler.position);
-
-                let desktop_bounds = window_handler
-                    .position
-                    .to_normalized_ordered_dimensions(&window_handler.position);
-
-                if let Some(desktop_bounds) = desktop_bounds {
-                    windows.push(WindowInfo::new(
-                        "Desktop".into(),
-                        "desktop".into(),
-                        desktop_bounds.clone(),
-                        desktop_bounds,
-                        vec![],
-                    ));
-                }
-
-                let windows = calculate_visible_bounds(windows);
-
-                let id = screenshot_manager.add_screenshot(image, Some(windows.clone()))?;
-                drop(screenshot_manager);
-
-                emit_editor_data(window_handler, app_handle, id, windows);
-
-                return Ok(());
-            }
+        // Resolved before the await below: the error is a plain `Box<dyn Error>`, which isn't `Send`.
+        let image = match CapManager::capture(&window_handler.position) {
+            Ok(image) => image,
             Err(error) => {
                 eprintln!("Failed to capture screenshot: {:#?}", error);
                 return Err(EncodeError::NotExists);
             }
+        };
+
+        let cursor_position = cursor_moment.await.ok().flatten();
+        let mut windows = CapManager::get_visible_windows(&window_handler.position);
+
+        let desktop_bounds = window_handler
+            .position
+            .to_normalized_ordered_dimensions(&window_handler.position);
+
+        if let Some(desktop_bounds) = desktop_bounds {
+            windows.push(WindowInfo::new(
+                "Desktop".into(),
+                "desktop".into(),
+                desktop_bounds.clone(),
+                desktop_bounds,
+                vec![],
+            ));
         }
+
+        let windows = calculate_visible_bounds(windows);
+
+        let id = screenshot_manager.add_screenshot(image, Some(windows.clone()))?;
+        drop(screenshot_manager);
+
+        // Read last, giving this capture's own render the longest chance to land.
+        let cursor_handler = app_handle.state::<CursorImageHandler>().inner().clone();
+        let cursor = cursor_handler.read().await.as_ref().map(|cursor| cursor.info);
+
+        emit_editor_data(window_handler, app_handle, id, windows, cursor, cursor_position, auto_place_cursor);
     }
 
     Ok(())
@@ -432,19 +449,21 @@ fn emit_editor_data<R: tauri::Runtime>(
     app_handle: &AppHandle,
     image_id: u16,
     windows: Vec<WindowInfo>,
+    cursor: Option<CursorImageInfo>,
+    cursor_position: Option<(i32, i32)>,
+    auto_place_cursor: bool,
 ) {
     WindowManager::show(webview);
 
     // Normalized the same way monitor_positions is below: relative to the
     // screenshotter window's own top-left, not the raw (possibly negative,
     // if a monitor sits left of/above the primary) virtual-desktop origin.
-    let mouse_position = match app_handle.cursor_position() {
-        Ok(pos) => Position {
-            x: (pos.x as i32 - webview.position.left).max(0) as u32,
-            y: (pos.y as i32 - webview.position.top).max(0) as u32,
-        },
-        Err(_) => Position { x: 0, y: 0 },
-    };
+    let mouse_position = cursor_position
+        .or_else(|| app_handle.cursor_position().ok().map(|pos| (pos.x as i32, pos.y as i32)))
+        .map_or(Position { x: 0, y: 0 }, |(x, y)| Position {
+            x: (x - webview.position.left).max(0) as u32,
+            y: (y - webview.position.top).max(0) as u32,
+        });
 
     let data = Data {
         mouse_position,
@@ -453,6 +472,8 @@ fn emit_editor_data<R: tauri::Runtime>(
         pick_region: false,
         record: false,
         scroll_capture: false,
+        cursor,
+        auto_place_cursor,
         monitor_positions: webview
             .monitor_positions
             .iter()

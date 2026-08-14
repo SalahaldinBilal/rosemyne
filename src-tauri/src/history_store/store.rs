@@ -321,6 +321,52 @@ impl HistoryStore {
         Some(thumbnail_path_in(&self.lock().base_path, file_name))
     }
 
+    /// `None` when the name tries to escape the directory; the URI scheme passes untrusted names here.
+    pub fn overlay_image_path(&self, file_name: &str) -> Option<PathBuf> {
+        if file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
+            return None;
+        }
+        Some(self.lock().base_path.join(OVERLAY_IMAGES_DIR).join(file_name))
+    }
+
+    /// Copied in (not referenced) and always re-encoded to WebP; the decode doubles as validation.
+    pub fn store_overlay_image(&self, source: &Path) -> Result<String, HistoryError> {
+        let decoded = image::ImageReader::open(source)?
+            .with_guessed_format()?
+            .decode()
+            .map_err(|err| HistoryError::Encode(format!("{} is not a readable image: {err}", source.display())))?;
+
+        let bytes = encode_image_as(&decoded.to_rgba8(), ImageFormat::WebP)
+            .map_err(|err| HistoryError::Encode(err.to_string()))?;
+
+        let dir = self.lock().base_path.join(OVERLAY_IMAGES_DIR);
+        std::fs::create_dir_all(&dir)?;
+
+        let stem = sanitize_file_name(source.file_stem().and_then(|stem| stem.to_str()).unwrap_or("image"));
+
+        let mut file_name = format!("{stem}.webp");
+        let mut suffix = 1;
+        while dir.join(&file_name).exists() {
+            file_name = format!("{stem}-{suffix}.webp");
+            suffix += 1;
+        }
+
+        std::fs::write(dir.join(&file_name), bytes)?;
+        Ok(file_name)
+    }
+
+    pub fn delete_overlay_image(&self, file_name: &str) -> Result<(), HistoryError> {
+        let Some(path) = self.overlay_image_path(file_name) else {
+            return Ok(());
+        };
+
+        match std::fs::remove_file(path) {
+            Ok(_) => Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(err.into()),
+        }
+    }
+
     /// Stores an already-encoded WebP thumbnail for an existing history entry
     /// (the frontend generates these lazily for imported videos).
     pub fn save_thumbnail_bytes(&self, file_name: &str, bytes: &[u8]) -> Result<(), HistoryError> {
@@ -1377,6 +1423,8 @@ pub(crate) fn expand_save_dir(
 
     base.join("files").join(sub)
 }
+
+const OVERLAY_IMAGES_DIR: &str = "overlay-images";
 
 const THUMBNAIL_MAX_WIDTH: u32 = 480;
 

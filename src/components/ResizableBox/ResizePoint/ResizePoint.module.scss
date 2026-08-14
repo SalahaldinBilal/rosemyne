@@ -1,10 +1,11 @@
-.PointParent {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+.Point {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: all;
 
-  &>svg {
-    pointer-events: all;
+  circle {
+    fill: rgba(255, 255, 255, 0.96);
+    stroke: rgba(0, 0, 0, 0.6);
+    stroke-width: 2.5;
   }
 }
