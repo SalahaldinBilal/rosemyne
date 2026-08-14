@@ -100,6 +100,14 @@ function Screenshot() {
     cancelCurrentAction();
   }, { capture: true });
 
+  // Bubble phase: only reachable when nothing claimed the right-click, the
+  // cancel path above and a placed item's own menu both stopPropagation, so
+  // this is an idle right-click on empty space, which closes the overlay.
+  makeEventListener(window, "contextmenu", () => {
+    if (!imageData()) return;
+    cancelCurrentAction();
+  });
+
   makeEventListener(window, "keydown", event => {
     if (!imageData()) return;
 
