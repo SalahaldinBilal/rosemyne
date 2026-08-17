@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-08-17
+
+### Changed
+
+- Saving an annotated capture no longer freezes while the final image is composited. The render now runs in a background worker, so the overlay closes right away and the save finishes behind it; if the worker can't start, it falls back to rendering in the page as before.
+- Placing a blur or pixelate overlay no longer gets slower the more of them are already on the capture. Each one now re-renders only when something actually underneath it changes, instead of every time an overlay is placed anywhere.
+
+### Fixed
+
+- The annotation toolbox could end up behind placed overlays, so after a few items were added they drew over the toolbar. It now always stays on top, and a selected item's resize handles no longer cover menus or toasts either.
+- Triggering a capture twice in quick succession (a double-pressed shortcut, or a double-clicked button) started two captures at once. A second trigger within 150ms of the first is now ignored.
+- Saving a capture before its preview had finished loading silently discarded the screenshot. It now waits for the preview, and reports an error if it never loads.
+- A save that completed after a new capture had already begun could tear down the new capture's overlay.
+
 ## [0.2.5] - 2026-08-14
 
 ### Added
