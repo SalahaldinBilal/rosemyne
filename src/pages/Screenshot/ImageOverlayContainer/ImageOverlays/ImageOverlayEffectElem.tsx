@@ -23,17 +23,25 @@ function ImageOverlayEffectElem(props: ImageOverlayProps<BlurImageOverlay | Pixe
     return { left, top, width: right - left, height: bottom - top };
   });
 
+  // Identity-guarded so placing an item *above* this one (which only grows the
+  // array) can't invalidate the composite below: read straight from the effect,
+  // that append re-runs every effect elem, each of which then bumps its own
+  // layer version and re-triggers all the ones above it.
+  const below = createMemo(
+    () => overlayItems.filter(other => other.order < props.item.order),
+    undefined,
+    { equals: (a, b) => a.length === b.length && a.every((item, index) => item === b[index]) },
+  );
+
   createEffect(() => {
     const base = image();
     const currentRegion = region();
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx || !base || !currentRegion) return;
 
-    const below = overlayItems.filter(other => other.order < props.item.order);
-
     // Subscribe to lower effect/draw layers re-rendering; box/text changes are
     // tracked through the attribute reads inside the draw calls below.
-    for (const other of below) {
+    for (const other of below()) {
       if (other.type !== "box" && other.type !== "text") layerVersions[other.order];
     }
 
@@ -46,7 +54,7 @@ function ImageOverlayEffectElem(props: ImageOverlayProps<BlurImageOverlay | Pixe
     const scene = composeScratchContext(sceneWidth, sceneHeight);
     scene.drawImage(base, sceneLeft, sceneTop, sceneWidth, sceneHeight, 0, 0, sceneWidth, sceneHeight);
 
-    for (const other of below) {
+    for (const other of below()) {
       drawOverlayOnto(scene, other, sceneLeft, sceneTop, effectLayers);
     }
 
