@@ -4,26 +4,39 @@ import { effectIntensity, lineEndpoints } from "./index";
 
 export type RenderedImage = { image: ImageData, x: number, y: number, width: number, height: number };
 
-type Scratch = { canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D | null };
+// Context-agnostic so the same compositor runs on the page and in the save worker (OffscreenCanvas).
+export type Render2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+export type EffectLayerSource = HTMLCanvasElement | OffscreenCanvas | ImageBitmap;
 
-const composeScratch: Scratch = { canvas: null, ctx: null };
-const kernelScratch: Scratch = { canvas: null, ctx: null };
-const pixelScratch: Scratch = { canvas: null, ctx: null };
+type Scratch = { ctx: Render2D | null };
+
+const composeScratch: Scratch = { ctx: null };
+const kernelScratch: Scratch = { ctx: null };
+const pixelScratch: Scratch = { ctx: null };
+
+function create2dContext(width: number, height: number): Render2D | null {
+  if (typeof document === "undefined") return new OffscreenCanvas(width, height).getContext("2d");
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas.getContext("2d");
+}
 
 /** Reuses a module-level canvas; setting width/height also clears it. */
-function scratchContext(scratch: Scratch, width: number, height: number): CanvasRenderingContext2D {
-  if (!scratch.canvas) {
-    scratch.canvas = document.createElement("canvas");
-    scratch.ctx = scratch.canvas.getContext("2d")!;
+function scratchContext(scratch: Scratch, width: number, height: number): Render2D {
+  if (!scratch.ctx) {
+    scratch.ctx = create2dContext(width, height)!;
+    return scratch.ctx;
   }
 
-  scratch.canvas.width = width;
-  scratch.canvas.height = height;
-  return scratch.ctx!;
+  scratch.ctx.canvas.width = width;
+  scratch.ctx.canvas.height = height;
+  return scratch.ctx;
 }
 
 /** Reusable scratch for composing a preview effect's region + margin. */
-export function composeScratchContext(width: number, height: number): CanvasRenderingContext2D {
+export function composeScratchContext(width: number, height: number): Render2D {
   return scratchContext(composeScratch, width, height);
 }
 
@@ -34,7 +47,7 @@ export function effectMargin(overlay: ImageOverlay): number {
   return 0;
 }
 
-export function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+export function wrapText(ctx: Render2D, text: string, maxWidth: number): string[] {
   const lines: string[] = [];
 
   for (const paragraph of text.split("\n")) {
@@ -59,7 +72,7 @@ export function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: 
 }
 
 /** Fill covering the whole rect with the border ring painted on top, clipped to the rect. */
-export function drawBoxOverlay(ctx: CanvasRenderingContext2D, overlay: BoxImageOverlay, offsetX: number, offsetY: number) {
+export function drawBoxOverlay(ctx: Render2D, overlay: BoxImageOverlay, offsetX: number, offsetY: number) {
   const dims = overlay.dimensions;
   const x = Math.round(dims.x) - offsetX;
   const y = Math.round(dims.y) - offsetY;
@@ -86,7 +99,7 @@ export function drawBoxOverlay(ctx: CanvasRenderingContext2D, overlay: BoxImageO
   ctx.restore();
 }
 
-export function drawTextOverlay(ctx: CanvasRenderingContext2D, overlay: TextImageOverlay, offsetX: number, offsetY: number) {
+export function drawTextOverlay(ctx: Render2D, overlay: TextImageOverlay, offsetX: number, offsetY: number) {
   const dims = overlay.dimensions;
   const x = Math.round(dims.x) - offsetX;
   const y = Math.round(dims.y) - offsetY;
@@ -121,7 +134,7 @@ export function lineStrokeMargin(overlay: LineImageOverlay | ArrowImageOverlay):
   return Math.ceil(thickness / 2) + headSize;
 }
 
-export function drawLineOverlay(ctx: CanvasRenderingContext2D, overlay: LineImageOverlay | ArrowImageOverlay, offsetX: number, offsetY: number) {
+export function drawLineOverlay(ctx: Render2D, overlay: LineImageOverlay | ArrowImageOverlay, offsetX: number, offsetY: number) {
   const thickness = effectIntensity(overlay.attributes.thickness.value);
   if (thickness <= 0) return;
 
@@ -164,7 +177,7 @@ export function drawLineOverlay(ctx: CanvasRenderingContext2D, overlay: LineImag
  * anchored to the capture regardless of what window is being rendered.
  */
 export function applyEffectRegion(
-  scene: CanvasRenderingContext2D,
+  scene: Render2D,
   originX: number,
   originY: number,
   overlay: BlurImageOverlay | PixelateImageOverlay,
@@ -229,11 +242,11 @@ export function applyEffectRegion(
  * blitting their already-rendered preview canvas from the registry.
  */
 export function drawOverlayOnto(
-  ctx: CanvasRenderingContext2D,
+  ctx: Render2D,
   overlay: ImageOverlay,
   originX: number,
   originY: number,
-  effectLayers: Map<number, HTMLCanvasElement>,
+  effectLayers: ReadonlyMap<number, EffectLayerSource>,
 ) {
   switch (overlay.type) {
     case "box":
@@ -260,9 +273,9 @@ export function drawOverlayOnto(
  * sample beyond the crop exactly like the preview. Returns the cropped pixels
  * plus the actual (clamped, rounded) crop rect.
  */
-export function renderFinalImage(base: HTMLImageElement, box: Dimensions, overlays: ImageOverlay[], effectLayers: Map<number, HTMLCanvasElement>): RenderedImage | null {
-  const captureWidth = base.naturalWidth;
-  const captureHeight = base.naturalHeight;
+export function renderFinalImage(base: HTMLImageElement | ImageBitmap, box: Dimensions, overlays: ImageOverlay[], effectLayers: ReadonlyMap<number, EffectLayerSource>): RenderedImage | null {
+  const captureWidth = "naturalWidth" in base ? base.naturalWidth : base.width;
+  const captureHeight = "naturalHeight" in base ? base.naturalHeight : base.height;
 
   const left = Math.min(Math.max(Math.round(box.x), 0), captureWidth);
   const top = Math.min(Math.max(Math.round(box.y), 0), captureHeight);
@@ -276,10 +289,7 @@ export function renderFinalImage(base: HTMLImageElement, box: Dimensions, overla
   const sceneWidth = Math.min(right + margin, captureWidth) - sceneLeft;
   const sceneHeight = Math.min(bottom + margin, captureHeight) - sceneTop;
 
-  const scene = document.createElement("canvas");
-  scene.width = sceneWidth;
-  scene.height = sceneHeight;
-  const ctx = scene.getContext("2d");
+  const ctx = create2dContext(sceneWidth, sceneHeight);
   if (!ctx) return null;
 
   ctx.drawImage(base, sceneLeft, sceneTop, sceneWidth, sceneHeight, 0, 0, sceneWidth, sceneHeight);

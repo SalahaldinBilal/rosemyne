@@ -4,7 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import { CursorImageInfo, Data, WindowInfo } from "../types/screenshot";
 import { Dimensions, Position, ScrollCaptureOverrides } from "../types";
 import { CURSOR_IMAGE_NAME } from "../constants";
-import { renderFinalImage } from "../helpers/canvasRenderer";
+import { renderFinalImageAsync } from "../helpers/renderFinalImageAsync";
+import { loadImage } from "../helpers";
 import { saveScreenshot } from "../helpers/saveScreenshot";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import useToastState from "./toastState";
@@ -136,14 +137,18 @@ function useScreenshotOverlayStateInner() {
 
   async function closeOverlay(imageIdToSave?: number) {
     const box = { ...unwrap(selectedBox) };
-    const currentImageId = imageData()?.imageId;
-    const isPickMode = imageData()?.pickRegion === true;
-    const isRecordMode = imageData()?.record === true;
-    const isScrollCaptureMode = imageData()?.scrollCapture === true;
+    const dataAtClose = imageData();
+    const currentImageId = dataAtClose?.imageId;
+    const isPickMode = dataAtClose?.pickRegion === true;
+    const isRecordMode = dataAtClose?.record === true;
+    const isScrollCaptureMode = dataAtClose?.scrollCapture === true;
+    const previewSnapshot = previewUrl();
     const baseImage = image();
     const overlays = unwrap(overlayItems);
 
     const finishEditingSession = () => {
+      // An awaited save path can land here after a newer session took the overlay.
+      if (imageData() !== dataAtClose) return;
       setImageData(null);
       setSelectedWindow(null);
       autoPlacedCursor = null;
@@ -193,14 +198,31 @@ function useScreenshotOverlayStateInner() {
       return;
     }
 
-    if (imageIdToSave !== undefined && baseImage) {
+    if (imageIdToSave !== undefined) {
       // Hide instantly (keeps the temp image Rust-side for window tagging),
       // then render the final pixels from the same code paths as the preview.
       safeInvoke('hide_screenshot_window');
 
-      const final = renderFinalImage(baseImage, box, overlays, effectLayers);
+      // image() is unset until the preview loads; wait instead of discarding (timeout because loadImage never rejects).
+      const base = baseImage ?? (previewSnapshot
+        ? await Promise.race([
+          loadImage(previewSnapshot),
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 5000)),
+        ])
+        : null);
+
+      if (!base) {
+        pushToast("Failed to save the screenshot: its preview never loaded", "error", 6000);
+        finishEditingSession();
+        safeInvoke('hide_screenshot_window', { id: imageIdToSave });
+        return;
+      }
+
+      // Worker render on inputs snapshotted at call time, so teardown needn't wait.
+      const finalJob = renderFinalImageAsync(base, box, overlays, effectLayers);
       finishEditingSession();
 
+      const final = await finalJob;
       if (final) {
         saveScreenshot(imageIdToSave, { x: final.x, y: final.y, width: final.width, height: final.height }, final.image);
       } else {

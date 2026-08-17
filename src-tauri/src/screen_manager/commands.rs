@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Deref;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use image::RgbaImage;
 use serde::Serialize;
@@ -380,6 +381,10 @@ struct RegionPickResult {
     height: u32,
 }
 
+// Dead zone against double-fired triggers (hotkey double-press, button double-click).
+const CAPTURE_DEAD_ZONE_MS: u64 = 150;
+static LAST_CAPTURE_START_MS: AtomicU64 = AtomicU64::new(0);
+
 pub async fn take_screenshot(
     window_handler: &ScreenshotWindowHandler,
     screenshot_manager: &ScreenshotManagerHandler,
@@ -388,6 +393,14 @@ pub async fn take_screenshot(
     app_handle: &AppHandle,
     capture_target: Option<CaptureTarget>,
 ) -> Result<(), EncodeError> {
+    let now = now_ms();
+    let allowed = LAST_CAPTURE_START_MS.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |last| {
+        (now.saturating_sub(last) >= CAPTURE_DEAD_ZONE_MS).then_some(now)
+    });
+    if allowed.is_err() {
+        return Ok(());
+    }
+
     if let Some(target) = capture_target {
         return instant_capture(target, history_store, settings_handle, app_handle).await;
     }
