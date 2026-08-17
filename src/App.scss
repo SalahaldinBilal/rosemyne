@@ -46,8 +46,13 @@ body {
   --radius-md: 8px;
   --radius-lg: 12px;
 
-  // The screenshot overlay stacks its own chrome up to ~30000; floating UI
-  // must clear it everywhere.
+  // Screenshot overlay chrome. The annotation layer is a stacking context, so an
+  // item's own z-index (which grows with creation order) can never escape it.
+  --z-annotation-layer: 30000;
+  --z-annotation-drag-ghost: 30001;
+  --z-toolbox: 32000;
+
+  // Floating UI, above all overlay chrome.
   --z-modal: 35000;
   --z-menu: 36000;
   --z-tooltip: 37000;

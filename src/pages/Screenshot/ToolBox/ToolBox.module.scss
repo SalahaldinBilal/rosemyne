@@ -3,5 +3,5 @@
   pointer-events: none;
   transform: translateX(-50%);
   overflow: visible;
-  z-index: 30002;
+  z-index: var(--z-toolbox);
 }

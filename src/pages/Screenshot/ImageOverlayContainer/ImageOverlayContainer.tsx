@@ -49,12 +49,6 @@ function ImageOverlayContainer() {
     });
   }));
 
-  // The transient drag ghost sits just above every committed overlay; it's not a
-  // committed item itself, so this never affects what gets saved.
-  const dragGhostZIndex = createMemo(() =>
-    30002 + overlayItems.reduce((max, item) => Math.max(max, item.order), 0),
-  );
-
   onMount(() => {
     mouseEventHandler.on("mouseDown", mouseDownHandler);
     mouseEventHandler.on("cancelDrag", handleCancelDrag);
@@ -213,7 +207,9 @@ function ImageOverlayContainer() {
           }
         </For>
       </DragDropSensors>
-      <DragOverlay style={{ "z-index": dragGhostZIndex() }}>{draggable => {
+      {/* Portaled to body, so it escapes the annotation layer and needs its own
+          slot in the band; it's not a committed item and never affects the save. */}
+      <DragOverlay style={{ "z-index": "var(--z-annotation-drag-ghost)" }}>{draggable => {
         const item = createMemo(() => ({
           ...draggable!.data!.item,
           dimensions: {

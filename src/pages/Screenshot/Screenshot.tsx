@@ -1,5 +1,6 @@
 import { createEffect, createMemo, onCleanup, onMount, Show } from "solid-js";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
+import styles from "./Screenshot.module.scss";
 import { Data } from "../../types/screenshot";
 import useScreenshotOverlayStateInner from "../../states/screenshotOverlayState";
 import AnnotationContext from "../../states/annotationContext";
@@ -194,8 +195,10 @@ function Screenshot() {
           <SelectionBox />
           <Show when={!liveSelect()}>
             <AnnotationContext.Provider value={useScreenshotOverlayStateInner}>
-              <ImageOverlayContainer />
-              <DrawLayer />
+              <div class={styles.AnnotationLayer}>
+                <ImageOverlayContainer />
+                <DrawLayer />
+              </div>
               <ToolBox />
             </AnnotationContext.Provider>
           </Show>

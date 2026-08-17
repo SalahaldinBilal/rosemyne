@@ -1,0 +1,11 @@
+// Zero-sized on purpose: every child positions itself fixed/absolute against the
+// viewport anyway, so this only has to be a stacking context and must not sit in
+// front of the capture swallowing clicks meant for the tools.
+.AnnotationLayer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: var(--z-annotation-layer);
+}
