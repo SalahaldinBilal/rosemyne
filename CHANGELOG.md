@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-08-27
+
+### Fixed
+
+- On multi-monitor setups with mixed display scaling, the capture overlay could flicker right after taking a screenshot: the image appeared, vanished for a moment, then reappeared. Opening the overlay moved its window across differently-scaled monitors, and the re-scaling that triggered could race the image's first paint. The overlay now renders at a fixed scale, so opening it no longer re-renders anything mid-capture.
+- Screenshots and videos with spaces or other special characters in their file names showed broken previews in the history list, and such videos wouldn't play.
+- Free-drawn strokes disappeared inside the selection rectangle while dragging out the capture region on an annotated screenshot, hidden behind the bright selection preview. They now stay visible.
+
 ## [0.2.6] - 2026-08-17
 
 ### Changed
