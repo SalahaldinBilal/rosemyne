@@ -28,7 +28,7 @@
 .LightPreviewContainer {
   position: fixed;
   box-sizing: border-box;
-  z-index: 30001;
+  z-index: var(--z-selection-preview);
   pointer-events: none;
   overflow: hidden;
 

@@ -48,6 +48,9 @@ body {
 
   // Screenshot overlay chrome. The annotation layer is a stacking context, so an
   // item's own z-index (which grows with creation order) can never escape it.
+  // The undimmed selection preview shows the raw capture, so it must stay under
+  // the annotation layer or it hides every overlay inside the selection.
+  --z-selection-preview: 29000;
   --z-annotation-layer: 30000;
   --z-annotation-drag-ghost: 30001;
   --z-toolbox: 32000;
