@@ -4494,6 +4494,7 @@ dependencies = [
  "global-hotkey",
  "image",
  "mouse-rs",
+ "percent-encoding",
  "rand 0.10.2",
  "raw-window-handle",
  "regex",

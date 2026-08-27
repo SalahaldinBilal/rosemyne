@@ -3,7 +3,9 @@ use capture_preview::CAPTURE_PREVIEW_LABEL;
 use capture_preview::commands::{
     create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
 };
-use cursor_image::{CursorImageHandler, SystemCursorsHandler, get_cursor_image, get_system_cursors};
+use cursor_image::{
+    CursorImageHandler, SystemCursorsHandler, get_cursor_image, get_system_cursors,
+};
 use dimensions::impls::Dimensions;
 use history_store::HistoryStore;
 use history_store::commands::{
@@ -35,8 +37,8 @@ use screenshot_window::{
 use scrolling_capture::commands::{
     PendingScrollCaptureHandler, ScrollCaptureManagerHandler, cancel_scroll_capture_review,
     cancel_scrolling_capture, discard_any_pending_review, finish_scroll_capture_review,
-    get_scroll_capture_session, restitch_scroll_capture,
-    start_scrolling_capture, stop_scrolling_capture,
+    get_scroll_capture_session, restitch_scroll_capture, start_scrolling_capture,
+    stop_scrolling_capture,
 };
 use scrolling_capture::result_window::RESULT_WINDOW_LABEL;
 use settings_manager::commands::{
@@ -100,7 +102,11 @@ macro_rules! emit_on_main_thread {
 }
 
 /// Shared tail for every history-adding path; waits on auto-upload (a no-op unless one applies) before showing the capture preview, so its link is already included.
-pub fn notify_history_saved(app_handle: &AppHandle, entry: &ImageHistoryData, is_instant_capture: bool) {
+pub fn notify_history_saved(
+    app_handle: &AppHandle,
+    entry: &ImageHistoryData,
+    is_instant_capture: bool,
+) {
     emit_on_main_thread!(app_handle, "screenshot://new-saved-image", entry.clone());
 
     let app_handle = app_handle.clone();
@@ -388,6 +394,17 @@ fn serve_file(path: &Path, range: Option<&str>) -> Response<Vec<u8>> {
         .expect("Valid response")
 }
 
+fn decode_path_segments(path: &str) -> Vec<String> {
+    path.split('/')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            percent_encoding::percent_decode_str(part)
+                .decode_utf8_lossy()
+                .into_owned()
+        })
+        .collect()
+}
+
 /// Parses `bytes=start[-end]`. Multi-range and suffix (`bytes=-N`) requests
 /// fall back to a full-body 200 by returning `None`.
 fn parse_range_header(header: &str) -> Option<(u64, Option<u64>)> {
@@ -596,12 +613,8 @@ pub fn run() {
                 let system_cursors = scheme_system_cursors_ref.clone();
 
                 tauri::async_runtime::spawn(async move {
-                    let split_uri: Vec<_> = request
-                        .uri()
-                        .path()
-                        .split("/")
-                        .filter(|part| part.len() > 0)
-                        .collect();
+                    let decoded_uri = decode_path_segments(request.uri().path());
+                    let split_uri: Vec<&str> = decoded_uri.iter().map(String::as_str).collect();
 
                     match split_uri.as_slice() {
                         ["saved", file_name] => {
@@ -714,7 +727,11 @@ pub fn run() {
                         }
                         // The version is only ever a cache buster; the cache holds one cursor.
                         ["cursor", _version] => {
-                            let png = cursor_image.read().await.as_ref().map(|cursor| cursor.png.clone());
+                            let png = cursor_image
+                                .read()
+                                .await
+                                .as_ref()
+                                .map(|cursor| cursor.png.clone());
 
                             let response = match png {
                                 Some(png) => Response::builder()
@@ -739,7 +756,10 @@ pub fn run() {
 
                             let guard = pending_scroll_capture.read().await;
                             let frame = guard.as_ref().and_then(|(id, session)| {
-                                (*id == session_id).then(|| session.frames.get(index)).flatten().cloned()
+                                (*id == session_id)
+                                    .then(|| session.frames.get(index))
+                                    .flatten()
+                                    .cloned()
                             });
                             drop(guard);
 
