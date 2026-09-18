@@ -3,32 +3,35 @@ import { Dimensions, ResizeDirection } from "../../types";
 import { createEffect, createMemo, createSignal, For, JSX, onCleanup, Setter, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { dimensionToStyle } from "../../helpers";
-import { createMutationObserver } from "@solid-primitives/mutation-observer";
 import ResizePoint, { composeDirection, directionCursor, horizontalAnchor, verticalAnchor } from "./ResizePoint/ResizePoint";
 
 const MIN_POINT_RADIUS = 8;
 
 const ALL_DIRECTIONS = Object.values(ResizeDirection).filter(value => typeof value === "number") as ResizeDirection[];
 
-function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number, toContainerCoords?: (clientX: number, clientY: number) => { x: number, y: number }, zIndexBoost?: number }): JSX.Element {
+function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number, toContainerCoords?: (clientX: number, clientY: number) => { x: number, y: number }, zIndexBoost?: number, scale?: number }): JSX.Element {
   // Identity by default; a host whose positioned ancestor scrolls/zooms must supply its own.
   const toContainerCoords = createMemo(() => props.toContainerCoords ?? ((clientX: number, clientY: number) => ({ x: clientX, y: clientY })));
+  // Screen pixels per container pixel: `borderWidth`/`pointRadius` are screen-pixel
+  // intents, so under a zooming host they'd otherwise render as giant blobs when
+  // zoomed in and vanish when zoomed out, instead of hugging the box's outline.
+  const scale = createMemo(() => props.scale || 1);
   const [elementRef, setElementRef] = createSignal<HTMLDivElement>();
   const [zIndex, setZIndex] = createSignal<number>(0);
   const [boxPosition, setBoxPosition] = createStore<Dimensions>({ x: 0, y: 0, width: 0, height: 0 });
   const shouldShow = createMemo(() => !!props.show && !!elementRef());
-  const borderWidth = createMemo(() => props.borderWidth ?? 5);
+  const borderWidth = createMemo(() => (props.borderWidth ?? 5) / scale());
   // Derived from the child's own z-index, so the handles track it; `zIndexBoost`
   // lets a host lift just the handles without moving the child's own content.
   const style = createMemo<JSX.CSSProperties>(() => ({ 'border-width': borderWidth() + 'px', ...(props.style ?? {}), ...dimensionToStyle(boxPosition), 'z-index': zIndex() + (props.zIndexBoost ?? 0) }));
   const pointRadius = createMemo(() => {
-    const desiredRadius = props.pointRadius ?? 25;
+    const desiredRadius = (props.pointRadius ?? 25) / scale();
     // Each point sits in one of 3 equal rows/columns; keep a full cell of slack (desiredRadius)
     // between the point and the cell edge so it shrinks before neighboring points could overlap.
     const cellSize = Math.min(boxPosition.width, boxPosition.height) / 3;
     // Floored: only the points take pointer events, so shrinking to 0 leaves a
     // small item (a placed cursor is ~20px) with no way to resize at all.
-    return Math.max(MIN_POINT_RADIUS, Math.min(desiredRadius, cellSize - desiredRadius));
+    return Math.max(MIN_POINT_RADIUS / scale(), Math.min(desiredRadius, cellSize - desiredRadius));
   });
 
   // Corners always; an edge's midpoint only once that side can hold it clear of them.
@@ -46,8 +49,13 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
   let anchor: { x: number | null, y: number | null } = { x: null, y: null };
   let draggedDirection: ResizeDirection | null = null;
 
-  createMutationObserver(() => elementRef() ? [elementRef()!] : [], { attributes: true }, records => {
-    updateBoxAndZIndex(records[0].target)
+  // Re-observes on every ref change: a child mounted later (e.g. behind a <Show>) would otherwise never be watched.
+  createEffect(() => {
+    const element = elementRef();
+    if (!element) return;
+    const observer = new MutationObserver(() => updateBoxAndZIndex(element));
+    observer.observe(element, { attributes: true });
+    onCleanup(() => observer.disconnect());
   });
 
   createEffect(() => updateBoxAndZIndex(elementRef()))

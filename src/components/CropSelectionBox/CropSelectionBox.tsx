@@ -1,10 +1,14 @@
-import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { unwrap } from "solid-js/store";
 import styles from "./CropSelectionBox.module.scss";
 import { useAnnotationState } from "../../states/annotationContext";
 import ResizableBox from "../ResizableBox/ResizableBox";
+import { getIntersection } from "../../helpers";
 import { Tools } from "../../types";
 
 const MIN_CROP_SIZE = 5;
+// Screen pixels, divided by the view scale so the outline stays visible at any zoom.
+const CROP_OUTLINE_WIDTH = 2;
 
 // The box defaults to the whole image (so saving without cropping keeps it all)
 // but stays invisible until the Crop tool actually drags one out. Resets on
@@ -12,10 +16,11 @@ const MIN_CROP_SIZE = 5;
 function CropSelectionBox() {
   const {
     selectedBox, setSelectedBox, image, toImageCoords, setIsOverlayInteracting,
-    mouseEventHandler, currentTool,
+    mouseEventHandler, currentTool, viewScale,
   } = useAnnotationState();
 
   const [cropped, setCropped] = createSignal(false);
+  const outlineWidth = createMemo(() => `${CROP_OUTLINE_WIDTH / viewScale()}px`);
   let dragStart: { x: number, y: number } | null = null;
 
   function selectWholeImage() {
@@ -26,6 +31,22 @@ function CropSelectionBox() {
   }
 
   createEffect(selectWholeImage);
+
+  // Dragging past the image (or starting outside it) is how edge-hugging
+  // regions get picked at all, so the box is only pulled back inside once the
+  // gesture ends; a crop that ends up too small to be one keeps the whole image.
+  function settleInsideImage() {
+    const base = image();
+    if (!base) return;
+
+    const inside = getIntersection(unwrap(selectedBox), { x: 0, y: 0, width: base.naturalWidth, height: base.naturalHeight });
+    if (!inside || inside.width < MIN_CROP_SIZE || inside.height < MIN_CROP_SIZE) {
+      selectWholeImage();
+      return;
+    }
+
+    setSelectedBox(inside);
+  }
 
   // Lets the Crop tool drag out a fresh selection, same gesture as creating a box overlay.
   function mouseDownHandler(event: MouseEvent) {
@@ -55,8 +76,7 @@ function CropSelectionBox() {
     window.removeEventListener("mouseup", stopDrag);
     if (dragStart) {
       setIsOverlayInteracting(false);
-      // A bare click with the Crop tool isn't a crop, keep the whole image.
-      if (selectedBox.width < MIN_CROP_SIZE || selectedBox.height < MIN_CROP_SIZE) selectWholeImage();
+      settleInsideImage();
     }
     dragStart = null;
   }
@@ -69,13 +89,15 @@ function CropSelectionBox() {
 
   return (
     <ResizableBox
-      borderWidth={3}
+      borderWidth={0}
+      style={{ "box-shadow": "none" }}
       pointRadius={18}
+      scale={viewScale()}
       show={cropped()}
       toContainerCoords={toImageCoords}
       onResize={dims => setSelectedBox(dims)}
       onResizeStart={() => setIsOverlayInteracting(true)}
-      onResizeEnd={() => setIsOverlayInteracting(false)}
+      onResizeEnd={() => { setIsOverlayInteracting(false); settleInsideImage(); }}
     >
       {ref => (
         <Show when={cropped()}>
@@ -85,6 +107,7 @@ function CropSelectionBox() {
             style={{
               left: `${selectedBox.x}px`, top: `${selectedBox.y}px`,
               width: `${selectedBox.width}px`, height: `${selectedBox.height}px`,
+              "border-width": outlineWidth(),
             }}
           />
         </Show>

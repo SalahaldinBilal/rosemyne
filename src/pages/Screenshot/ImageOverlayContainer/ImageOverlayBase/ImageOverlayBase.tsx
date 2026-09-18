@@ -17,7 +17,7 @@ import OverlayAttributeList from "@core/components/OverlayAttributeList/OverlayA
 const HANDLES_ON_TOP_BOOST = 100_000;
 
 function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragged?: boolean, handlesOnTop?: boolean, children: JSX.Element }) {
-  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, creatingItemIndex, toImageCoords, history } = useAnnotationState();
+  const { overlayItems, setOverlayItems, currentTool, setIsOverlayInteracting, creatingItemIndex, toImageCoords, viewScale, history } = useAnnotationState();
   const { show: showContextMenu, id: menuId } = useContextMenu();
   const draggable = createDraggable(props.index, { item: props.item });
   const isBeingDragged = createMemo(() => draggable.isActiveDraggable);
@@ -60,6 +60,7 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
     <ResizableBox
       borderWidth={3}
       pointRadius={18}
+      scale={viewScale()}
       onResize={(dims) => !isBeingDragged() && onDimsChange(dims)}
       onResizeStart={() => setIsOverlayInteracting(true)}
       onResizeEnd={() => { setIsOverlayInteracting(false); history.commit(); }}

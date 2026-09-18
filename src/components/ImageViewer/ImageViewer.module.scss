@@ -38,17 +38,24 @@
       }
     }
 
+    .GestureSurface {
+      position: absolute;
+      inset: 0;
+    }
+
     // Same base position as img above, so a caller's `overlay` content stays pixel-aligned with it.
     .OverlayLayer {
       position: absolute;
       top: 50%;
       left: 50%;
       transform-origin: center;
+      // Transparent to the pointer, so empty image area falls through to
+      // .GestureSurface underneath; each interactive piece opts back in.
+      pointer-events: none;
 
       // Every child here (overlay items, the draw canvas, the crop box) is
-      // position:absolute, contributing nothing to normal flow, so without an
-      // explicit size this collapses to ~0 height and most clicks on the
-      // image miss its onMouseDown entirely instead of reaching the tools.
+      // position:absolute, contributing nothing to normal flow, so this gives
+      // them a box the size of the image to be positioned against.
       .EditLayer {
         position: absolute;
         inset: 0;

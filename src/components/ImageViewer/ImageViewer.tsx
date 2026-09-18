@@ -18,6 +18,9 @@ const WHEEL_ZOOM_INTENSITY = 0.0015;
 // When an axis overflows, let the image edge be pulled this far (in viewport
 // fractions) past the container edge, so edge regions can reach the center.
 const PAN_OVERSCROLL = 0.5;
+// Gutter kept around a fitted image, so a selection can start just outside its
+// edges and edge resize handles stay clear of the stage's own clipping.
+const FIT_PADDING = 16;
 
 function ImageViewer(props: ImageViewerProps) {
   const [natural, setNatural] = createSignal<{ w: number; h: number } | null>(null);
@@ -41,7 +44,10 @@ function ImageViewer(props: ImageViewerProps) {
     const size = rotatedSize();
     const view = viewport();
     if (!size || view.w <= 0 || view.h <= 0) return 1;
-    return Math.min(view.w / size.w, view.h / size.h);
+    return Math.min(
+      Math.max(view.w - FIT_PADDING * 2, 1) / size.w,
+      Math.max(view.h - FIT_PADDING * 2, 1) / size.h,
+    );
   });
 
   // Shared between the image and `overlay`, so both stay pixel-aligned.
@@ -121,7 +127,7 @@ function ImageViewer(props: ImageViewerProps) {
   // the annotation state is created here (not by the caller) so it can live for as
   // long as this ImageViewer does, surviving `annotating` toggling on/off.
   const annotation = props.editable
-    ? createAnnotationState(() => props.src, toImageCoords, toImageDelta)
+    ? createAnnotationState(() => props.src, toImageCoords, toImageDelta, scale)
     : undefined;
   // Unlike the screenshotter (which starts a live drag-select), an editable
   // ImageViewer has nothing to select on entry, Move is the useful default.
@@ -280,6 +286,13 @@ function ImageViewer(props: ImageViewerProps) {
           }}
           onLoad={event => setNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })}
         />
+        {/* Spans the whole stage, not just the image, so a tool gesture can
+            start outside it; and it sits *under* .OverlayLayer rather than
+            wrapping it, so the annotation chrome's own mousedowns (resize
+            handles, placed items) never also start a fresh one. */}
+        <Show when={annotation && props.annotating}>
+          <div class={styles.GestureSurface} onMouseDown={event => annotation!.mouseEventHandler.emit("mouseDown", event)} />
+        </Show>
         <Show when={props.overlay || (annotation && props.annotating)}>
           <div
             class={styles.OverlayLayer}
@@ -291,7 +304,7 @@ function ImageViewer(props: ImageViewerProps) {
           >
             {props.overlay}
             <Show when={annotation && props.annotating}>
-              <div class={styles.EditLayer} onMouseDown={e => annotation!.mouseEventHandler.emit("mouseDown", e)}>
+              <div class={styles.EditLayer}>
                 <ImageOverlayContainer />
                 <DrawLayer />
                 <CropSelectionBox />

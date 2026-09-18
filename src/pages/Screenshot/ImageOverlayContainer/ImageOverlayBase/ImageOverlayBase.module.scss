@@ -1,6 +1,8 @@
 .ImageOverlayBase {
   position: fixed;
   cursor: grab;
+  // ImageViewer's .OverlayLayer is pointer-events:none; a placed item still takes its own clicks.
+  pointer-events: auto;
 
   &.BeingDragged {
     cursor: grabbing;

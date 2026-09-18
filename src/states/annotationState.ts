@@ -25,6 +25,9 @@ export function createAnnotationState(
   previewUrl: () => string | null,
   toImageCoords: ToImageCoords = identityToImageCoords,
   toImageDelta: ToImageDelta = identityToImageDelta,
+  // Screen pixels per image pixel; chrome sized in screen pixels (resize
+  // handles, their border) divides by it to stay constant under a zooming host.
+  viewScale: () => number = () => 1,
 ) {
   const [selectedBox, setSelectedBox] = createStore<Dimensions>({ x: 0, y: 0, width: 0, height: 0 });
   // True only while a region drag is actually held down, not while a window
@@ -131,7 +134,7 @@ export function createAnnotationState(
     selectedImage, setSelectedImage,
     isOverlayInteracting, setIsOverlayInteracting, creatingItemIndex, setCreatingItemIndex, overlayItems, setOverlayItems, addOverlayItem, clearDrawing,
     image, mouseEventHandler, effectLayers, layerVersions, bumpLayerVersion, removeEffectLayer,
-    suppressNextClick, consumeSuppressedClick, toImageCoords, toImageDelta, resetEditing,
+    suppressNextClick, consumeSuppressedClick, toImageCoords, toImageDelta, viewScale, resetEditing,
     strokes, strokesVersion, bumpStrokes, history,
   };
 }
