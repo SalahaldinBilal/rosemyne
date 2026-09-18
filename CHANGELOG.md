@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-09-18
+
+### Fixed
+
+- Cropping a saved image: a crop can now start or extend past the image edge, and the crop outline and resize handles keep their size at any zoom level instead of scaling with it.
+- Right-clicking the image preview no longer opens the browser's context menu.
+- Dragging the capture preview popup into another app now drops the actual file.
+- Further reduced the capture overlay flicker on multi-monitor setups with mixed display scaling.
+
 ## [0.2.7] - 2026-08-27
 
 ### Fixed
