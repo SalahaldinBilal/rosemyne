@@ -4,7 +4,7 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{MONITOR_DEFAULTTONEAREST, MonitorFromRect};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::HiDpi::{
-    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, GetDpiForMonitor, MDT_EFFECTIVE_DPI,
+    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE, GetDpiForMonitor, MDT_EFFECTIVE_DPI,
     SetThreadDpiAwarenessContext,
 };
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
@@ -35,8 +35,10 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
         app_handle: &AppHandle<R>,
         bounds: &WindowBounds,
     ) -> tauri::Result<WebviewWindow<R>> {
+        // Per-monitor v1, not v2: only v2 top-levels fan WM_DPICHANGED_AFTERPARENT out to the
+        // WebView2 child (another process, can't be subclassed) on every park/unpark crossing.
         let old_dpi_context =
-            unsafe { SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
+            unsafe { SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE) };
 
         let window = base_window_builder(app_handle, bounds)
             .position(
@@ -71,6 +73,13 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
     fn show<R: Runtime>(webview: &ScreenshotWebview<R>) {
         remember_previous_focus(&webview.window);
 
+        // Everything visible-affecting happens while still parked; the move is the reveal.
+        apply_physical_bounds(&webview.window, &webview.position);
+        webview.window.set_ignore_cursor_events(false).ok();
+
+        let _ = webview.window.set_always_on_top(false);
+        let _ = webview.window.set_always_on_top(true);
+
         webview
             .window
             .set_position(PhysicalPosition::new(
@@ -78,13 +87,6 @@ impl ScreenshotWindowManager for WindowsScreenshotWindowManager {
                 webview.position.top,
             ))
             .ok();
-
-        apply_physical_bounds(&webview.window, &webview.position);
-
-        webview.window.set_ignore_cursor_events(false).ok();
-
-        let _ = webview.window.set_always_on_top(false);
-        let _ = webview.window.set_always_on_top(true);
 
         resync_webview_bounds(
             &webview.window,
