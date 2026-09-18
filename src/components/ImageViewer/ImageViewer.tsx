@@ -267,7 +267,8 @@ function ImageViewer(props: ImageViewerProps) {
   // would construct ImageOverlayContainer/DrawLayer/AnnotationToolBar (and
   // their useAnnotationState() calls) before the Provider is in scope.
   function renderBody() {
-    return <div class={styles.ImageViewer}>
+    // The native menu would offer "copy image address" for an internal rosemyne-photo URL.
+    return <div class={styles.ImageViewer} onContextMenu={event => event.preventDefault()}>
       <div
         class={styles.Stage}
         classList={{ [styles.Pannable]: canPrimaryPan(), [styles.Dragging]: dragging() }}
