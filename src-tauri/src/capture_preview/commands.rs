@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -13,6 +15,7 @@ use super::{CAPTURE_PREVIEW_LABEL, PreviewClickAction, PreviewCorner};
 #[serde(rename_all = "camelCase")]
 struct CapturePreviewPayload {
     file_name: String,
+    file_path: PathBuf,
     item_type: HistoryItemType,
     url: Option<String>,
     max_width: u32,
@@ -83,6 +86,7 @@ pub async fn trigger(app_handle: &AppHandle, history_store: &HistoryStoreHandler
         "capture-preview://show",
         CapturePreviewPayload {
             file_name: entry.file_name,
+            file_path: entry.file_path,
             item_type: entry.item_type,
             url: entry.url,
             max_width: settings.max_width,

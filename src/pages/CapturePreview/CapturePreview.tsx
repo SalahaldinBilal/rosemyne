@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, onMount, Show, Switch, Match } from "solid-js";
 import styles from "./CapturePreview.module.scss";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { startFileDrag } from "@core/helpers/fileDrag";
 import { CapturePreviewPayload, PreviewClickAction } from "@core/types";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { File, Play } from "lucide-solid";
@@ -83,6 +84,8 @@ function CapturePreview() {
   return <Show when={current()} keyed>
     {item => <div
       class={styles.CapturePreview}
+      draggable="true"
+      onDragStart={event => startFileDrag(event, item)}
       onClick={() => performAction(item.leftClickAction)}
       onContextMenu={event => { event.preventDefault(); performAction(item.rightClickAction); }}
     >

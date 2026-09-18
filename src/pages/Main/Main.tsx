@@ -29,7 +29,7 @@ import { formatSystemDateTime, loadSystemDateTimePatterns } from "@core/helpers/
 import { useContextMenu } from "@core/components/ContextMenu/useContextMenu";
 import ContextMenu from "@core/components/ContextMenu/ContextMenu";
 import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/ContextMenuItem";
-import { startDrag } from "@crabnebula/tauri-plugin-drag";
+import { startFileDrag } from "@core/helpers/fileDrag";
 import TagEditorModal from "./TagEditor/TagEditorModal";
 
 const PAGE_SIZE = 60;
@@ -446,18 +446,6 @@ function Main() {
   // not, so there's nothing to await or reflect here beyond starting the request.
   function uploadImage(screenshot: ImageHistoryData) {
     safeInvoke("upload_image", { fileName: screenshot.fileName }).catch(() => { });
-  }
-
-  // Skip the browser's own HTML5 drag ghost and hand the OS a real native file
-  // drag instead, so dropping onto Explorer/Discord/etc. drops the actual file.
-  async function startFileDrag(event: DragEvent, screenshot: ImageHistoryData) {
-    event.preventDefault();
-
-    // The backend renders a small preview from the actual image/thumbnail;
-    // fall back to the raw file (no custom preview, just the OS default
-    // cursor) for videos without a thumbnail yet or plain imported files.
-    const icon = await safeInvoke("get_drag_icon", { fileName: screenshot.fileName }).catch(() => null);
-    startDrag({ item: [screenshot.filePath], icon: icon ?? screenshot.filePath }).catch(() => { });
   }
 
   // Uploading again would overwrite the previously saved link, so confirm first

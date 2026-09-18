@@ -162,6 +162,7 @@ export type CapturePreviewSettings = {
 // moment it was triggered, not whatever the page happens to have cached.
 export type CapturePreviewPayload = {
   fileName: string,
+  filePath: string,
   itemType: "image" | "video" | "file",
   url: string | null,
   maxWidth: number,
