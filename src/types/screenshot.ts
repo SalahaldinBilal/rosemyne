@@ -119,6 +119,8 @@ export type UploadProgressEvent = { fileName: string, sent: number, total: numbe
 export type UploadFinishedEvent = { fileName: string, url: string, copied: boolean }
 export type UploadFailedEvent = { fileName: string, error: UploaderCreationError }
 
+export type ImportFailedEvent = { path: string, error: string }
+
 export type HistoryCursor = {
   key: number | string,
   id: number,

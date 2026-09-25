@@ -90,10 +90,11 @@ pub async fn set_general_settings(
     settings_handle: State<'_, SettingsHandler>,
     history_store: State<'_, HistoryStoreHandler>,
     app_handle: AppHandle,
-    general: GeneralSettings,
+    mut general: GeneralSettings,
 ) -> Result<(), SettingsError> {
     let mut settings = settings_handle.write().await;
     let old = settings.get_general().clone();
+    general.context_menu = old.context_menu;
     settings.set_general(general.clone())?;
     drop(settings);
 

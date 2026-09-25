@@ -3,7 +3,7 @@ import styles from "./Main.module.scss";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
 import { createStore, produce, reconcile } from "solid-js/store";
-import { HistoryCursor, HistorySort, HistoryTypeCounts, ImageEditSession, ImageHistoryData, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
+import { HistoryCursor, HistorySort, HistoryTypeCounts, ImageEditSession, ImageHistoryData, ImportFailedEvent, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
 import { ImageViewerApi } from "../../types";
 import { saveScreenshot } from "@core/helpers/saveScreenshot";
 import TagFilters from "./TagFilter/TagFilters";
@@ -230,10 +230,15 @@ function Main() {
     });
     onCleanup(() => unlistenDrop());
 
-    // Autostart launches this window hidden (tray-only); a manual launch
-    // (including the very first one, before autostart is ever enabled) shows it.
-    const launchedViaAutostart = await safeInvoke("was_launched_via_autostart", undefined);
-    if (!launchedViaAutostart) await getCurrentWebview().window.show();
+    const unlistenImportFailed = await getCurrentWebview().listen("import://failed", (event: TauriEvent<ImportFailedEvent>) => {
+      pushToast(`Failed to import ${event.payload.path}: ${event.payload.error}`, "error", 6000);
+    });
+    onCleanup(() => unlistenImportFailed());
+
+    // Autostart and context-menu imports launch this window hidden (tray-only); a manual
+    // launch (including the very first one, before autostart is ever enabled) shows it.
+    const launchedInBackground = await safeInvoke("launched_in_background", undefined);
+    if (!launchedInBackground) await getCurrentWebview().window.show();
     await reload();
   });
 

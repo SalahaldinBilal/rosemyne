@@ -58,6 +58,8 @@ pub struct GeneralSettings {
     /// the window under the cursor instead of a region selection.
     pub min_selection_width: u32,
     pub min_selection_height: u32,
+    /// Owned by `set_context_menu`, `set_general_settings` never overwrites it.
+    pub context_menu: bool,
 }
 
 impl Default for GeneralSettings {
@@ -80,6 +82,7 @@ impl Default for GeneralSettings {
             picked_cursor: None,
             min_selection_width: 15,
             min_selection_height: 15,
+            context_menu: true,
         }
     }
 }

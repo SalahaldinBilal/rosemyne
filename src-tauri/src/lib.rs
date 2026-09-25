@@ -3,6 +3,9 @@ use capture_preview::CAPTURE_PREVIEW_LABEL;
 use capture_preview::commands::{
     create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
 };
+use context_menu::{
+    get_context_menu_status, set_context_menu, set_windows11_context_menu, update_cmrs,
+};
 use cursor_image::{
     CursorImageHandler, SystemCursorsHandler, get_cursor_image, get_system_cursors,
 };
@@ -72,6 +75,7 @@ use tauri::{Emitter, State};
 pub mod capture;
 pub mod capture_overlay;
 pub mod capture_preview;
+pub mod context_menu;
 pub mod cursor_image;
 pub mod dimensions;
 pub mod error_serializers;
@@ -229,35 +233,61 @@ async fn save_rendered_screenshot(
     .await;
 }
 
-/// Copies a user-provided file into storage (typed by extension) and records it.
-/// The intended callers are future OS context-menu integrations; for now the
-/// frontend invokes it on window drag-drop.
-#[tauri::command]
-async fn import_file(
-    history_store: State<'_, HistoryStoreHandler>,
-    settings_handle: State<'_, SettingsHandler>,
-    app_handle: AppHandle,
-    path: String,
+/// Copies a user-provided file into storage (typed by extension) and records it;
+/// shared by window drops and the Explorer context menu.
+async fn import_path(
+    app_handle: &AppHandle,
+    path: PathBuf,
 ) -> Result<Option<ImageHistoryData>, String> {
-    let template = settings_handle
+    let template = app_handle
+        .state::<SettingsHandler>()
         .read()
         .await
         .get_general()
         .upload_path
         .clone();
-    let store = history_store.inner().clone();
+    let store = app_handle.state::<HistoryStoreHandler>().inner().clone();
 
     let entry = tauri::async_runtime::spawn_blocking(move || {
-        store.import_file(Path::new(&path), template.as_deref())
+        store.import_file(&path, template.as_deref())
     })
     .await
     .map_err(|err| err.to_string())?
     .map_err(|err| err.to_string())?;
 
     if let Some(entry) = &entry {
-        notify_history_saved(&app_handle, entry, false);
+        notify_history_saved(app_handle, entry, false);
     }
     Ok(entry)
+}
+
+#[tauri::command]
+async fn import_file(
+    app_handle: AppHandle,
+    path: String,
+) -> Result<Option<ImageHistoryData>, String> {
+    import_path(&app_handle, PathBuf::from(path)).await
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportFailedEvent {
+    path: String,
+    error: String,
+}
+
+/// Context-menu imports have no caller to hand an error to, so failures surface as toasts.
+fn import_in_background(app_handle: &AppHandle, paths: Vec<PathBuf>) {
+    let app_handle = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        for path in paths {
+            if let Err(error) = import_path(&app_handle, path.clone()).await {
+                let path = path.display().to_string();
+                eprintln!("Failed to import {path}: {error}");
+                emit_on_main_thread!(app_handle, "import://failed", ImportFailedEvent { path, error });
+            }
+        }
+    });
 }
 
 fn content_type_for(path: &Path) -> &'static str {
@@ -541,9 +571,10 @@ pub fn default_app_path() -> PathBuf {
 /// or Start Menu launch never does, even if autostart is also enabled.
 const AUTOSTART_ARG: &str = "--autostart";
 
+/// Autostart and context-menu imports keep the main window hidden (tray-only).
 #[tauri::command]
-fn was_launched_via_autostart() -> bool {
-    std::env::args().any(|arg| arg == AUTOSTART_ARG)
+fn launched_in_background() -> bool {
+    std::env::args().any(|arg| arg == AUTOSTART_ARG) || context_menu::launched_with_import()
 }
 
 const CHANGELOG_URL: &str =
@@ -564,6 +595,11 @@ async fn fetch_changelog(http_client: State<'_, HttpClientHandler>) -> Result<St
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if std::env::args().any(|arg| arg == context_menu::UNREGISTER_ARG) {
+        context_menu::unregister_all();
+        return;
+    }
+
     let app_path = default_app_path();
 
     let history_store: HistoryStoreHandler =
@@ -585,8 +621,13 @@ pub fn run() {
     let scheme_system_cursors_ref = system_cursors.clone();
 
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            focus_or_open_config_window(app, "main");
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            let paths = context_menu::import_paths_from_args(&args, Path::new(&cwd));
+            if paths.is_empty() {
+                focus_or_open_config_window(app, "main");
+            } else {
+                import_in_background(app, paths);
+            }
         }))
         .plugin(tauri_plugin_drag::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -878,8 +919,12 @@ pub fn run() {
             open_file,
             move_mouse_by,
             get_system_datetime_patterns,
-            was_launched_via_autostart,
+            launched_in_background,
             fetch_changelog,
+            get_context_menu_status,
+            set_context_menu,
+            set_windows11_context_menu,
+            update_cmrs,
             is_uploader_valid,
             upload_image,
             test_uploader,
@@ -985,6 +1030,19 @@ async fn run_callback(
             create_capture_preview_window(app_handle);
             cursor_image::refresh(app_handle);
             cursor_image::refresh_system_cursors(app_handle);
+
+            let args: Vec<String> = std::env::args().collect();
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let paths = context_menu::import_paths_from_args(&args, &cwd);
+            if !paths.is_empty() {
+                import_in_background(app_handle, paths);
+            }
+
+            let http_client = app_handle.state::<HttpClientHandler>().inner().clone();
+            let settings_handle = app_handle.state::<SettingsHandler>().inner().clone();
+            tauri::async_runtime::spawn(async move {
+                context_menu::sync_on_startup(&http_client, &settings_handle).await;
+            });
         }
         tauri::RunEvent::WindowEvent {
             label,

@@ -243,22 +243,23 @@ impl HistoryItemType {
         }
     }
 
+    pub const IMAGE_EXTENSIONS: &[&str] = &[
+        "png", "jpg", "jpeg", "jfif", "gif", "webp", "bmp", "apng", "avif", "svg", "ico", "tiff",
+        "tif", "heic", "heif", "jxl", "tga", "ff", "exr", "hdr", "qoi", "pnm", "ppm", "pgm", "pbm",
+    ];
+
+    pub const VIDEO_EXTENSIONS: &[&str] = &[
+        "mp4", "m4v", "webm", "mov", "mkv", "avi", "wmv", "flv", "mpeg", "mpg", "m2ts", "ts",
+        "ogv", "3gp", "3g2",
+    ];
+
     /// Classifies a file extension into a supported media type. `None` = neither
     /// image nor video (a generic `file` when imported, skipped when migrating).
     pub fn from_extension(ext: &str) -> Option<Self> {
-        const IMAGE: &[&str] = &[
-            "png", "jpg", "jpeg", "jfif", "gif", "webp", "bmp", "apng", "avif", "svg", "ico",
-            "tiff", "tif", "heic", "heif", "jxl", "tga", "ff", "exr", "hdr", "qoi", "pnm", "ppm",
-            "pgm", "pbm",
-        ];
-        const VIDEO: &[&str] = &[
-            "mp4", "m4v", "webm", "mov", "mkv", "avi", "wmv", "flv", "mpeg", "mpg", "m2ts", "ts",
-            "ogv", "3gp", "3g2",
-        ];
         let ext = ext.to_ascii_lowercase();
-        if IMAGE.contains(&ext.as_str()) {
+        if Self::IMAGE_EXTENSIONS.contains(&ext.as_str()) {
             Some(Self::Image)
-        } else if VIDEO.contains(&ext.as_str()) {
+        } else if Self::VIDEO_EXTENSIONS.contains(&ext.as_str()) {
             Some(Self::Video)
         } else {
             None

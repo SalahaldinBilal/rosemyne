@@ -10,6 +10,7 @@ import useToastState from "@core/states/toastState";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-solid";
 import { CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
+import ContextMenuSettings from "./ContextMenuSettings";
 
 const IS_WINDOWS = navigator.userAgent.includes("Windows");
 
@@ -32,6 +33,7 @@ function GeneralSettings() {
     pickedCursor: null,
     minSelectionWidth: 15,
     minSelectionHeight: 15,
+    contextMenu: true,
   });
   const [availableCodecs, setAvailableCodecs] = createSignal<VideoCodec[]>(["h264"]);
   const [directoryInput, setDirectoryInput] = createSignal("");
@@ -332,6 +334,10 @@ function GeneralSettings() {
           </Button>
         </div>
       </div>
+    </div>
+    <div class={styles.Section}>
+      <div class={styles.SectionTitle}>Context menu</div>
+      <ContextMenuSettings />
     </div>
   </div>
 }

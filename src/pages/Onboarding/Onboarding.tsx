@@ -12,6 +12,7 @@ import ShortcutSettings from "../Settings/ShortcutSettings/ShortcutSettings";
 import UploaderSettings from "../Settings/UploaderSettings/UploaderSettings";
 import ShareXImport from "../Settings/ShareXImport/ShareXImport";
 import GeneralStep from "./steps/GeneralStep";
+import ContextMenuStep from "./steps/ContextMenuStep";
 import ImageStep from "./steps/ImageStep";
 import VideoStep from "./steps/VideoStep";
 
@@ -33,6 +34,7 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   pickedCursor: null,
   minSelectionWidth: 15,
   minSelectionHeight: 15,
+  contextMenu: true,
 };
 
 function Onboarding() {
@@ -70,6 +72,11 @@ function Onboarding() {
       title: "General",
       description: "A couple of basics to get started, you can change any of this later in Settings.",
       content: () => <GeneralStep general={general} onChange={saveGeneral} />,
+    },
+    {
+      title: "Context menu",
+      description: "Upload files straight from your file manager's right-click menu. On by default, you can change it here or later in Settings.",
+      content: () => <ContextMenuStep />,
     },
     {
       title: "Shortcuts",

@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
+import { CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -56,8 +56,12 @@ type Commands = {
   'open_file': Command<{ fileName: string }>,
   'move_mouse_by': Command<{ x?: number, y?: number }>,
   'get_system_datetime_patterns': Command<undefined, DateTimePatterns | null>,
-  'was_launched_via_autostart': Command<undefined, boolean>,
+  'launched_in_background': Command<undefined, boolean>,
   'fetch_changelog': Command<undefined, string>,
+  'get_context_menu_status': Command<undefined, ContextMenuStatus>,
+  'set_context_menu': Command<{ enabled: boolean }, ContextMenuStatus>,
+  'set_windows11_context_menu': Command<{ enabled: boolean }, ContextMenuStatus>,
+  'update_cmrs': Command<undefined, ContextMenuStatus>,
   'is_uploader_valid': Command<{ uploader: UploaderOptions }, UploaderValidation>,
   'upload_image': Command<{ fileName: string, uploaderId?: string }, UploadResult>,
   'test_uploader': Command<{ uploader: UploaderOptions }, UploadResult>,

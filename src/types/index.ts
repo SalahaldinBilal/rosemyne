@@ -102,6 +102,27 @@ export type GeneralSettings = {
   pickedCursor: string | null,
   minSelectionWidth: number,
   minSelectionHeight: number,
+  contextMenu: boolean,
+}
+
+export type CmrsStatus = {
+  latestVersion: string,
+  installed: boolean,
+  installedVersion: string | null,
+  compatible: boolean,
+}
+
+export type Windows11MenuStatus = {
+  enabled: boolean,
+  developerMode: boolean,
+  cmrs: CmrsStatus,
+}
+
+export type ContextMenuStatus = {
+  supported: boolean,
+  enabled: boolean,
+  note: string | null,
+  windows11: Windows11MenuStatus | null,
 }
 
 // Windows' own custom-format-picture token syntax (`yyyy`, `MM`, `dd`, `HH`,

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Upload files straight from your file manager's right-click menu, turned on in Settings → General; on Windows 11 it can also show in the main menu when Developer Mode is on.
+
 ## [0.2.8] - 2026-09-18
 
 ### Fixed
