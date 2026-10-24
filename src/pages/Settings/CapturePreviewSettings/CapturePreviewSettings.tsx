@@ -5,6 +5,7 @@ import { createStore, reconcile, unwrap } from "solid-js/store";
 import Input from "@core/components/Input/Input";
 import Select from "@core/components/Select/Select";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { findMonitor } from "@core/helpers/monitors";
 import { CapturePreviewSettings as CapturePreviewSettingsData, MonitorInfo, PreviewClickAction, PreviewCorner, SelectItem } from "@core/types";
 import useToastState from "@core/states/toastState";
 import DurationField from "@core/pages/Main/TagFilter/controls/DurationField";
@@ -65,6 +66,12 @@ function CapturePreviewSettings() {
     }
   }
 
+  const selectedMonitorId = createMemo(() => {
+    const id = settings.monitorId;
+    if (id === null) return PRIMARY_MONITOR_ID;
+    return findMonitor(monitors(), id)?.id ?? id;
+  });
+
   const monitorItems = createMemo(() => [
     { id: PRIMARY_MONITOR_ID, value: null as string | null, label: "Primary monitor" },
     ...monitors().map(m => ({ id: m.id, value: m.id as string | null, label: `${m.name}, ${m.width}×${m.height}` })),
@@ -89,7 +96,7 @@ function CapturePreviewSettings() {
           <span>Monitor</span>
           <span class={settingsStyles.Hint}>Which screen the preview appears on.</span>
           <Select
-            value={settings.monitorId ?? PRIMARY_MONITOR_ID}
+            value={selectedMonitorId()}
             items={monitorItems()}
             onItemClick={item => apply({ monitorId: item.value })}
           />

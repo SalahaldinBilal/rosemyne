@@ -28,7 +28,7 @@ pub enum PreviewClickAction {
 #[serde(rename_all = "camelCase", default)]
 pub struct CapturePreviewSettings {
     pub enabled: bool,
-    /// `None` = primary monitor; otherwise a `monitor_identity()` id, re-resolved on every show.
+    /// `None` = primary monitor, otherwise a `monitors` id, re-resolved on every show.
     pub monitor_id: Option<String>,
     pub corner: PreviewCorner,
     pub margin_x: u32,

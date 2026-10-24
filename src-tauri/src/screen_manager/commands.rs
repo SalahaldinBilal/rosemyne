@@ -18,6 +18,7 @@ use crate::{
     settings_manager::settings::GeneralSettings,
     emit_on_main_thread,
     screen_manager::{
+        monitors,
         screenshot_manager::{EncodeError, TagValue, now_ms},
         window::{WindowBounds, WindowInfo, calculate_visible_bounds, window_coverage_tags},
     },
@@ -610,41 +611,14 @@ fn resolve_capture_bounds(target: &CaptureTarget, app_handle: &AppHandle) -> Opt
             })
         }
         CaptureTarget::Monitor { id } => {
-            let monitors = match app_handle.available_monitors() {
-                Ok(monitors) => monitors,
-                Err(error) => {
-                    eprintln!("Failed to list monitors for instant capture: {}", error);
-                    return None;
-                }
-            };
-
-            let bounds = monitors.iter().enumerate().find_map(|(index, monitor)| {
-                if &monitor_identity(monitor.name(), index) != id {
-                    return None;
-                }
-
-                Some(WindowBounds {
-                    left: monitor.position().x,
-                    top: monitor.position().y,
-                    right: monitor.position().x + monitor.size().width as i32,
-                    bottom: monitor.position().y + monitor.size().height as i32,
-                    z_order: 0,
-                })
-            });
-
-            if bounds.is_none() {
+            let monitor = monitors::find(app_handle, id);
+            if monitor.is_none() {
                 eprintln!("Instant capture monitor '{}' is no longer available", id);
             }
 
-            bounds
+            monitor.as_ref().map(monitors::bounds)
         }
     }
-}
-
-/// Stable per-monitor identity shared by `list_monitors` and instant-capture
-/// resolution: the OS monitor name, or a positional fallback.
-pub(crate) fn monitor_identity(name: Option<&String>, index: usize) -> String {
-    name.cloned().unwrap_or_else(|| format!("monitor-{index}"))
 }
 
 /// The shared "save exactly like a normal screenshot" tail: build the window +

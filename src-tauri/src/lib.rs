@@ -29,9 +29,10 @@ use recording::commands::{
 use screen_manager::commands::{
     begin_image_edit, cancel_image_edit, copy_file_to_clipboard, copy_screenshot_to_clipboard,
     copy_text_to_clipboard, delete_screenshot, finish_region_pick, full_screenshot,
-    monitor_identity, open_file, persist_capture, record_screen, scrolling_capture_screen,
+    open_file, persist_capture, record_screen, scrolling_capture_screen,
     show_in_folder, start_region_pick,
 };
+use screen_manager::monitors::{self, MonitorInfo};
 use screen_manager::screenshot_manager::{ImageHistoryData, ScreenshotManager};
 use screen_manager::window::WindowBounds;
 use screenshot_window::{
@@ -52,7 +53,7 @@ use settings_manager::commands::{
     set_scrolling_capture_settings,
 };
 use settings_manager::settings::Settings;
-use settings_manager::shortcuts::shortcut_handler;
+use settings_manager::shortcuts::{CaptureTarget, ShortcutMethod, shortcut_handler};
 use sharex_migration::commands::migrate_from_sharex;
 use sound_manager::commands::{
     get_sound_settings, preview_sound, reset_custom_sound, set_custom_sound,
@@ -494,63 +495,25 @@ fn get_system_datetime_patterns() -> Option<locale::DateTimePatterns> {
     locale::system_datetime_patterns()
 }
 
-#[derive(Debug, serde::Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct MonitorInfo {
-    id: String,
-    name: String,
-    x: i32,
-    y: i32,
-    width: u32,
-    height: u32,
-}
-
-/// The connected monitors, for picking an instant-capture target. `id` is the
-/// stable identity stored on the shortcut; `name` is a friendly label, the
-/// monitor's product name when the OS exposes it, else a positional fallback.
 #[tauri::command]
-fn list_monitors(app_handle: AppHandle) -> Result<Vec<MonitorInfo>, String> {
-    let monitors = app_handle
-        .available_monitors()
-        .map_err(|err| err.to_string())?;
+async fn list_monitors(
+    app_handle: AppHandle,
+    settings_handle: State<'_, SettingsHandler>,
+) -> Result<Vec<MonitorInfo>, String> {
+    let saved_ids: Vec<String> = {
+        let settings = settings_handle.read().await;
+        settings
+            .get_shortcuts()
+            .iter()
+            .filter_map(|binding| match &binding.method {
+                ShortcutMethod::InstantCapture(CaptureTarget::Monitor { id }) => Some(id.clone()),
+                _ => None,
+            })
+            .chain(settings.get_capture_preview().monitor_id.clone())
+            .collect()
+    };
 
-    let friendly_names = screen_manager::monitor_names::friendly_monitor_names();
-
-    Ok(monitors
-        .iter()
-        .enumerate()
-        .map(|(index, monitor)| {
-            let os_name = monitor.name();
-
-            // Prefer a platform-resolved product name (Windows DisplayConfig),
-            // then the OS-provided name when it's already human-friendly, many
-            // platforms expose one directly and need no extra lookup, and only
-            // then a positional label. A Windows GDI device path (\\.\DISPLAY1)
-            // is not user-friendly, so it's skipped in favour of "Display N".
-            let name = os_name
-                .and_then(|gdi_name| {
-                    friendly_names
-                        .iter()
-                        .find(|(gdi, _)| gdi == gdi_name)
-                        .map(|(_, name)| name.clone())
-                })
-                .or_else(|| {
-                    os_name
-                        .filter(|name| !name.trim().is_empty() && !name.starts_with(r"\\.\"))
-                        .cloned()
-                })
-                .unwrap_or_else(|| format!("Display {}", index + 1));
-
-            MonitorInfo {
-                id: monitor_identity(os_name, index),
-                name,
-                x: monitor.position().x,
-                y: monitor.position().y,
-                width: monitor.size().width,
-                height: monitor.size().height,
-            }
-        })
-        .collect())
+    monitors::list(&app_handle, &saved_ids)
 }
 
 type ScreenshotWindowHandler = Arc<RwLock<Option<ScreenshotWebview<Wry>>>>;
@@ -1115,16 +1078,7 @@ async fn create_screenshot_window(
         }
     };
 
-    let monitor_positions: Vec<WindowBounds> = monitors
-        .iter()
-        .map(|monitor| WindowBounds {
-            left: monitor.position().x,
-            top: monitor.position().y,
-            right: monitor.position().x + monitor.size().width as i32,
-            bottom: monitor.position().y + monitor.size().height as i32,
-            z_order: 0,
-        })
-        .collect();
+    let monitor_positions: Vec<WindowBounds> = monitors.iter().map(monitors::bounds).collect();
 
     let final_dims = match monitor_positions.as_slice() {
         [start, rest @ ..] => {

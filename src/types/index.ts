@@ -76,6 +76,7 @@ export type MonitorInfo = {
   y: number,
   width: number,
   height: number,
+  matchedIds: string[],
 }
 
 export type VideoCodec = "h264" | "h265";

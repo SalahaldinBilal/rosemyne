@@ -10,6 +10,7 @@ import Input from "@core/components/Input/Input";
 import Modal from "@core/components/Modal/Modal";
 import { CaptureTarget, MonitorInfo, ShortcutBinding, ShortcutKeys } from "@core/types";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { findMonitor } from "@core/helpers/monitors";
 import useSettingsState from "@core/states/settingsState";
 import useToastState from "@core/states/toastState";
 import { Crop, Monitor, Plus, X } from "lucide-solid";
@@ -117,7 +118,7 @@ function ShortcutSettings() {
 
   function targetSummary(target: CaptureTarget): string {
     if (target.type === "monitor") {
-      const m = monitors().find(x => x.id === target.data.id);
+      const m = findMonitor(monitors(), target.data.id);
       return m ? `Monitor: ${m.name}` : `Monitor: ${target.data.id || "unset"}`;
     }
     return `Region ${target.data.width}×${target.data.height} @ (${target.data.x}, ${target.data.y})`;
@@ -125,7 +126,11 @@ function ShortcutSettings() {
 
   function openTargetEditor(binding: ShortcutBinding) {
     if (binding.method.type !== "instantCapture") return;
-    setTargetDraft("target", cloneTarget(binding.method.data));
+    const target = cloneTarget(binding.method.data);
+    if (target.type === "monitor") {
+      target.data.id = findMonitor(monitors(), target.data.id)?.id ?? target.data.id;
+    }
+    setTargetDraft("target", target);
     setEditingTargetId(binding.id);
   }
 

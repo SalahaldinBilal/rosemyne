@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, 
 use crate::{
     HistoryStoreHandler, SettingsHandler, emit_on_main_thread,
     capture_overlay::{disable_window_dragging, exclude_from_capture},
-    screen_manager::{commands::monitor_identity, screenshot_manager::HistoryItemType, window::WindowBounds},
+    screen_manager::{monitors, screenshot_manager::HistoryItemType, window::WindowBounds},
 };
 
 use super::{CAPTURE_PREVIEW_LABEL, PreviewClickAction, PreviewCorner};
@@ -154,19 +154,8 @@ fn compute_position(bounds: &WindowBounds, corner: PreviewCorner, margin_x: i32,
 
 /// Re-resolved by id on every show (not cached), since monitors can reconnect in a different order.
 fn resolve_monitor(app_handle: &AppHandle, monitor_id: &Option<String>) -> Option<(WindowBounds, f64)> {
-    if let Some(id) = monitor_id {
-        if let Ok(monitors) = app_handle.available_monitors() {
-            let found = monitors.iter().enumerate().find_map(|(index, monitor)| {
-                if &monitor_identity(monitor.name(), index) != id {
-                    return None;
-                }
-                Some(monitor_to_bounds(monitor))
-            });
-
-            if found.is_some() {
-                return found;
-            }
-        }
+    if let Some(monitor) = monitor_id.as_deref().and_then(|id| monitors::find(app_handle, id)) {
+        return Some(monitor_to_bounds(&monitor));
     }
 
     if let Ok(Some(monitor)) = app_handle.primary_monitor() {
@@ -181,12 +170,5 @@ fn resolve_monitor(app_handle: &AppHandle, monitor_id: &Option<String>) -> Optio
 }
 
 fn monitor_to_bounds(monitor: &tauri::Monitor) -> (WindowBounds, f64) {
-    let bounds = WindowBounds {
-        left: monitor.position().x,
-        top: monitor.position().y,
-        right: monitor.position().x + monitor.size().width as i32,
-        bottom: monitor.position().y + monitor.size().height as i32,
-        z_order: 0,
-    };
-    (bounds, monitor.scale_factor())
+    (monitors::bounds(monitor), monitor.scale_factor())
 }

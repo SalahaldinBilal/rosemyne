@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Instant capture and capture preview now stay on the right monitor after replugging it or a Windows update.
+
 ## [0.2.9] - 2026-09-25
 
 ### Added
