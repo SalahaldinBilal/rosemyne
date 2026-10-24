@@ -30,7 +30,7 @@ pub fn show_result_window(app_handle: &AppHandle) {
     .inner_size(width, height)
     .min_inner_size(480.0, 360.0)
     .resizable(true)
-    .decorations(true)
+    .decorations(false)
     .build();
 
     if let Err(err) = result {

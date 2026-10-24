@@ -79,6 +79,8 @@ export type MonitorInfo = {
   matchedIds: string[],
 }
 
+export type WindowAction = "minimize" | "toggleMaximize" | "close" | "startDragging";
+
 export type VideoCodec = "h264" | "h265";
 
 export type ScreenshotImageFormat =

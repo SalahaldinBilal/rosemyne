@@ -60,6 +60,13 @@ body {
   --z-menu: 36000;
   --z-tooltip: 37000;
   --z-toast: 38000;
+  --z-titlebar: 39000;
+
+  --titlebar-height: 0px;
+
+  &.HasTitleBar {
+    --titlebar-height: 32px;
+  }
 }
 
 body {
@@ -79,4 +86,17 @@ body {
 #root {
   width: 100%;
   height: 100%;
+}
+
+.AppFrame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.AppContent {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }

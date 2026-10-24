@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The main window and the scrolling capture window have their own title bar that shows the current page.
+
 ### Fixed
 
 - Instant capture and capture preview now stay on the right monitor after replugging it or a Windows update.

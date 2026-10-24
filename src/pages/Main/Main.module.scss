@@ -13,25 +13,11 @@
     background-color: var(--panel-bg);
     border-right: 1px solid var(--border-color);
 
-    .Brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px;
-      font-size: 18px;
-      font-weight: 600;
-
-      img {
-        width: 22px;
-        height: 22px;
-      }
-    }
-
     .Actions {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 4px 16px 16px;
+      padding: 16px;
 
       button {
         width: 100%;

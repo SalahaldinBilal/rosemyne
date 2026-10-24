@@ -4,7 +4,7 @@
   align-items: center;
   position: fixed;
   z-index: var(--z-modal);
-  inset: 0;
+  inset: var(--titlebar-height) 0 0 0;
   background-color: rgba(0, 0, 0, 0.55);
 
   &.StartState {
@@ -30,7 +30,7 @@
     margin: 15px;
     position: relative;
     max-width: calc(100vw - 30px);
-    max-height: calc(100vh - 30px);
+    max-height: calc(100vh - var(--titlebar-height) - 30px);
     background-color: var(--panel-bg);
     color: var(--base-font-color);
     border: 1px solid var(--border-color);

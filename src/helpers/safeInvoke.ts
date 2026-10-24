@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec } from "@core/types";
+import { CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec, WindowAction } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -17,6 +17,7 @@ type Commands = {
   'remove_shortcut': Command<{ id: string }>,
   'get_shortcuts': Command<undefined, Array<ShortcutBinding>>,
   'list_monitors': Command<undefined, Array<MonitorInfo>>,
+  'window_control': Command<{ action: WindowAction }>,
   'start_region_pick': Command,
   'finish_region_pick': Command<{ region: { x: number, y: number, width: number, height: number } | null }>,
   'hide_screenshot_window': Command<{ id?: number } | undefined>,

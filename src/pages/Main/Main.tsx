@@ -540,10 +540,6 @@ function Main() {
 
   return <div class={styles.Main}>
     <div class={styles.SideBar}>
-      <div class={styles.Brand}>
-        <img src="/icon.svg" alt="" />
-        <span>Rosemyne</span>
-      </div>
       <div class={styles.Actions}>
         <Button filled color="var(--base-blue)" onClick={takeScreenshot}>
           <Camera size={16} />

@@ -1,0 +1,87 @@
+.TitleBar {
+  position: relative;
+  z-index: var(--z-titlebar);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: var(--titlebar-height);
+  background-color: var(--panel-bg);
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+
+  .Brand {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 12px;
+
+    img {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .Crumb {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    max-width: calc(100% - 300px);
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--text-muted);
+    pointer-events: none;
+
+    .Current {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+      color: var(--base-font-color);
+    }
+  }
+
+  .Controls {
+    display: flex;
+    height: 100%;
+    margin-left: auto;
+  }
+
+  .Control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background-color: transparent;
+    color: var(--base-font-color);
+    transition: background-color .12s ease, color .12s ease;
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      background-color: rgba(255, 255, 255, .08);
+    }
+
+    &:active {
+      background-color: rgba(255, 255, 255, .05);
+    }
+
+    &.Close:hover,
+    &.Close:focus-visible {
+      background-color: #c42b1c;
+      color: #fff;
+    }
+
+    &.Close:active {
+      background-color: #b22a1b;
+    }
+  }
+}

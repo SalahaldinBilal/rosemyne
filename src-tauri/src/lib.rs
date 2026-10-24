@@ -92,6 +92,7 @@ pub mod scrolling_capture;
 pub mod settings_manager;
 pub mod sharex_migration;
 pub mod sound_manager;
+pub mod window_controls;
 
 /// Emits a Tauri event from the main thread, emitting cross-thread can
 /// deadlock with WebView2 on Windows (tauri-apps/tauri#9453, #11787).
@@ -843,6 +844,7 @@ pub fn run() {
             hide_screenshot_window,
             hide_and_save_screenshot,
             list_monitors,
+            window_controls::window_control,
             start_region_pick,
             finish_region_pick,
             record_screen,
