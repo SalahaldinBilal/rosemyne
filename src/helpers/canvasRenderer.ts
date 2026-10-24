@@ -150,15 +150,19 @@ export function drawLineOverlay(ctx: Render2D, overlay: LineImageOverlay | Arrow
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const headLength = overlay.type === "arrow" ? effectIntensity(overlay.attributes.headSize.value) : 0;
+  // The line stops at the head's base, so its cap and edges can't show around the tip.
+  const headDepth = headLength * Math.cos(ARROW_HEAD_ANGLE);
+
+  if (Math.hypot(x2 - x1, y2 - y1) > headDepth) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2 - headDepth * Math.cos(angle), y2 - headDepth * Math.sin(angle));
+    ctx.stroke();
+  }
 
   if (overlay.type === "arrow") {
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    const headLength = effectIntensity(overlay.attributes.headSize.value);
-
     ctx.beginPath();
     ctx.moveTo(x2, y2);
     ctx.lineTo(x2 - headLength * Math.cos(angle - ARROW_HEAD_ANGLE), y2 - headLength * Math.sin(angle - ARROW_HEAD_ANGLE));

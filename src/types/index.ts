@@ -27,6 +27,8 @@ export enum ResizeDirection {
 }
 
 export type Position = Pick<Dimensions, 'x' | 'y'>;
+
+export type AxisFlip = { x: boolean, y: boolean };
 export type Size = Pick<Dimensions, 'width' | 'height'>;
 
 export enum Tools {

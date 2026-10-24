@@ -1,15 +1,15 @@
 import styles from "./ResizableBox.module.scss";
-import { Dimensions, ResizeDirection } from "../../types";
+import { AxisFlip, Dimensions, ResizeDirection } from "../../types";
 import { createEffect, createMemo, createSignal, For, JSX, onCleanup, Setter, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { dimensionToStyle } from "../../helpers";
-import ResizePoint, { composeDirection, directionCursor, horizontalAnchor, verticalAnchor } from "./ResizePoint/ResizePoint";
+import ResizePoint, { composeDirection, directionCursor, directionSides, horizontalAnchor, verticalAnchor } from "./ResizePoint/ResizePoint";
 
 const MIN_POINT_RADIUS = 8;
 
 const ALL_DIRECTIONS = Object.values(ResizeDirection).filter(value => typeof value === "number") as ResizeDirection[];
 
-function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number, toContainerCoords?: (clientX: number, clientY: number) => { x: number, y: number }, zIndexBoost?: number, scale?: number }): JSX.Element {
+function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined>) => JSX.Element, onResize: (dims: Dimensions, flipped: AxisFlip) => any, onResizeStart?: () => void, onResizeEnd?: () => void, show?: boolean, borderWidth?: number, style?: Omit<JSX.CSSProperties, "border" | "border-width">, pointRadius?: number, toContainerCoords?: (clientX: number, clientY: number) => { x: number, y: number }, zIndexBoost?: number, scale?: number }): JSX.Element {
   // Identity by default; a host whose positioned ancestor scrolls/zooms must supply its own.
   const toContainerCoords = createMemo(() => props.toContainerCoords ?? ((clientX: number, clientY: number) => ({ x: clientX, y: clientY })));
   // Screen pixels per container pixel: `borderWidth`/`pointRadius` are screen-pixel
@@ -48,6 +48,7 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
   // Fixed opposite edge/corner for the active drag; stays valid even after the dragged corner flips past it.
   let anchor: { x: number | null, y: number | null } = { x: null, y: null };
   let draggedDirection: ResizeDirection | null = null;
+  let startSides: ReturnType<typeof directionSides> = { horizontal: null, vertical: null };
 
   // Re-observes on every ref change: a child mounted later (e.g. behind a <Show>) would otherwise never be watched.
   createEffect(() => {
@@ -81,14 +82,14 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
     })
   }
 
-  function onDimsUpdate(dims: Dimensions) {
+  function onDimsUpdate(dims: Dimensions, flipped: AxisFlip) {
     setBoxPosition(dims);
     props.onResize({
       width: Math.max(dims.width - (borderWidth() * 2), 0),
       height: Math.max(dims.height - (borderWidth() * 2), 0),
       x: dims.x + borderWidth(),
       y: dims.y + borderWidth(),
-    });
+    }, flipped);
   }
 
   function startDrag(direction: ResizeDirection) {
@@ -97,6 +98,7 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
       y: verticalAnchor(direction, boxPosition),
     };
     draggedDirection = direction;
+    startSides = directionSides(direction);
     document.body.style.cursor = directionCursor(direction);
     window.addEventListener("mousemove", onDragMove);
     window.addEventListener("mouseup", stopDrag);
@@ -127,7 +129,13 @@ function ResizableBox(props: { children: (ref: Setter<HTMLDivElement | undefined
       document.body.style.cursor = directionCursor(currentDirection);
     }
 
-    onDimsUpdate(newDims);
+    // Relative to the drag's start: the dragged edge has crossed over its anchor on that axis.
+    const flipped: AxisFlip = {
+      x: horizontalSide !== null && horizontalSide !== startSides.horizontal,
+      y: verticalSide !== null && verticalSide !== startSides.vertical,
+    };
+
+    onDimsUpdate(newDims, flipped);
   }
 
   function stopDrag() {

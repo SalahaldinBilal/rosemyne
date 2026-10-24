@@ -57,6 +57,19 @@ export function verticalAnchor(direction: ResizeDirection, dims: { y: number, he
   }
 }
 
+export function directionSides(direction: ResizeDirection): { horizontal: "left" | "right" | null, vertical: "top" | "bottom" | null } {
+  switch (direction) {
+    case ResizeDirection.TopLeft: return { horizontal: "left", vertical: "top" };
+    case ResizeDirection.Top: return { horizontal: null, vertical: "top" };
+    case ResizeDirection.TopRight: return { horizontal: "right", vertical: "top" };
+    case ResizeDirection.Left: return { horizontal: "left", vertical: null };
+    case ResizeDirection.Right: return { horizontal: "right", vertical: null };
+    case ResizeDirection.BottomLeft: return { horizontal: "left", vertical: "bottom" };
+    case ResizeDirection.Bottom: return { horizontal: null, vertical: "bottom" };
+    case ResizeDirection.BottomRight: return { horizontal: "right", vertical: "bottom" };
+  }
+}
+
 export function composeDirection(horizontal: "left" | "right" | null, vertical: "top" | "bottom" | null): ResizeDirection | null {
   if (horizontal && vertical) {
     if (vertical === "top") return horizontal === "left" ? ResizeDirection.TopLeft : ResizeDirection.TopRight;

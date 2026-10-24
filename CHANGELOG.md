@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Instant capture and capture preview now stay on the right monitor after replugging it or a Windows update.
+- Resizing an arrow or line no longer moves its head to the wrong end or flips it to the other diagonal.
+- Arrow heads now sit exactly on the end of the line instead of the line poking out around the tip.
 
 ## [0.2.9] - 2026-09-25
 

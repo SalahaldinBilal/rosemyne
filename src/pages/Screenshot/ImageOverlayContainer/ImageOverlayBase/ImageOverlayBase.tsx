@@ -1,12 +1,12 @@
 import { createMemo, JSX } from "solid-js";
 import styles from "./ImageOverlayBase.module.scss";
-import { ImageOverlay } from "../../../../types/imageOverlay";
+import { ImageOverlay, LineCorner } from "../../../../types/imageOverlay";
 import { createDraggable } from "@thisbeyond/solid-dnd";
 import ResizableBox from "../../../../components/ResizableBox/ResizableBox";
 import { useAnnotationState } from "../../../../states/annotationContext";
-import { Dimensions, Tools } from "../../../../types";
+import { AxisFlip, Dimensions, Tools } from "../../../../types";
 import { useContextMenu } from "../../../../components/ContextMenu/useContextMenu";
-import { beautifyCamelOrPascalCase, lineEndpoints, nearestLineCorner } from "../../../../helpers";
+import { beautifyCamelOrPascalCase, mirrorLineCorner } from "../../../../helpers";
 import ContextMenu from "@core/components/ContextMenu/ContextMenu";
 import { OVERLAY_TO_TOOL } from "../../../../constants";
 import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/ContextMenuItem";
@@ -41,10 +41,16 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
     }
   })
 
-  function onDimsChange(dims: Dimensions) {
-    if (props.item.type === "arrow" || props.item.type === "line") {
-      const { start } = lineEndpoints(props.item.dimensions, props.item.startCorner);
-      setOverlayItems(props.index, { dimensions: dims, startCorner: nearestLineCorner(start, dims) } as any);
+  let resizeStartCorner: LineCorner | undefined;
+
+  function onResizeStart() {
+    if (props.item.type === "arrow" || props.item.type === "line") resizeStartCorner = props.item.startCorner;
+    setIsOverlayInteracting(true);
+  }
+
+  function onDimsChange(dims: Dimensions, flipped: AxisFlip) {
+    if ((props.item.type === "arrow" || props.item.type === "line") && resizeStartCorner) {
+      setOverlayItems(props.index, { dimensions: dims, startCorner: mirrorLineCorner(resizeStartCorner, flipped) } as any);
       return;
     }
 
@@ -61,8 +67,8 @@ function ImageOverlayBase(props: { index: number, item: ImageOverlay, beingDragg
       borderWidth={3}
       pointRadius={18}
       scale={viewScale()}
-      onResize={(dims) => !isBeingDragged() && onDimsChange(dims)}
-      onResizeStart={() => setIsOverlayInteracting(true)}
+      onResize={(dims, flipped) => !isBeingDragged() && onDimsChange(dims, flipped)}
+      onResizeStart={onResizeStart}
       onResizeEnd={() => { setIsOverlayInteracting(false); history.commit(); }}
       show={canBeEdited() && !isBeingDragged() && !suppressHandlesWhileCreating()}
       toContainerCoords={toImageCoords}

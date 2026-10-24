@@ -1,5 +1,5 @@
 import { Dimensions, DimensionsWithOrder, WindowInfo } from "../types/screenshot";
-import { Position } from '../types';
+import { AxisFlip, Position } from '../types';
 import { LineCorner } from "../types/imageOverlay";
 
 export function isNotNullish<T>(val: T | null | undefined): val is T {
@@ -59,10 +59,18 @@ export function effectIntensity(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
-export function lineCornerFor(start: Position, end: Position): LineCorner {
-  const isLeft = start.x <= end.x;
-  const isTop = start.y <= end.y;
+function cornerFrom(isLeft: boolean, isTop: boolean): LineCorner {
   return isLeft ? (isTop ? "topLeft" : "bottomLeft") : (isTop ? "topRight" : "bottomRight");
+}
+
+export function lineCornerFor(start: Position, end: Position): LineCorner {
+  return cornerFrom(start.x <= end.x, start.y <= end.y);
+}
+
+export function mirrorLineCorner(corner: LineCorner, flipped: AxisFlip): LineCorner {
+  const isLeft = corner === "topLeft" || corner === "bottomLeft";
+  const isTop = corner === "topLeft" || corner === "topRight";
+  return cornerFrom(isLeft !== flipped.x, isTop !== flipped.y);
 }
 
 export function lineEndpoints(dims: Dimensions, corner: LineCorner): { start: Position, end: Position } {
@@ -77,22 +85,6 @@ export function lineEndpoints(dims: Dimensions, corner: LineCorner): { start: Po
     case "bottomLeft": return { start: bottomLeft, end: right };
     case "bottomRight": return { start: bottomRight, end: left };
   }
-}
-
-// ResizableBox's anchor corner stays exact across a drag, so nearest = same point.
-export function nearestLineCorner(point: Position, dims: Dimensions): LineCorner {
-  const candidates: Array<[LineCorner, Position]> = [
-    ["topLeft", { x: dims.x, y: dims.y }],
-    ["topRight", { x: dims.x + dims.width, y: dims.y }],
-    ["bottomLeft", { x: dims.x, y: dims.y + dims.height }],
-    ["bottomRight", { x: dims.x + dims.width, y: dims.y + dims.height }],
-  ];
-
-  return candidates.reduce((closest, candidate) =>
-    Math.hypot(candidate[1].x - point.x, candidate[1].y - point.y) < Math.hypot(closest[1].x - point.x, closest[1].y - point.y)
-      ? candidate
-      : closest
-  )[0];
 }
 
 export function hexColorOpacity(color: string): number {
