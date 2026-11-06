@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
 ### Added
 
 - Search the history by file name, window title or app, with Ctrl+F to jump to it.
@@ -44,7 +46,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - The capture preview no longer hides behind the taskbar or other always-on-top windows.
-
 ## [0.2.10] - 2026-10-24
 
 ### Changed
