@@ -1,93 +1,47 @@
-.ShareXImport {
+.Actions {
+  display: flex;
+  gap: 8px;
+}
+
+.Hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.Stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.Stat {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  max-width: 650px;
-  padding-right: 20px;
-  padding-bottom: 20px;
+  padding: 12px 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
 
-  .Intro {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  b {
+    font-size: 20px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    animation: stat-pop var(--t-slow) var(--e-pop);
   }
 
-  .Hint {
-    font-size: 13px;
-    color: var(--text-muted);
+  span {
+    color: var(--text-3);
+    font-size: 12px;
   }
+}
 
-  .Field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    .FieldRow {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+@keyframes stat-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
   }
-
-  .Actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .Progress {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    .ProgressBar {
-      width: 100%;
-      height: 8px;
-      border-radius: 4px;
-      background-color: rgba(255, 255, 255, 0.1);
-      overflow: hidden;
-
-      .ProgressFill {
-        height: 100%;
-        background-color: var(--base-blue);
-        transition: width 0.2s ease;
-      }
-    }
-  }
-
-  .Summary {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border-radius: 8px;
-    background-color: rgba(255, 255, 255, 0.04);
-
-    .SummaryTitle {
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    .SummaryGrid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-
-      .Stat {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-
-        .StatValue {
-          font-size: 22px;
-          font-weight: 600;
-        }
-
-        .StatLabel {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.5);
-        }
-      }
-    }
-  }
-
 }

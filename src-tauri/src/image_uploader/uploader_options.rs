@@ -435,6 +435,17 @@ pub async fn execute_and_capture(
     request_builder: RequestBuilder,
     body_summary: String,
 ) -> Result<String, UploaderError> {
+    execute_and_capture_with_status(client, request_builder, body_summary)
+        .await
+        .map(|(_, body)| body)
+}
+
+/// Same as `execute_and_capture`, also returning the success status code for the test result.
+pub async fn execute_and_capture_with_status(
+    client: &Client,
+    request_builder: RequestBuilder,
+    body_summary: String,
+) -> Result<(u16, String), UploaderError> {
     let fallback_snapshot = || RequestSnapshot {
         method: "?".to_string(),
         url: "?".to_string(),
@@ -483,5 +494,5 @@ pub async fn execute_and_capture(
         });
     }
 
-    Ok(body)
+    Ok((status.as_u16(), body))
 }

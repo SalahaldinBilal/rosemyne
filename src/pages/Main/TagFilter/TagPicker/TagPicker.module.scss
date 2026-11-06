@@ -1,0 +1,192 @@
+.PathButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    background-color var(--t-fast),
+    box-shadow var(--t-fast);
+
+  &:hover {
+    border-color: var(--line-3);
+    background: var(--bg-4);
+  }
+
+  &.Open,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  &.Empty .PathLabel {
+    color: var(--text-3);
+  }
+
+  .Chevron {
+    flex-shrink: 0;
+    color: var(--text-3);
+    transition: transform var(--t-base) var(--e-out);
+  }
+
+  &.Open .Chevron {
+    transform: rotate(180deg);
+  }
+}
+
+.KindIcon {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.PathLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+// Portaled to document.body.
+.Popup {
+  position: fixed;
+  z-index: var(--z-menu);
+  width: 340px;
+  padding: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  animation: picker-in var(--t-base) var(--e-out);
+
+  &.Closing {
+    pointer-events: none;
+    animation: picker-out 110ms var(--e-in) forwards;
+  }
+}
+
+.Search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-bottom: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-0);
+  color: var(--text-3);
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-1);
+    font: inherit;
+  }
+
+  &:focus-within {
+    border-color: var(--accent);
+  }
+}
+
+.List {
+  position: relative;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.GroupLabel {
+  padding: 8px 10px 3px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 600;
+
+  &:first-child {
+    padding-top: 4px;
+  }
+}
+
+.Item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 14px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+
+  &.Active {
+    background: var(--accent-soft-2);
+
+    .KindIcon {
+      color: var(--accent-text);
+    }
+  }
+
+  &.Selected .ItemName {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+
+  mark {
+    background: none;
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+}
+
+.ItemName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ItemKind {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.NoMatch {
+  padding: 10px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+@keyframes picker-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes picker-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}

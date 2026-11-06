@@ -4,8 +4,13 @@
   pointer-events: all;
 
   circle {
-    fill: rgba(255, 255, 255, 0.96);
-    stroke: rgba(0, 0, 0, 0.6);
+    fill: #fff;
+    stroke: var(--accent);
     stroke-width: 2.5;
+    transition: fill var(--t-fast);
+  }
+
+  &:hover circle {
+    fill: var(--accent-text);
   }
 }

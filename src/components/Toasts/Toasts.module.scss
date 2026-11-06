@@ -2,62 +2,124 @@
   position: fixed;
   right: 16px;
   bottom: 16px;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
-  z-index: var(--z-toast);
-  max-width: 320px;
+  pointer-events: none;
 }
 
 .Toast {
+  --toast-color: var(--accent);
+  --toast-soft: var(--accent-soft);
+  --toast-icon: var(--accent-text);
+
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  background-color: var(--secondary-bg-color);
-  color: var(--base-font-color);
-  border-radius: 6px;
-  padding: 10px 12px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 10px 10px 12px;
+  overflow: hidden;
+  background: var(--bg-4);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  color: var(--text-1);
   font-size: 13px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3);
-  border-left: 3px solid var(--secondary-blue);
-  animation: toastIn 0.15s ease;
+  pointer-events: all;
+  animation: toast-in var(--t-slow) var(--e-pop);
 
-  span {
-    flex-grow: 1;
-    word-break: break-word;
+  &.Success {
+    --toast-color: var(--ok);
+    --toast-soft: var(--ok-soft);
+    --toast-icon: var(--ok);
   }
 
-  &.success {
-    border-left-color: var(--success-color);
+  &.Error {
+    --toast-color: var(--danger);
+    --toast-soft: var(--danger-soft);
+    --toast-icon: var(--danger);
   }
 
-  &.error {
-    border-left-color: var(--danger-color);
-  }
-
-  .Close {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    display: flex;
-    opacity: 0.6;
-    padding: 0;
-
-    &:hover {
-      opacity: 1;
-    }
+  &.Leaving {
+    pointer-events: none;
+    animation: toast-out 180ms var(--e-in) forwards;
   }
 }
 
-@keyframes toastIn {
+.Icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--toast-soft);
+  color: var(--toast-icon);
+}
+
+.Message {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.Close {
+  display: flex;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+
+  &:hover {
+    background: rgb(255 255 255 / 0.06);
+    color: var(--text-1);
+  }
+}
+
+.Life {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--toast-color);
+  opacity: 0.7;
+  animation-name: toast-life;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateX(18px) scale(0.98);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+    margin-top: -48px;
+  }
+}
+
+@keyframes toast-life {
+  from {
+    width: 100%;
   }
 
   to {
-    opacity: 1;
-    transform: translateY(0);
+    width: 0;
   }
 }

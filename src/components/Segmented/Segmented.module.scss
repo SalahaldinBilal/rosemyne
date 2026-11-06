@@ -1,0 +1,87 @@
+.Segmented {
+  --segment-h: 24px;
+
+  position: relative;
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+
+  & > button {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: var(--segment-h);
+    padding: 0 11px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 550;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--t-fast);
+
+    &:hover:not(:disabled),
+    &.On {
+      color: var(--text-1);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-ring);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &.Small {
+    --segment-h: 20px;
+
+    & > button {
+      padding: 0 8px;
+      font-size: 12px;
+    }
+  }
+
+  &.Stretch {
+    display: flex;
+    align-self: stretch;
+
+    & > button {
+      flex: 1;
+    }
+  }
+}
+
+.Indicator {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: var(--segment-h);
+  border-radius: 6px;
+  background: var(--bg-4);
+  box-shadow: var(--sh-1), inset 0 0 0 1px var(--line-3);
+  pointer-events: none;
+
+  &.Animated {
+    transition:
+      transform var(--t-slow) var(--e-out),
+      width var(--t-slow) var(--e-out);
+  }
+
+  &.Hidden {
+    opacity: 0;
+  }
+}

@@ -1,5 +1,7 @@
 import styles from "./UpdateSettings.module.scss";
-import settingsStyles from "../GeneralSettings/GeneralSettings.module.scss";
+import Badge from "@core/components/Badge/Badge";
+import Progress, { Spinner } from "@core/components/Progress/Progress";
+import { InlineControls, SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 import { createMemo, createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -124,101 +126,77 @@ function UpdateSettings() {
     setPhase("available");
   }
 
-  return <div class={settingsStyles.GeneralSettings} style="max-width: 9999px">
-    <div class={styles.VersionRow}>
-      <div class={styles.VersionText}>
-        <span>Current version</span>
-        <span class={styles.Hint}>v{currentVersion()}</span>
-        <div class={styles.CheckRow}>
-          <Button
-            disabled={phase() === "checking" || phase() === "downloading"}
-            onClick={runCheck}
-          >
-            <RefreshCw size={16} style={{ "margin-right": '6px' }} />
-            Check for updates
-          </Button>
-          <Button onClick={openChangelog}>
-            <ScrollText size={16} style={{ "margin-right": '6px' }} />
-            View full changelog
-          </Button>
+  const statusLabel = createMemo(() => {
+    switch (phase()) {
+      case "available": return `Version ${update()?.version} is available`;
+      case "downloading": return `Downloading ${update()?.version}`;
+      case "readyToRestart": return `${update()?.version} is ready`;
+      default: return "Updates";
+    }
+  });
+
+  return <SettingsPage title="Updates" description="Check for new versions and install them.">
+    <SettingsGroup
+      title="Version"
+      right={<Button size="sm" variant="ghost" onClick={openChangelog}><ScrollText size={14} />Full changelog</Button>}
+    >
+      <SettingRow label="Current version" hint={`v${currentVersion()}`}>
+        <InlineControls>
           <Show when={import.meta.env.DEV}>
-            <Button disabled={phase() === "downloading"} onClick={simulateMockUpdate}>
-              Preview mock update (dev)
-            </Button>
+            <Button size="sm" variant="ghost" disabled={phase() === "downloading"} onClick={simulateMockUpdate}>Mock update</Button>
           </Show>
-          <Switch>
+          <Button disabled={phase() === "checking" || phase() === "downloading"} onClick={runCheck}>
+            <RefreshCw size={15} />Check for updates
+          </Button>
+        </InlineControls>
+      </SettingRow>
+      <SettingRow label={statusLabel()}>
+        <div class={styles.Status}>
+          <Switch fallback={<span class={styles.Faint}>Not checked yet</span>}>
             <Match when={phase() === "checking"}>
-              <span class={styles.StatusText}>Checking…</span>
+              <Spinner size="sm" /><span class={styles.Faint}>Checking</span>
             </Match>
             <Match when={phase() === "upToDate"}>
-              <span class={styles.StatusText} classList={{ [styles.Success]: true }}>
-                <CircleCheck size={14} /> You're up to date
-              </span>
+              <Badge tone="ok"><CircleCheck size={11} />Up to date</Badge>
             </Match>
             <Match when={phase() === "error"}>
-              <span class={styles.StatusText} classList={{ [styles.Error]: true }}>
-                <TriangleAlert size={14} /> {errorMessage()}
-              </span>
+              <span class={styles.Error}><TriangleAlert size={14} />{errorMessage()}</span>
             </Match>
-          </Switch>
-        </div>
-      </div>
-
-      <Show when={showsUpdatePanel()}>
-        <div class={styles.UpdatePanel}>
-          <div class={styles.UpdateHeading}>
-            <span>Update available</span>
-            <span class={styles.Hint}>v{update()?.version}</span>
-          </div>
-          <Switch>
             <Match when={phase() === "available"}>
-              <Button filled color="var(--base-blue)" onClick={downloadAndInstall}>
-                <Download size={16} style={{ "margin-right": '6px' }} />
-                Download and install
-              </Button>
+              <Button variant="primary" onClick={downloadAndInstall}><Download size={15} />Download and install</Button>
             </Match>
             <Match when={phase() === "downloading"}>
-              <div class={styles.ProgressBar}>
-                <div class={styles.ProgressTrack}>
-                  <div
-                    class={styles.ProgressFill}
-                    classList={{ [styles.Indeterminate]: progressPercent() === null }}
-                    style={progressPercent() !== null ? { width: `${progressPercent()}%` } : undefined}
-                  />
-                </div>
-                <span class={styles.StatusText}>{progressPercent() !== null ? `Downloading ${progressPercent()}%` : "Downloading…"}</span>
-              </div>
+              <Progress class={styles.DownloadBar} percent={progressPercent()} />
+              <span class={styles.Faint}>{progressPercent() !== null ? `${progressPercent()}%` : ""}</span>
             </Match>
             <Match when={phase() === "readyToRestart"}>
-              <Button filled color="var(--success-color)" onClick={() => relaunch()}>
-                Restart to finish installing
-              </Button>
+              <Button variant="primary" onClick={() => relaunch()}>Restart to finish</Button>
             </Match>
           </Switch>
         </div>
-      </Show>
-    </div>
+      </SettingRow>
+    </SettingsGroup>
 
     <Show when={showsUpdatePanel() && update()?.body}>
-      {body => <ReleaseNotes notes={body()} />}
+      {body => <SettingsGroup title="What's new">
+        <div class={styles.Notes}><ReleaseNotes notes={body()} /></div>
+      </SettingsGroup>}
     </Show>
 
     <Modal show={showChangelog()} onHide={() => setShowChangelog(false)} title="Changelog" width={640} height="75%">
       <Switch>
         <Match when={changelogLoading()}>
-          <span class={styles.StatusText}>Loading…</span>
+          <div class={styles.Status}><Spinner size="sm" /><span class={styles.Faint}>Loading</span></div>
         </Match>
         <Match when={changelogError()}>
-          <span class={styles.StatusText} classList={{ [styles.Error]: true }}>
-            <TriangleAlert size={14} /> {changelogError()}
-          </span>
+          <span class={styles.Error}><TriangleAlert size={14} />{changelogError()}</span>
         </Match>
         <Match when={changelogText()}>
           {text => <FullChangelog text={text()} />}
         </Match>
       </Switch>
     </Modal>
-  </div>;
+  </SettingsPage>;
 }
 
 export default UpdateSettings;

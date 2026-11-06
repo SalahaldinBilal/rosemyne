@@ -3,19 +3,29 @@ import styles from "./ScrollCaptureResult.module.scss";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import useToastState from "@core/states/toastState";
 import ImageViewer from "@core/components/ImageViewer/ImageViewer";
-import Input from "@core/components/Input/Input";
-import Select from "@core/components/Select/Select";
+import NumberField from "@core/components/NumberField/NumberField";
+import Segmented from "@core/components/Segmented/Segmented";
 import Button from "@core/components/Button/Button";
+import Badge from "@core/components/Badge/Badge";
+import Modal from "@core/components/Modal/Modal";
+import { Spinner } from "@core/components/Progress/Progress";
 import WindowSizeInput from "./WindowSizeInput/WindowSizeInput";
 import { saveScreenshot } from "@core/helpers/saveScreenshot";
-import { ImageViewerApi, ScrollCaptureSession, SelectItem, StitchMatchMode, StitchParams } from "@core/types";
+import { ImageViewerApi, ScrollCaptureSession, StitchMatchMode, StitchParams } from "@core/types";
+import { EyeOff, Layers, RefreshCw } from "lucide-solid";
 
-const MATCH_MODE_ITEMS: SelectItem<StitchMatchMode>[] = [
-  { id: "normal", value: "normal", label: "Normal" },
-  { id: "edges", value: "edges", label: "Edges" },
+const MATCH_MODE_ITEMS: { id: StitchMatchMode, label: string }[] = [
+  { id: "normal", label: "Normal" },
+  { id: "edges", label: "Edges" },
 ];
 
+const PREVIEW_MARGIN = 8;
+
 type Step = "config" | "annotate";
+
+function errorText(error: unknown): string {
+  return typeof error === "string" ? error : JSON.stringify(error);
+}
 
 function ScrollCaptureResult() {
   const { pushToast } = useToastState;
@@ -25,20 +35,48 @@ function ScrollCaptureResult() {
   const [dimensions, setDimensions] = createSignal<{ width: number, height: number } | null>(null);
   const [params, setParams] = createSignal<StitchParams>({ windowSize: 32, crop: 5, matchMode: "normal" });
   const [busy, setBusy] = createSignal(false);
+  const [restitching, setRestitching] = createSignal(false);
+  const [confirmingDiscard, setConfirmingDiscard] = createSignal(false);
   const [excludedFrames, setExcludedFrames] = createSignal<Set<number>>(new Set());
   const [previewFrame, setPreviewFrame] = createSignal<{ index: number, left: number, bottom: number, maxWidth: number, maxHeight: number } | null>(null);
+  const [toolbarMount, setToolbarMount] = createSignal<HTMLDivElement>();
 
   let imageViewerApi: ImageViewerApi | undefined;
 
   const frameIndices = createMemo(() => Array.from({ length: session()?.frameCount ?? 0 }, (_, i) => i));
+  const includedCount = createMemo(() => (session()?.frameCount ?? 0) - excludedFrames().size);
+  const multiFrame = createMemo(() => (session()?.frameCount ?? 0) >= 2);
+  const previewUrl = createMemo(() => imageId() !== null ? `http://rosemyne-photo.localhost/preview/${imageId()}` : null);
+  const frameLabel = createMemo(() => {
+    const total = session()?.frameCount ?? 0;
+    return excludedFrames().size > 0 ? `${includedCount()} of ${total} frames` : `${total} frame${total === 1 ? "" : "s"}`;
+  });
+  const sizeLabel = createMemo(() => {
+    const dims = dimensions();
+    return dims ? `${dims.width} × ${dims.height}` : null;
+  });
+  const stepItems = createMemo(() => [
+    { id: "config" as const, label: <><span class={styles.StepNumber} classList={{ [styles.On]: step() === "config" }}>1</span>Stitch</> },
+    { id: "annotate" as const, label: <><span class={styles.StepNumber} classList={{ [styles.On]: step() === "annotate" }}>2</span>Annotate</> },
+  ]);
+  const framePreviewStyle = createMemo(() => {
+    const preview = previewFrame();
+    return preview ? {
+      left: `${preview.left}px`,
+      bottom: `${preview.bottom}px`,
+      "max-width": `${preview.maxWidth}px`,
+      "max-height": `${preview.maxHeight}px`,
+    } : undefined;
+  });
 
-  const PREVIEW_MARGIN = 8;
+  function frameUrl(index: number): string {
+    return `http://rosemyne-photo.localhost/scroll-frame/${session()!.sessionId}/${index}`;
+  }
 
   function showFramePreview(index: number, event: MouseEvent) {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const maxWidth = Math.min(window.innerWidth * 0.8, 640) - PREVIEW_MARGIN * 2;
     const maxHeight = Math.max(rect.top - PREVIEW_MARGIN * 2, 100);
-
     const center = rect.left + rect.width / 2;
     const left = Math.min(
       Math.max(center - maxWidth / 2, PREVIEW_MARGIN),
@@ -63,8 +101,6 @@ function ScrollCaptureResult() {
     });
   }
 
-  const previewUrl = createMemo(() => imageId() !== null ? `http://rosemyne-photo.localhost/preview/${imageId()}` : null);
-
   // Pulled on mount rather than pushed, a brand-new webview isn't guaranteed to be listening yet.
   onMount(async () => {
     try {
@@ -77,7 +113,7 @@ function ScrollCaptureResult() {
       setParams(data.defaultParams);
       setStep("config");
     } catch (error) {
-      pushToast(`Failed to load the scrolling capture session: ${typeof error === "string" ? error : JSON.stringify(error)}`, "error", 6000);
+      pushToast(`Failed to load the scrolling capture session: ${errorText(error)}`, "error", 6000);
     }
   });
 
@@ -90,6 +126,7 @@ function ScrollCaptureResult() {
 
   function restitch() {
     withSession(async current => {
+      setRestitching(true);
       try {
         const result = await safeInvoke("restitch_scroll_capture", {
           sessionId: current.sessionId,
@@ -99,12 +136,15 @@ function ScrollCaptureResult() {
         setImageId(result.imageId);
         setDimensions({ width: result.width, height: result.height });
       } catch (error) {
-        pushToast(`Failed to restitch: ${typeof error === "string" ? error : JSON.stringify(error)}`, "error", 6000);
+        pushToast(`Failed to restitch: ${errorText(error)}`, "error", 6000);
+      } finally {
+        setRestitching(false);
       }
     });
   }
 
   function discard() {
+    setConfirmingDiscard(false);
     withSession(async current => {
       try {
         await safeInvoke("cancel_scroll_capture_review", { sessionId: current.sessionId });
@@ -116,11 +156,9 @@ function ScrollCaptureResult() {
 
   function retake() {
     withSession(async current => {
-      // Order matters: cancel_scroll_capture_review closes *this* window, and
-      // a closed window's JS stops running mid-function, so the overlay has
-      // to already be requested before that happens, not after.
+      // cancel_scroll_capture_review closes this window and its JS stops there, so the overlay is requested first.
       await safeInvoke("scrolling_capture_screen").catch(error =>
-        pushToast(`Failed to start scrolling capture: ${typeof error === "string" ? error : JSON.stringify(error)}`, "error", 6000)
+        pushToast(`Failed to start scrolling capture: ${errorText(error)}`, "error", 6000)
       );
       try {
         await safeInvoke("cancel_scroll_capture_review", { sessionId: current.sessionId });
@@ -144,7 +182,7 @@ function ScrollCaptureResult() {
         await saveScreenshot(id, { x: final.x, y: final.y, width: final.width, height: final.height }, final.image, false);
         await safeInvoke("finish_scroll_capture_review", { sessionId: current.sessionId });
       } catch (error) {
-        pushToast(`Failed to save: ${typeof error === "string" ? error : JSON.stringify(error)}`, "error", 6000);
+        pushToast(`Failed to save: ${errorText(error)}`, "error", 6000);
       }
     });
   }
@@ -152,95 +190,89 @@ function ScrollCaptureResult() {
   return (
     <div class={styles.Page}>
       <Show when={session()}>
-        {current => <>
+        <>
           <div class={styles.TopBar}>
+            <Segmented items={stepItems()} value={step()} onChange={setStep} />
+            <Badge><Layers size={11} />{frameLabel()}</Badge>
+            <Show when={sizeLabel()}>{label => <Badge>{label()}</Badge>}</Show>
+            <div class={styles.Spacer} />
+            <Button variant="warn" disabled={busy()} onClick={retake}>Retake</Button>
+            <Button variant="danger" disabled={busy()} onClick={() => setConfirmingDiscard(true)}>Discard</Button>
             <Show
               when={step() === "annotate"}
-              fallback={
-                <span class={styles.FrameCount}>
-                  {excludedFrames().size > 0
-                    ? `${current().frameCount - excludedFrames().size} of ${current().frameCount} frames included`
-                    : `${current().frameCount} frame${current().frameCount === 1 ? "" : "s"} captured`}
-                </span>
-              }
+              fallback={<Button variant="primary" disabled={busy()} onClick={() => setStep("annotate")}>Continue</Button>}
             >
-              <Button onClick={() => setStep("config")}>Back to stitching</Button>
-            </Show>
-            <Show when={dimensions()}>
-              {dims => <span class={styles.Dimensions}>{dims().width} × {dims().height}</span>}
-            </Show>
-            <div class={styles.Spacer} />
-            <Button color="var(--warning-color)" disabled={busy()} onClick={retake}>Retake</Button>
-            <Button color="var(--danger-color)" disabled={busy()} onClick={discard}>Discard</Button>
-            <Show when={step() === "annotate"}>
-              <Button filled color="var(--base-blue)" disabled={busy()} onClick={() => saveResult(true)}>Save</Button>
+              <Button variant="primary" disabled={busy()} onClick={() => saveResult(true)}>Save</Button>
             </Show>
           </div>
 
           <div class={styles.Body}>
-            <Show when={previewUrl()}>
-              <ImageViewer
-                src={previewUrl()!}
-                hideRotate
-                allowPrimaryPan={step() === "config"}
-                onApi={api => imageViewerApi = api}
-                editable
-                annotating={step() === "annotate"}
-              />
-            </Show>
+            <div class={styles.ToolbarSlot} ref={setToolbarMount} />
+            <div class={styles.Viewer}>
+              <Show when={previewUrl() && toolbarMount()}>
+                <ImageViewer
+                  src={previewUrl()!}
+                  hideRotate
+                  allowPrimaryPan={step() === "config"}
+                  onApi={api => imageViewerApi = api}
+                  editable
+                  annotating={step() === "annotate"}
+                  toolbarMount={toolbarMount()}
+                />
+              </Show>
+              <Show when={restitching()}>
+                <div class={styles.Busy}><Spinner />Restitching {includedCount()} frames</div>
+              </Show>
+            </div>
 
-            <Show when={step() === "config"}>
-              <div class={styles.ConfigPanel}>
-                <Show
-                  when={current().frameCount >= 2}
-                  fallback={<span class={styles.RestitchNote}>Only one frame was captured, nothing to restitch.</span>}
-                >
-                  <label>
-                    Match window (rows)
-                    <WindowSizeInput
-                      value={params().windowSize}
-                      onChange={value => setParams(p => ({ ...p, windowSize: value }))}
-                    />
-                  </label>
-                  <label>
-                    Seam crop (px)
-                    <Input
-                      type="number" min={0} value={params().crop}
-                      onChange={e => setParams(p => ({ ...p, crop: Math.max(0, e.currentTarget.valueAsNumber || 0) }))}
-                    />
-                  </label>
-                  <label>
-                    Match mode
-                    <Select value={params().matchMode} items={MATCH_MODE_ITEMS} onItemClick={item => setParams(p => ({ ...p, matchMode: item.value }))} />
-                  </label>
-                  <Button filled disabled={busy()} onClick={restitch}>Restitch</Button>
-                </Show>
-
-                <div class={styles.ConfigActions}>
-                  <Button onClick={() => setStep("annotate")}>Continue to annotate</Button>
-                  <Button filled color="var(--base-blue)" disabled={busy()} onClick={() => saveResult(false)}>Save without annotating</Button>
+            <aside class={styles.Config} classList={{ [styles.Gone]: step() !== "config" }} aria-hidden={step() !== "config"}>
+              <h3>Stitching</h3>
+              <Show when={multiFrame()} fallback={<span class={styles.Note}>Only one frame was captured, so there's nothing to stitch.</span>}>
+                <label class={styles.Field}>
+                  <span>Match window</span>
+                  <WindowSizeInput value={params().windowSize} onChange={value => setParams(p => ({ ...p, windowSize: value }))} />
+                </label>
+                <label class={styles.Field}>
+                  <span>Seam crop</span>
+                  <NumberField
+                    width="100%"
+                    unit="px"
+                    min={0}
+                    max={10_000}
+                    value={params().crop}
+                    onChange={crop => setParams(p => ({ ...p, crop }))}
+                  />
+                </label>
+                <div class={styles.Field}>
+                  <span>Match mode</span>
+                  <Segmented stretch items={MATCH_MODE_ITEMS} value={params().matchMode} onChange={matchMode => setParams(p => ({ ...p, matchMode }))} />
                 </div>
+                <Button disabled={busy()} onClick={restitch}><RefreshCw size={15} />Restitch</Button>
+              </Show>
+              <div class={styles.ConfigFoot}>
+                <Button variant="ghost" disabled={busy()} onClick={() => saveResult(false)}>Save without annotating</Button>
               </div>
-            </Show>
+            </aside>
           </div>
 
-          <Show when={step() === "config" && current().frameCount >= 2}>
-            <div class={styles.FrameStrip}>
+          <Show when={multiFrame()}>
+            <div class={styles.Strip} classList={{ [styles.Gone]: step() !== "config" }}>
               <For each={frameIndices()}>
                 {index => {
                   const excluded = createMemo(() => excludedFrames().has(index));
                   return (
                     <button
                       type="button"
-                      class={styles.FrameThumb}
+                      class={styles.Frame}
                       classList={{ [styles.Excluded]: excluded() }}
                       onClick={() => toggleFrame(index)}
                       onMouseEnter={e => showFramePreview(index, e)}
                       onMouseLeave={() => setPreviewFrame(null)}
-                      title={excluded() ? "Excluded from stitching, click to include" : "Included in stitching, click to exclude"}
+                      title={excluded() ? "Left out of stitching. Click to include it." : "Included in stitching. Click to leave it out."}
                     >
-                      <img src={`http://rosemyne-photo.localhost/scroll-frame/${current().sessionId}/${index}`} draggable={false} />
+                      <img src={frameUrl(index)} draggable={false} />
                       <span class={styles.FrameIndex}>{index + 1}</span>
+                      <span class={styles.ExcludedIcon}><EyeOff size={18} /></span>
                     </button>
                   );
                 }}
@@ -248,22 +280,26 @@ function ScrollCaptureResult() {
             </div>
             <Show when={previewFrame()}>
               {preview => (
-                <div
-                  class={styles.FramePreview}
-                  style={{
-                    left: `${preview().left}px`,
-                    bottom: `${preview().bottom}px`,
-                    "max-width": `${preview().maxWidth}px`,
-                    "max-height": `${preview().maxHeight}px`,
-                  }}
-                >
-                  <img src={`http://rosemyne-photo.localhost/scroll-frame/${current().sessionId}/${preview().index}`} draggable={false} />
+                <div class={styles.FramePreview} style={framePreviewStyle()}>
+                  <img src={frameUrl(preview().index)} draggable={false} />
                 </div>
               )}
             </Show>
           </Show>
 
-        </>}
+          <Modal
+            show={confirmingDiscard()}
+            onHide={() => setConfirmingDiscard(false)}
+            title="Discard this capture?"
+            width={420}
+            footer={<>
+              <Button onClick={() => setConfirmingDiscard(false)}>Cancel</Button>
+              <Button variant="danger-solid" onClick={discard}>Discard</Button>
+            </>}
+          >
+            <p>The captured frames are thrown away and this window closes.</p>
+          </Modal>
+        </>
       </Show>
     </div>
   );

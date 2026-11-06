@@ -40,4 +40,7 @@ export type ImageViewerProps = {
   annotating?: boolean;
   // Forwarded to AnnotationToolBar's hint.
   annotationHint?: string;
+  // Renders the annotation toolbar into this element instead of over the viewer, for a caller whose
+  // viewer changes width while the toolbar should stay put.
+  toolbarMount?: HTMLElement;
 }

@@ -1,75 +1,118 @@
+// While a drag is in progress the bar dims and ignores the pointer.
 .ToolBoxColumn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  opacity: 1;
-  transition: opacity 150ms ease;
+  gap: 8px;
+  animation: bar-in var(--t-slow) var(--e-out);
+  transition: opacity 150ms var(--e-out);
 
   &.Interacting {
-    opacity: .35;
+    opacity: 0.35;
 
-    .ToolBox {
+    & > * {
       pointer-events: none;
     }
   }
 }
 
 .ToolBox {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 3px;
-  background-color: rgba(32, 32, 32, .85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, .08);
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--glass-line);
   border-radius: 14px;
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .2);
-  padding: 6px;
-  color: var(--base-font-color);
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--sh-3);
+  color: var(--text-1);
   pointer-events: all;
+}
+
+.Indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--accent);
+  pointer-events: none;
+
+  &.Animated {
+    transition: transform var(--t-slow) var(--e-out);
+  }
+
+  &.Hidden {
+    opacity: 0;
+  }
+}
+
+.ToolBox .Tool {
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+
+  &:active:not(:disabled) {
+    transform: translateZ(0) scale(0.92);
+  }
+}
+
+.ToolBox .On,
+.ToolBox .On:hover:not(:disabled) {
+  --button-fg: #fff;
+  background: transparent;
 }
 
 .Divider {
   align-self: stretch;
   width: 1px;
-  margin: 4px 3px;
-  background-color: rgba(255, 255, 255, .12);
+  margin: 7px 4px;
+  background: rgb(255 255 255 / 0.12);
 }
 
 .Hint {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  background-color: rgba(0, 0, 0, 0.5);
   padding: 3px 10px;
   border-radius: 6px;
+  background: rgb(0 0 0 / 0.5);
+  color: rgb(255 255 255 / 0.75);
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .ToolOptions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background-color: rgba(32, 32, 32, .85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, .08);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .2);
+  gap: 10px;
   padding: 6px 10px;
+  border: 1px solid var(--glass-line);
+  border-radius: 12px;
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--sh-2);
+  color: var(--text-2);
+  font-size: 12px;
   pointer-events: all;
+  animation: options-in var(--t-base) var(--e-out);
 }
 
 .ToolOptionsLabel {
+  color: var(--text-2);
   font-size: 12px;
-  color: rgba(255, 255, 255, .7);
   white-space: nowrap;
 }
 
+.ToolOptions .ImageSelect {
+  min-width: 130px;
+}
+
 .ColorPickerWrapper {
+  display: flex;
   width: 26px;
   height: 26px;
-  display: flex;
 
   :global(.color-picker) {
     width: 100%;
@@ -77,14 +120,27 @@
   }
 }
 
-// Sibling of .ToolBoxColumn, not a descendant, it tracks the mouse over the
-// whole capture, not just the toolbar.
+// A sibling of .ToolBoxColumn, not a descendant: it tracks the pointer over the whole capture.
 .BrushCursor {
   position: fixed;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, .9);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .9);
-  pointer-events: none;
   z-index: 40000;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgb(255 255 255 / 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.9);
+  pointer-events: none;
+}
+
+@keyframes bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes options-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
 }

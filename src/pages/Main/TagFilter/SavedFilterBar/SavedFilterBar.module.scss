@@ -1,53 +1,41 @@
 .SavedFilterBar {
   display: flex;
   align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
-  padding: 8px 14px;
-
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--border-color);
-  }
-}
-
-.Title {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  color: var(--text-muted);
-  font-size: 12px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  font-weight: 600;
-  white-space: nowrap;
-
-  svg {
-    flex-shrink: 0;
-  }
 }
 
-.Actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-left: auto;
+.Label {
+  margin-right: 2px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.SavedFilterBar .Picker {
+  min-width: 180px;
+}
+
+.Edited {
+  color: var(--warn);
+  font-size: 11.5px;
+}
+
+.Spacer {
+  flex: 1;
 }
 
 .SaveBody {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  padding: 4px 0;
+
+  & > :first-child {
+    width: 100%;
+  }
 }
 
 .SaveHint {
-  color: var(--text-muted);
+  color: var(--text-3);
   font-size: 12px;
-}
-
-.SaveFooter {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }

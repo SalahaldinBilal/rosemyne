@@ -7,7 +7,7 @@ import { createStore } from "solid-js/store";
 import { findClosestWindowAtPoint } from "../../../helpers";
 
 function SelectionBox() {
-  const { imageData, selectedBox, previewUrl, currentTool, setSelectedBox, setSelectedWindow, closeOverlay, mouseEventHandler, suppressNextClick, setIsSelectingRegion, minSelectionSize } = useScreenshotOverlayStateInner;
+  const { imageData, selectedBox, previewUrl, currentTool, setSelectedBox, selectedWindow, setSelectedWindow, closeOverlay, mouseEventHandler, suppressNextClick, setIsSelectingRegion, minSelectionSize } = useScreenshotOverlayStateInner;
   const [isMouseDown, setIsMouseDown] = createSignal<boolean>(false);
   const [hasMovedOnce, setHasMovedOnce] = createSignal<boolean>(false);
   const [mouseDownLocation, setMouseDownLocation] = createStore<{ x: number, y: number }>({ x: 0, y: 0 });
@@ -146,39 +146,40 @@ function SelectionBox() {
     window.removeEventListener("mouseup", mouseUpHandler)
   }
 
+  const snapping = createMemo(() => !isMouseDown() || !hasMovedOnce());
+  const sizeText = createMemo(() => `${Math.round(selectedBox.width)} × ${Math.round(selectedBox.height)}`);
+  const outlineStyle = createMemo(() => ({
+    left: `${selectedBox.x - 1}px`, top: `${selectedBox.y - 1}px`,
+    width: `${selectedBox.width + 2}px`, height: `${selectedBox.height + 2}px`,
+  }));
+  const previewBoxStyle = createMemo(() => ({
+    left: `${selectedBox.x}px`, top: `${selectedBox.y}px`,
+    width: `${selectedBox.width}px`, height: `${selectedBox.height}px`,
+  }));
+  const previewImageStyle = createMemo(() => ({ left: `${-selectedBox.x}px`, top: `${-selectedBox.y}px` }));
+  const labelStyle = createMemo(() => ({
+    left: `${selectedBox.x - 1}px`,
+    top: `${selectedBox.y > 30 ? selectedBox.y - 28 : selectedBox.y + selectedBox.height + 6}px`,
+  }));
+
   return (
     <Show when={imageData() && currentTool() === Tools.Screenshot}>
       <Show when={selectedBox.width > 5 && selectedBox.height > 5}>
         <>
           <div
-            class={styles.WindowSelectionBox}
-            classList={{ [styles.MouseDown]: isMouseDown() }}
-            style={{
-              left: (selectedBox.x - 2).toString() + "px", top: (selectedBox.y - 2).toString() + "px",
-              width: (selectedBox.width + 4).toString() + "px", height: (selectedBox.height + 4).toString() + "px",
-            }}
+            class={styles.Selection}
+            classList={{ [styles.Snap]: snapping(), [styles.MouseDown]: isMouseDown() }}
+            style={outlineStyle()}
           />
-          <div
-            class={styles.DimensionsLabel}
-            style={{
-              left: (selectedBox.x - 2).toString() + "px",
-              top: (selectedBox.y > 24 ? selectedBox.y - 24 : selectedBox.y + selectedBox.height + 6).toString() + "px",
-            }}
-          >
-            {Math.round(selectedBox.width)} × {Math.round(selectedBox.height)}
+          <div class={styles.Label} classList={{ [styles.SnapLabel]: snapping(), [styles.MouseDown]: isMouseDown() }} style={labelStyle()}>
+            <Show when={snapping() && selectedWindow()}>
+              {window => <span class={styles.WindowName}>{window().name || window().processName}</span>}
+            </Show>
+            <span class={styles.Size}>{sizeText()}</span>
           </div>
           <Show when={isMouseDown() && !imageData()?.pickRegion && !imageData()?.record}>
-            <div
-              class={styles.LightPreviewContainer}
-              style={{
-                left: (selectedBox.x - 2).toString() + "px", top: (selectedBox.y - 2).toString() + "px",
-                width: (selectedBox.width + 4).toString() + "px", height: (selectedBox.height + 4).toString() + "px",
-              }}
-            >
-              <img
-                src={previewUrl() ?? ""}
-                style={{ left: (-selectedBox.x + 2).toString() + "px", top: (-selectedBox.y + 2).toString() + "px" }}
-              />
+            <div class={styles.LightPreviewContainer} style={previewBoxStyle()}>
+              <img src={previewUrl() ?? ""} style={previewImageStyle()} />
             </div>
           </Show>
         </>

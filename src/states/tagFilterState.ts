@@ -1,7 +1,8 @@
-import { createEffect, createMemo, createRoot, createSignal, on } from "solid-js";
-import { createStore, produce, unwrap } from "solid-js/store";
+import { createMemo, createRoot, createSignal } from "solid-js";
+import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import {
   DATE_TIME_TAG_KEY,
+  DatePreset,
   FilterCondition,
   FilterGroup,
   FilterNode,
@@ -9,7 +10,9 @@ import {
   FilterRelationOperations,
   FilterScalar,
   FilterValueType,
+  HistoryItemType,
   OPERATIONS_BY_TYPE,
+  QuickFilters,
   SavedFilter,
   TagValue,
   TagValueTypeMap,
@@ -20,10 +23,36 @@ import fuzzysort from "fuzzysort";
 
 let nextId = 1;
 
+const DAY_MS = 86_400_000;
+const FILE_TAG = "$file";
+const SEARCH_PATHS = [[FILE_TAG, "Name"], ["Windows", "Window Name"], ["Windows", "Process Name"]];
+const HISTORY_TYPES: HistoryItemType[] = ["image", "video", "file"];
+const DATE_PRESETS: DatePreset[] = ["any", "today", "week", "month", "year"];
+
+// The operation a condition starts with when its tag changes, matching the first entry the row offers.
+const FIRST_OPERATION: Record<FilterValueType, FilterOperations> = {
+  string: FilterOperations.equals,
+  number: FilterOperations.equals,
+  boolean: FilterOperations.equals,
+  dateTime: FilterOperations.greaterThan,
+  byteSize: FilterOperations.greaterThan,
+  time: FilterOperations.greaterThan,
+};
+
+export function startOfDay(ms: number): number {
+  const date = new Date(ms);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+export function endOfDay(ms: number): number {
+  const date = new Date(ms);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime() - 1;
+}
+
 function defaultValueFor(type: FilterValueType): FilterScalar {
   if (type === "number" || type === "time" || type === "byteSize") return 0;
   if (type === "boolean") return true;
-  if (type === "dateTime") return Date.now();
+  if (type === "dateTime") return endOfDay(Date.now() - 7 * DAY_MS);
   return "";
 }
 
@@ -31,8 +60,8 @@ function emptyConditionFields(): Omit<FilterCondition, "id" | "kind"> {
   return { path: [], valueType: "string", operation: FilterOperations.equals, values: [""], caseSensitive: false };
 }
 
-function makeCondition(): FilterCondition {
-  return { id: nextId++, kind: "condition", ...emptyConditionFields() };
+function makeCondition(fields?: Partial<Omit<FilterCondition, "id" | "kind">>): FilterCondition {
+  return { id: nextId++, kind: "condition", ...emptyConditionFields(), ...fields };
 }
 
 function makeGroup(): FilterGroup {
@@ -83,6 +112,31 @@ function adoptGroup(raw: unknown): FilterGroup {
   };
 }
 
+function emptyQuick(): QuickFilters {
+  return { search: "", types: [], date: "any" };
+}
+
+function adoptQuick(raw: unknown): QuickFilters {
+  if (!raw || typeof raw !== "object") return emptyQuick();
+  const source = raw as Record<string, unknown>;
+  return {
+    search: typeof source.search === "string" ? source.search : "",
+    types: stringList(source.types).filter((type): type is HistoryItemType => HISTORY_TYPES.includes(type as HistoryItemType)),
+    date: DATE_PRESETS.includes(source.date as DatePreset) ? source.date as DatePreset : "any",
+  };
+}
+
+export function datePresetStart(preset: DatePreset, now = Date.now()): number | null {
+  const today = startOfDay(now);
+  switch (preset) {
+    case "today": return today;
+    case "week": return today - 6 * DAY_MS;
+    case "month": return today - 29 * DAY_MS;
+    case "year": return new Date(new Date(now).getFullYear(), 0, 1).getTime();
+    default: return null;
+  }
+}
+
 export function tagPathKey(path: string[]): string {
   return JSON.stringify(path);
 }
@@ -119,6 +173,20 @@ export function scopePaths(tagMap: TagValueTypeMap, prefix: string[] = []): stri
   return out;
 }
 
+export type TagLeaf = { path: string[], valueType: FilterValueType };
+
+export function leafPaths(tagMap: TagValueTypeMap, prefix: string[] = []): TagLeaf[] {
+  const out: TagLeaf[] = [];
+
+  for (const [key, entry] of Object.entries(tagMap)) {
+    const path = [...prefix, key];
+    if (typeof entry.type === "object") out.push(...leafPaths(entry.type, path));
+    else out.push({ path, valueType: entry.type });
+  }
+
+  return out;
+}
+
 export function valueTypeAtPath(tagMap: TagValueTypeMap, path: string[]): FilterValueType | null {
   let map: TagValueTypeMap = tagMap;
 
@@ -132,6 +200,48 @@ export function valueTypeAtPath(tagMap: TagValueTypeMap, path: string[]): Filter
   }
 
   return null;
+}
+
+// "between" and date "on" are two conditions (at least low, at most high) in an AND group, shown as one row.
+export type RangeKind = "between" | "on";
+export type RangeShape = { group: FilterGroup, low: FilterCondition, high: FilterCondition, kind: RangeKind };
+
+export function asRange(node: FilterNode): RangeShape | null {
+  if (node.kind !== "group" || node.relation !== FilterRelationOperations.and || node.scope.length > 0 || node.children.length !== 2) return null;
+
+  const [a, b] = node.children;
+  if (a.kind !== "condition" || b.kind !== "condition") return null;
+  if (tagPathKey(a.path) !== tagPathKey(b.path) || a.valueType !== b.valueType || a.path.length === 0) return null;
+  if (a.values.length !== 1 || b.values.length !== 1) return null;
+
+  const low = a.operation === FilterOperations.greaterThanOrEqualTo ? a : b.operation === FilterOperations.greaterThanOrEqualTo ? b : null;
+  const high = low === a ? b : a;
+  if (!low || high.operation !== FilterOperations.lessThanOrEqualTo) return null;
+
+  const lowValue = low.values[0];
+  const highValue = high.values[0];
+  const isDay = low.valueType === "dateTime"
+    && typeof lowValue === "number"
+    && lowValue === startOfDay(lowValue)
+    && highValue === endOfDay(lowValue);
+
+  return { group: node, low, high, kind: isDay ? "on" : "between" };
+}
+
+export function conditionHasValue(condition: FilterCondition): boolean {
+  if (condition.path.length === 0) return false;
+  if (condition.valueType !== "string") return true;
+  return condition.values.some(value => value !== "");
+}
+
+// Every leaf rule in display order: ranges count as one, plain groups are walked into.
+export function flattenRules(group: FilterGroup): (FilterCondition | RangeShape)[] {
+  return group.children.flatMap(child => {
+    const range = asRange(child);
+    if (range) return [range];
+    if (child.kind === "group") return flattenRules(child);
+    return [child];
+  });
 }
 
 function findById(node: FilterNode, id: number): FilterNode | null {
@@ -158,15 +268,31 @@ function findParentOf(group: FilterGroup, id: number): FilterGroup | null {
   return null;
 }
 
+function rangeGroup(base: FilterCondition, low: FilterScalar, high: FilterScalar): FilterGroup {
+  const shared = { path: [...base.path], valueType: base.valueType, caseSensitive: false };
+  return {
+    ...makeGroup(),
+    children: [
+      makeCondition({ ...shared, operation: FilterOperations.greaterThanOrEqualTo, values: [low] }),
+      makeCondition({ ...shared, operation: FilterOperations.lessThanOrEqualTo, values: [high] }),
+    ],
+  };
+}
+
+export type UiOperation = { kind: "plain", operation: FilterOperations } | { kind: "range", range: RangeKind };
+
 function useTagFilterStateInner() {
   const [root, setRoot] = createStore<FilterGroup>(makeGroup());
+  const [quick, setQuick] = createStore<QuickFilters>(emptyQuick());
   const [savedFilters, setSavedFilters] = createSignal<SavedFilter[]>([]);
   const [activeFilterName, setActiveFilterName] = createSignal<string | null>(null);
   const [savedSnapshot, setSavedSnapshot] = createSignal<string | null>(null);
-  const [collapsed, setCollapsed] = createSignal(false);
   const [filtersOpen, setFiltersOpen] = createSignal(false);
+  const [pendingPickerId, setPendingPickerId] = createSignal<number | null>(null);
+  const [focusRequest, setFocusRequest] = createSignal<number | null>(null);
 
-  const isFilterDirty = createMemo(() => savedSnapshot() !== null && JSON.stringify(root) !== savedSnapshot());
+  const currentSnapshot = () => JSON.stringify({ root: unwrap(root), quick: unwrap(quick) });
+  const isFilterDirty = createMemo(() => savedSnapshot() !== null && JSON.stringify({ root, quick }) !== savedSnapshot());
 
   const ruleCount = createMemo(() => {
     const walk = (group: FilterGroup): number =>
@@ -174,34 +300,95 @@ function useTagFilterStateInner() {
     return walk(root);
   });
 
-  // With nothing to collapse the toggle disappears; never stay stuck collapsed.
-  createEffect(on(ruleCount, count => {
-    if (count === 0) setCollapsed(false);
-  }));
-
+  const rules = createMemo(() => flattenRules(root));
+  const activeRuleCount = createMemo(() =>
+    rules().filter(rule => "group" in rule ? rule.low.path.length > 0 : conditionHasValue(rule)).length,
+  );
+  const quickActive = createMemo(() => quick.search.trim() !== "" || quick.types.length > 0 || quick.date !== "any");
+  const anyFilterActive = createMemo(() => quickActive() || ruleCount() > 0);
 
   function filterSnapshot(): FilterGroup {
     return JSON.parse(JSON.stringify(unwrap(root)));
   }
 
+  function quickNodes(excludeTypes: boolean): FilterNode[] {
+    const nodes: FilterNode[] = [];
+    const search = quick.search.trim();
+
+    if (search) {
+      nodes.push({
+        id: -1,
+        kind: "group",
+        relation: FilterRelationOperations.or,
+        scope: [],
+        children: SEARCH_PATHS.map((path, index) => ({
+          id: -10 - index,
+          kind: "condition",
+          path,
+          valueType: "string",
+          operation: FilterOperations.contains,
+          values: [search],
+          caseSensitive: false,
+        })),
+      });
+    }
+
+    if (!excludeTypes && quick.types.length > 0) {
+      nodes.push({
+        id: -2,
+        kind: "condition",
+        path: [FILE_TAG, "Type"],
+        valueType: "string",
+        operation: FilterOperations.equals,
+        values: [...quick.types],
+        caseSensitive: false,
+      });
+    }
+
+    const start = datePresetStart(quick.date);
+    if (start !== null) {
+      nodes.push({
+        id: -3,
+        kind: "condition",
+        path: [FILE_TAG, "DateTime"],
+        valueType: "dateTime",
+        operation: FilterOperations.greaterThanOrEqualTo,
+        values: [start],
+        caseSensitive: false,
+      });
+    }
+
+    return nodes;
+  }
+
+  // The quick filters are ANDed with the tree here, never stored inside it.
+  function queryFilter(excludeTypes = false): FilterGroup {
+    return {
+      id: 0,
+      kind: "group",
+      relation: FilterRelationOperations.and,
+      scope: [],
+      children: [...quickNodes(excludeTypes), filterSnapshot()],
+    };
+  }
+
   function markSaved(name: string | null) {
     setActiveFilterName(name);
-    setSavedSnapshot(name === null ? null : JSON.stringify(unwrap(root)));
+    setSavedSnapshot(name === null ? null : currentSnapshot());
   }
 
   async function refreshSavedFilters() {
     setSavedFilters(await safeInvoke("get_saved_filters"));
   }
 
-  // Loading into an empty panel would otherwise expand a whole tree the user never opened.
   function loadFilter(saved: SavedFilter) {
-    if (ruleCount() === 0) setCollapsed(true);
     setRoot(adoptGroup(saved.filter));
+    setQuick(reconcile(adoptQuick(saved.filter.quick)));
     markSaved(saved.name);
   }
 
   async function saveFilterAs(name: string) {
-    await safeInvoke("save_filter", { name, filter: filterSnapshot() });
+    await safeInvoke("save_filter", { name, filter: { ...filterSnapshot(), quick: structuredClone(unwrap(quick)) } });
     markSaved(name.trim());
     await refreshSavedFilters();
   }
@@ -214,7 +401,24 @@ function useTagFilterStateInner() {
 
   function clearFilter() {
     setRoot(makeGroup());
+    setQuick(reconcile(emptyQuick()));
     markSaved(null);
+  }
+
+  function setSearch(search: string) {
+    setQuick("search", search);
+  }
+
+  function toggleType(type: HistoryItemType) {
+    setQuick("types", types => types.includes(type) ? types.filter(entry => entry !== type) : [...types, type]);
+  }
+
+  function clearTypes() {
+    setQuick("types", []);
+  }
+
+  function setDatePreset(date: DatePreset) {
+    setQuick("date", date);
   }
 
   function editNode<T extends FilterNode>(id: number, kind: T["kind"], edit: (node: T) => void) {
@@ -224,8 +428,19 @@ function useTagFilterStateInner() {
     }));
   }
 
+  function replaceNode(id: number, build: (node: FilterNode) => FilterNode) {
+    setRoot(produce(draft => {
+      const parent = findParentOf(draft, id);
+      if (!parent) return;
+      const index = parent.children.findIndex(child => child.id === id);
+      if (index >= 0) parent.children[index] = build(JSON.parse(JSON.stringify(parent.children[index])));
+    }));
+  }
+
   function addCondition(groupId: number) {
-    editNode<FilterGroup>(groupId, "group", group => group.children.push(makeCondition()));
+    const condition = makeCondition();
+    editNode<FilterGroup>(groupId, "group", group => group.children.push(condition));
+    setPendingPickerId(condition.id);
   }
 
   function addGroup(groupId: number) {
@@ -246,6 +461,12 @@ function useTagFilterStateInner() {
     editNode<FilterGroup>(groupId, "group", group => { group.relation = relation; });
   }
 
+  function toggleRelation(groupId: number) {
+    editNode<FilterGroup>(groupId, "group", group => {
+      group.relation = group.relation === FilterRelationOperations.and ? FilterRelationOperations.or : FilterRelationOperations.and;
+    });
+  }
+
   // Descendant paths were relative to the old scope, so they can't survive it.
   function resetPaths(node: FilterNode) {
     if (node.kind === "group") {
@@ -264,17 +485,45 @@ function useTagFilterStateInner() {
     });
   }
 
-  function setConditionPath(id: number, path: string[], tagMap: TagValueTypeMap) {
-    const valueType = valueTypeAtPath(tagMap, path);
+  // Works on a plain condition or a range row. Either way the row becomes a fresh condition for the new tag.
+  function setConditionPath(id: number, path: string[], tagMap: TagValueTypeMap): number {
+    const valueType = valueTypeAtPath(tagMap, path) ?? "string";
+    const keepsId = findById(root, id)?.kind === "condition";
+    const nextConditionId = keepsId ? id : nextId++;
 
-    editNode<FilterCondition>(id, "condition", condition => {
-      condition.path = path;
+    replaceNode(id, node => ({
+      ...makeCondition({
+        path,
+        valueType,
+        operation: FIRST_OPERATION[valueType],
+        values: [defaultValueFor(valueType)],
+        caseSensitive: node.kind === "condition" ? node.caseSensitive : false,
+      }),
+      id: nextConditionId,
+    }));
+    return nextConditionId;
+  }
 
-      if (valueType) {
-        condition.valueType = valueType;
-        condition.operation = OPERATIONS_BY_TYPE[valueType][0];
-        condition.values = [defaultValueFor(valueType)];
+  function setUiOperation(id: number, next: UiOperation) {
+    replaceNode(id, node => {
+      const range = asRange(node);
+      const base = range ? range.low : node.kind === "condition" ? node : null;
+      if (!base) return node;
+
+      const first = base.values[0] ?? defaultValueFor(base.valueType);
+      const isDate = base.valueType === "dateTime" && typeof first === "number";
+
+      if (next.kind === "plain") {
+        let value = first;
+        if (isDate && next.operation === FilterOperations.greaterThan) value = endOfDay(first as number);
+        if (isDate && next.operation === FilterOperations.lessThan) value = startOfDay(first as number);
+        const values = range ? [value] : base.values.map((entry, index) => index === 0 ? value : entry);
+        return { ...base, id: range ? nextId++ : base.id, operation: next.operation, values };
       }
+
+      if (next.range === "on" && isDate) return rangeGroup(base, startOfDay(first as number), endOfDay(first as number));
+      if (range) return rangeGroup(base, range.low.values[0], range.high.values[0]);
+      return rangeGroup(base, isDate ? startOfDay(first as number) : first, isDate ? endOfDay(first as number) : first);
     });
   }
 
@@ -300,9 +549,25 @@ function useTagFilterStateInner() {
     });
   }
 
+  // "on" keeps both ends pinned to the same day.
+  function setRangeDay(groupId: number, ms: number) {
+    editNode<FilterGroup>(groupId, "group", group => {
+      const range = asRange(group);
+      if (!range) return;
+      const low = group.children.find(child => child.id === range.low.id) as FilterCondition;
+      const high = group.children.find(child => child.id === range.high.id) as FilterCondition;
+      low.values = [startOfDay(ms)];
+      high.values = [endOfDay(ms)];
+    });
+  }
+
   return {
-    root, addCondition, addGroup, removeNode, setRelation, setGroupScope, setConditionPath, setOperation, setCaseSensitive, addValue, setValue, removeValue,
-    savedFilters, activeFilterName, isFilterDirty, ruleCount, collapsed, setCollapsed, filtersOpen, setFiltersOpen, filterSnapshot, refreshSavedFilters, loadFilter, saveFilterAs, deleteFilter, clearFilter,
+    root, quick, addCondition, addGroup, removeNode, setRelation, toggleRelation, setGroupScope, setConditionPath, setUiOperation,
+    setOperation, setCaseSensitive, addValue, setValue, removeValue, setRangeDay,
+    setSearch, toggleType, clearTypes, setDatePreset, quickActive, anyFilterActive, rules, activeRuleCount,
+    savedFilters, activeFilterName, isFilterDirty, ruleCount, filtersOpen, setFiltersOpen, filterSnapshot, queryFilter,
+    refreshSavedFilters, loadFilter, saveFilterAs, deleteFilter, clearFilter,
+    pendingPickerId, setPendingPickerId, focusRequest, setFocusRequest,
   };
 }
 
@@ -366,6 +631,12 @@ function markerScalar(value: TagValue): number | null {
   const inner = value[keys[0]];
   if ((keys[0] !== TIME_TAG_KEY && keys[0] !== DATE_TIME_TAG_KEY) || typeof inner !== "number") return null;
   return inner;
+}
+
+export function tagNumber(value: TagValue | undefined): number | null {
+  if (typeof value === "number") return value;
+  if (value === undefined) return null;
+  return markerScalar(value);
 }
 
 // Mirrors `resolve_scope` (Rust): the containers at the path, not the scalars under it.

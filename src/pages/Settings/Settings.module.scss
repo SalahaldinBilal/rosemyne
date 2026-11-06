@@ -1,37 +1,247 @@
 .Main {
   display: flex;
-  background-color: var(--base-bg-color);
   width: 100%;
   height: 100%;
-  color: var(--base-font-color);
+  background: var(--bg-0);
+  color: var(--text-1);
+}
 
-  .SideBar {
-    display: flex;
-    flex-direction: column;
-    width: 200px;
-    flex-shrink: 0;
-    flex-grow: 0;
-    padding-top: 8px;
-    background-color: var(--panel-bg);
-    border-right: 1px solid var(--border-color);
+.SideBar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 188px;
+  padding: 12px 8px 8px;
+  background: var(--bg-1);
+  border-right: 1px solid var(--line-1);
 
-    .Separator {
-      height: 1px;
-      margin: 8px 12px;
-      background-color: var(--border-color);
+  .Separator {
+    height: 1px;
+    margin: 8px 4px;
+    background: var(--line-1);
+  }
+}
+
+.Footer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  margin-top: auto;
+  padding: 8px 8px 2px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  white-space: nowrap;
+  transition: color var(--t-base) var(--e-out);
+
+  &.Saved {
+    color: var(--ok);
+
+    svg {
+      animation: saved-pop var(--t-base) var(--e-pop);
+    }
+  }
+}
+
+.Search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: var(--ctl-h);
+  margin-top: 8px;
+  padding: 0 4px 0 9px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  cursor: text;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+
+  &:hover {
+    border-color: var(--line-3);
+  }
+
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  // width: 0 drops the input's built-in ~20-character width, which otherwise widens the whole sidebar.
+  input {
+    flex: 1;
+    width: 0;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-1);
+    font: inherit;
+    font-size: 13px;
+
+    &::placeholder {
+      color: var(--text-3);
     }
   }
 
-  .Content {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    min-width: 0;
+  & > :last-child {
+    flex-shrink: 0;
+    margin-right: 2px;
+  }
+}
 
-    .Body {
-      padding: 20px 24px;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
+.ClearSearch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.06);
+    color: var(--text-1);
+  }
+}
+
+.Body {
+  flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.Results {
+  max-width: 760px;
+  padding: 28px 32px 32px;
+  animation: results-in var(--t-base) var(--e-out);
+}
+
+.ResultsTitle {
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.NoResults {
+  display: flex;
+  justify-content: center;
+  padding-top: 60px;
+}
+
+.ResultCard {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+}
+
+.Result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 80ms;
+
+  &.Active {
+    background: var(--accent-soft);
+  }
+
+  mark {
+    background: none;
+    color: var(--accent-text);
+    font-weight: 650;
+  }
+}
+
+.ResultIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  background: var(--bg-4);
+  color: var(--text-2);
+
+  .Active & {
+    background: var(--accent-soft-2);
+    color: var(--accent-text);
+  }
+}
+
+.ResultText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ResultLabel {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 550;
+}
+
+.ResultName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ResultWhere {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.ResultHint {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  mark {
+    color: var(--text-1);
+    font-weight: 600;
+  }
+}
+
+@keyframes results-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes saved-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
   }
 }

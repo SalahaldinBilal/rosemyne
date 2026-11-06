@@ -1,12 +1,10 @@
-import settingsStyles from "../../Settings/GeneralSettings/GeneralSettings.module.scss";
 import ContextMenuSettings from "../../Settings/GeneralSettings/ContextMenuSettings";
+import { SettingsGroup } from "../../Settings/SettingsLayout/SettingsLayout";
 
 function ContextMenuStep() {
-  return <div class={settingsStyles.GeneralSettings}>
-    <div class={settingsStyles.Section}>
-      <ContextMenuSettings />
-    </div>
-  </div>
+  return <SettingsGroup>
+    <ContextMenuSettings />
+  </SettingsGroup>;
 }
 
 export default ContextMenuStep;

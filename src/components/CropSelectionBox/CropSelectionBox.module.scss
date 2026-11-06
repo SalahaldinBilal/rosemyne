@@ -1,7 +1,7 @@
 .CropBox {
   position: absolute;
   box-sizing: border-box;
-  border: 2px dashed lightskyblue;
+  border: 2px solid var(--accent);
   // Above every overlay item (ImageOverlayBase tops out around 30001 + order)
   // so its resize handles (whose z-index ResizableBox derives from this
   // element) are always grabbable.

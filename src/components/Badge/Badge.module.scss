@@ -1,0 +1,47 @@
+.Badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 19px;
+  padding: 0 7px;
+  border-radius: var(--r-full);
+  background: var(--bg-4);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.Accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.Ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.Warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.Danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.Method {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  background: rgb(from var(--method-color) r g b / 0.14);
+  color: var(--method-color);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}

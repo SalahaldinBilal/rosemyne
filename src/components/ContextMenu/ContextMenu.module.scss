@@ -1,34 +1,36 @@
 .Container {
   position: fixed;
-  background-color: var(--secondary-bg-color);
-  box-sizing: border-box;
-  border: 1px solid var(--control-border);
-  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, .6);
-  border-radius: var(--radius-md);
-  padding: 6px 0;
-  min-width: 200px;
   z-index: var(--z-menu);
-  overflow: visible;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  animation: context-menu-in var(--t-base) var(--e-out);
 
-  &.StartState {
-    opacity: 0;
-  }
-
-  &.EnterAnimation {
-    animation: appear 0.15s;
-  }
-
-  &.EndAnimation {
-    animation: appear 0.15s reverse;
+  &.Closing {
+    pointer-events: none;
+    animation: context-menu-out 110ms var(--e-in) forwards;
   }
 }
 
-@keyframes appear {
+.Separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line-2);
+}
+
+@keyframes context-menu-in {
   from {
     opacity: 0;
+    transform: scale(0.96);
   }
+}
 
+@keyframes context-menu-out {
   to {
-    opacity: 1;
+    opacity: 0;
+    transform: scale(0.98);
   }
 }

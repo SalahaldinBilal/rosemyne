@@ -1,116 +1,120 @@
-.SoundSettings {
+// One row per sound: switch, name with file and the instant-capture option, volume, actions.
+.Sound {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 14px;
+
+  & > .Text,
+  & > .Volume,
+  & > .Actions {
+    transition: opacity var(--t-base);
+  }
+
+  &.Off {
+    & > .Text,
+    & > .Volume,
+    & > .Actions {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+  }
+}
+
+.Text {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  max-width: 650px;
-  padding-right: 20px;
-  padding-bottom: 20px;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 
-  .SoundRow {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border-color);
+  b {
+    font-size: 13.5px;
+    font-weight: 550;
+  }
+}
 
-    &:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
+.Meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+// A plain inline span would sit the checkbox on the text baseline, lower than the file name beside it.
+.Instant {
+  display: flex;
+  align-items: center;
+}
+
+.File {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.Volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 170px;
+  min-width: 110px;
+
+  span {
+    width: 34px;
+    text-align: right;
+    color: var(--text-2);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
   }
 
-  .SoundHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-
-  .SettingRow {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    cursor: pointer;
+  input[type="range"] {
+    flex: 1;
     min-width: 0;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+    appearance: none;
 
-    input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      margin-top: 3px;
-      flex-shrink: 0;
-      accent-color: var(--base-blue);
-      cursor: pointer;
+    &::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 4px;
+      background: linear-gradient(to right, var(--accent) var(--fill, 50%), var(--bg-5) var(--fill, 50%));
     }
 
-    .SettingText {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
+    &::-webkit-slider-thumb {
+      width: 14px;
+      height: 14px;
+      margin-top: -5px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 0 4px var(--accent-soft), var(--sh-1);
+      appearance: none;
+      transition:
+        transform var(--t-fast) var(--e-pop),
+        box-shadow var(--t-fast);
+    }
 
-      .Hint {
-        font-size: 13px;
-        color: var(--text-muted);
+    &:hover::-webkit-slider-thumb {
+      transform: scale(1.12);
+      box-shadow: 0 0 0 6px var(--accent-soft), var(--sh-1);
+    }
+
+    &:focus-visible {
+      outline: none;
+
+      &::-webkit-slider-thumb {
+        box-shadow: 0 0 0 4px var(--accent-ring), var(--sh-1);
       }
     }
   }
+}
 
-  .ChildSetting {
-    margin-left: 30px;
-
-    &:has(input:disabled) {
-      cursor: default;
-      opacity: 0.55;
-
-      input {
-        cursor: default;
-      }
-    }
-  }
-
-  .SoundControls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-
-    .FileLabel {
-      font-size: 13px;
-      color: var(--text-muted);
-      max-width: 160px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-right: 4px;
-    }
-  }
-
-  .VolumeRow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding-left: 30px;
-
-    .VolumeLabel {
-      font-size: 13px;
-      color: var(--text-muted);
-      flex-shrink: 0;
-      width: 50px;
-    }
-
-    input[type="range"] {
-      flex: 1;
-      min-width: 0;
-      accent-color: var(--base-blue);
-      cursor: pointer;
-    }
-
-    .VolumeValue {
-      font-size: 13px;
-      color: var(--text-muted);
-      flex-shrink: 0;
-      width: 36px;
-      text-align: right;
-    }
-  }
+.Actions {
+  display: flex;
+  gap: 2px;
 }

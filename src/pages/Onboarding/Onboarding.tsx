@@ -1,5 +1,6 @@
 import styles from "./Onboarding.module.scss";
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, onMount, Show } from "solid-js";
+import { SettingsEmbedded } from "../Settings/SettingsLayout/SettingsLayout";
 import { createStore, unwrap } from "solid-js/store";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useNavigate } from "@solidjs/router";
@@ -15,6 +16,8 @@ import GeneralStep from "./steps/GeneralStep";
 import ContextMenuStep from "./steps/ContextMenuStep";
 import ImageStep from "./steps/ImageStep";
 import VideoStep from "./steps/VideoStep";
+
+const SEGMENT_GAP = 6;
 
 const DEFAULT_GENERAL: GeneralSettingsData = {
   saveDirectory: null,
@@ -35,6 +38,7 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   minSelectionWidth: 15,
   minSelectionHeight: 15,
   contextMenu: true,
+  fitCardThumbnails: false,
 };
 
 function Onboarding() {
@@ -70,7 +74,7 @@ function Onboarding() {
   const steps = [
     {
       title: "General",
-      description: "A couple of basics to get started, you can change any of this later in Settings.",
+      description: "A few basics to get started. You can change all of this later in Settings.",
       content: () => <GeneralStep general={general} onChange={saveGeneral} />,
     },
     {
@@ -105,7 +109,20 @@ function Onboarding() {
     },
   ];
 
-  const isLast = () => step() === steps.length - 1;
+  const isLast = createMemo(() => step() === steps.length - 1);
+  const [direction, setDirection] = createSignal<1 | -1>(1);
+  const current = createMemo(() => steps[step()]);
+  // One clipped copy of the segment row, so the fill sweeps across the gaps instead of each segment filling alone.
+  const fillClip = createMemo(() => {
+    const filled = (step() + 1) / steps.length;
+    return { "clip-path": `inset(0 calc((100% + ${SEGMENT_GAP}px) * ${1 - filled}) 0 0)` };
+  });
+
+  function goTo(index: number) {
+    if (index === step()) return;
+    setDirection(index > step() ? 1 : -1);
+    setStep(index);
+  }
 
   async function finish() {
     // Set before the save so Main doesn't bounce back here if the save is
@@ -128,47 +145,69 @@ function Onboarding() {
       finish();
       return;
     }
-    setStep(current => current + 1);
+    goTo(step() + 1);
   }
 
   function back() {
-    setStep(current => Math.max(0, current - 1));
+    goTo(Math.max(0, step() - 1));
   }
 
   return <div class={styles.Onboarding}>
-    <div class={styles.Header}>
+    <div class={styles.Column}>
       <div class={styles.Brand}>
         <img src="/icon.svg" alt="" />
-        <span>Welcome to Rosemyne</span>
+        <div>
+          <b>Welcome to Rosemyne</b>
+          <span>Step {step() + 1} of {steps.length}</span>
+        </div>
       </div>
-      <div class={styles.Progress}>
-        <For each={steps}>{(item, index) =>
-          <div
-            class={styles.Dot}
-            classList={{ [styles.DotActive]: index() === step(), [styles.DotDone]: index() < step() }}
-            title={item.title}
-          />
-        }</For>
-      </div>
-    </div>
 
-    <div class={styles.Body}>
-      <Show when={loaded()}>
-        <div class={styles.StepHeading}>
-          <h2>{steps[step()].title}</h2>
-          <p>{steps[step()].description}</p>
+      <div class={styles.Steps} style={{ "--segments": steps.length }}>
+        <div class={styles.Track}>
+          <div class={styles.Bars}>
+            <For each={steps}>{(_, index) => <i onClick={() => goTo(index())} />}</For>
+          </div>
+          <div class={`${styles.Bars} ${styles.Filled}`} style={fillClip()} aria-hidden="true">
+            <For each={steps}>{() => <i />}</For>
+          </div>
         </div>
-        <div class={styles.StepContent}>
-          {steps[step()].content()}
+        <div class={styles.Labels}>
+          <For each={steps}>{(item, index) =>
+            <button
+              type="button"
+              classList={{ [styles.Current]: index() === step(), [styles.Done]: index() < step() }}
+              onClick={() => goTo(index())}
+            >
+              {item.title}
+            </button>
+          }</For>
         </div>
-      </Show>
+      </div>
+
+      <div class={styles.Body}>
+        <Show when={loaded() && current()} keyed>
+          {item => (
+            <div class={styles.Step} classList={{ [styles.FromLeft]: direction() < 0 }}>
+              <div class={styles.StepHeading}>
+                <h2>{item.title}</h2>
+                <p>{item.description}</p>
+              </div>
+              <SettingsEmbedded.Provider value={true}>
+                {item.content()}
+              </SettingsEmbedded.Provider>
+            </div>
+          )}
+        </Show>
+      </div>
     </div>
 
     <div class={styles.Footer}>
-      <Button onClick={finish}>Skip onboarding</Button>
-      <div class={styles.NavButtons}>
-        <Button disabled={step() === 0} onClick={back}>Back</Button>
-        <Button filled color="var(--base-blue)" onClick={next}>{isLast() ? "Finish" : "Next"}</Button>
+      <div class={styles.FooterInner}>
+        <Button variant="ghost" onClick={finish}>Skip setup</Button>
+        <div class={styles.NavButtons}>
+          <Button disabled={step() === 0} onClick={back}>Back</Button>
+          <Button variant="primary" onClick={next}>{isLast() ? "Finish" : "Next"}</Button>
+        </div>
       </div>
     </div>
   </div>

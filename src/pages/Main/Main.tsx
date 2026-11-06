@@ -3,34 +3,40 @@ import styles from "./Main.module.scss";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Event as TauriEvent } from "@tauri-apps/api/event";
 import { createStore, produce, reconcile } from "solid-js/store";
-import { HistoryCursor, HistorySort, HistoryTypeCounts, ImageEditSession, ImageHistoryData, ImportFailedEvent, TagMetadata, TagValue, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
-import { ImageViewerApi } from "../../types";
+import { HistoryCursor, HistorySort, HistoryTypeCounts, ImageEditSession, ImageHistoryData, ImportFailedEvent, TagMetadata, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
+import { ImageViewerApi, ShortcutBinding } from "../../types";
 import { saveScreenshot } from "@core/helpers/saveScreenshot";
 import TagFilters from "./TagFilter/TagFilters";
-import SavedFilterBar from "./TagFilter/SavedFilterBar/SavedFilterBar";
 import FilterToolbar from "./TagFilter/FilterToolbar/FilterToolbar";
+import FilterPills from "./TagFilter/FilterPills/FilterPills";
 import useTagFilterState, { augmentTags, matchTagsToFilter } from "../../states/tagFilterState";
 import { onboardingJustFinished } from "../../states/onboardingState";
+import useSettingsState from "@core/states/settingsState";
 import Modal from "@core/components/Modal/Modal";
 import Button from "@core/components/Button/Button";
 import ImageViewer from "@core/components/ImageViewer/ImageViewer";
 import SideNavItem from "@core/components/SideNav/SideNavItem";
+import Tooltip from "@core/components/Tooltip/Tooltip";
+import EmptyState from "@core/components/EmptyState/EmptyState";
+import Skeleton from "@core/components/Skeleton/Skeleton";
+import KeyRenderer from "@core/components/KeyRenderer/KeyRenderer";
+import { Spinner } from "@core/components/Progress/Progress";
 import { useNavigate } from "@solidjs/router";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { describeUploaderError } from "@core/components/UploaderCreator/UploaderCreator";
-import UploadErrorDetailsModal, { errorHasRequestDetails } from "@core/components/UploadErrorDetailsModal/UploadErrorDetailsModal";
+import UploadErrorDetailsModal from "@core/components/UploadErrorDetailsModal/UploadErrorDetailsModal";
 import { UploaderCreationError } from "@core/types/request";
-import { Camera, CloudUpload, Copy, ExternalLink, File, FileSearch, FileSymlink, FolderOpen, FolderSymlink, Link, Pencil, Play, RefreshCw, ScrollText, Settings2, Tag, Trash2, Video } from "lucide-solid";
+import { Camera, CloudUpload, Copy, ExternalLink, File, FileSymlink, FolderOpen, FolderSymlink, Import, Link, LucideIcon, Pencil, ScrollText, SearchX, Settings2, Tag, Trash2, Video } from "lucide-solid";
 import pkg from "../../../package.json";
 import useToastState from "@core/states/toastState";
-import { LARGE_VIDEO_BYTES, generateVideoThumbnail } from "@core/helpers/videoThumbnail";
 import { checkForUpdate } from "@core/helpers/updater";
-import { formatSystemDateTime, loadSystemDateTimePatterns } from "@core/helpers/systemDateFormat";
+import { loadSystemDateTimePatterns } from "@core/helpers/systemDateFormat";
 import { useContextMenu } from "@core/components/ContextMenu/useContextMenu";
-import ContextMenu from "@core/components/ContextMenu/ContextMenu";
+import ContextMenu, { ContextMenuSeparator } from "@core/components/ContextMenu/ContextMenu";
 import ContextMenuItem from "@core/components/ContextMenu/ContextMenuItem/ContextMenuItem";
 import { startFileDrag } from "@core/helpers/fileDrag";
 import TagEditorModal from "./TagEditor/TagEditorModal";
+import HistoryCard, { savedUrl } from "./HistoryCard/HistoryCard";
 
 const PAGE_SIZE = 60;
 const CARD_HEIGHT = 230;
@@ -38,10 +44,35 @@ const GAP = 12;
 const ROW_HEIGHT = CARD_HEIGHT + GAP;
 const MIN_COL_WIDTH = 210;
 const OVERSCAN_ROWS = 3;
+const SKELETON_CARDS = 15;
+const FLASH_MS = 2600;
+const ENTRANCE_MS = 700;
+const REMOVE_MS = 220;
+const EMPTY_COUNTS: HistoryTypeCounts = { image: 0, video: 0, file: 0 };
+
+type UpdateStatus = { kind: "upToDate" } | { kind: "available", version: string } | null;
+
+function CaptureButton(props: { icon: LucideIcon, label: string, tooltip: string, keys: string[] | undefined, primary?: boolean, onClick: () => void }) {
+  let button: HTMLButtonElement | undefined;
+
+  return (
+    <button ref={button} type="button" class={styles.Capture} classList={{ [styles.Primary]: props.primary ?? false }} onClick={() => props.onClick()}>
+      <span class={styles.Tile}><props.icon size={17} /></span>
+      <b>{props.label}</b>
+      <Tooltip anchor={() => button} text={props.tooltip} keys={props.keys} />
+    </button>
+  );
+}
+
+function shortcutChars(binding: ShortcutBinding | undefined): string[] | undefined {
+  const keys = binding?.keys.keys.map(key => key.char);
+  return keys && keys.length > 0 ? keys : undefined;
+}
 
 function Main() {
   const [items, setItems] = createStore<Array<ImageHistoryData>>([]);
-  const [counts, setCounts] = createStore<HistoryTypeCounts>({ image: 0, video: 0, file: 0 });
+  const [counts, setCounts] = createStore<HistoryTypeCounts>({ ...EMPTY_COUNTS });
+  const [chipCounts, setChipCounts] = createStore<HistoryTypeCounts>({ ...EMPTY_COUNTS });
   const [sort, setSort] = createSignal<HistorySort>({ field: "date", direction: "desc" });
   const [loading, setLoading] = createSignal(true);
   const [metadata, setMetadata] = createSignal<TagMetadata | null>(null);
@@ -52,59 +83,90 @@ function Main() {
   const [pendingReupload, setPendingReupload] = createSignal<ImageHistoryData | null>(null);
   const [editingTags, setEditingTags] = createSignal<ImageHistoryData | null>(null);
   const [viewingUploadError, setViewingUploadError] = createSignal<UploaderCreationError | null>(null);
-  const [cardStatus, setCardStatus] = createStore<{ [fileName: string]: string | undefined }>({});
-  const statusTimers: { [fileName: string]: number } = {};
-  // Live upload state, driven entirely by backend events so status is correct
-  // whether this window was open when the upload started or not.
+  const [cardFlash, setCardFlash] = createStore<{ [fileName: string]: string | undefined }>({});
+  const flashTimers: { [fileName: string]: number } = {};
+  // Driven by backend events, so status is right whether or not this window was open when the upload started.
   const [uploadProgress, setUploadProgress] = createStore<{ [fileName: string]: { sent: number, total: number } | undefined }>({});
   const [uploadSuccess, setUploadSuccess] = createStore<{ [fileName: string]: { copied: boolean } | undefined }>({});
   const uploadSuccessTimers: { [fileName: string]: number } = {};
-  const { root, filterSnapshot, filtersOpen } = useTagFilterState;
+  const [removing, setRemoving] = createStore<{ [fileName: string]: boolean | undefined }>({});
+  const [animateEntrance, setAnimateEntrance] = createSignal(false);
+  const [dropActive, setDropActive] = createSignal(false);
+  const [updateStatus, setUpdateStatus] = createSignal<UpdateStatus>(null);
+  const [fitThumbnails, setFitThumbnails] = createSignal(false);
+  const { root, quick, queryFilter, filtersOpen, anyFilterActive, clearFilter } = useTagFilterState;
+  const { shortcuts } = useSettingsState;
   const { pushToast } = useToastState;
   const navigate = useNavigate();
 
   const [viewportWidth, setViewportWidth] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
   const [scrollTop, setScrollTop] = createSignal(0);
-  // The filters panel scrolls with the grid, so row math subtracts its height.
+  // The filter header scrolls with the grid, so row math subtracts its height.
   const [headerHeight, setHeaderHeight] = createSignal(0);
   let scrollEl: HTMLDivElement | undefined;
   let filtersEl: HTMLDivElement | undefined;
+  let entranceTimer: number | undefined;
+  let draggingOwnCard = false;
 
-  const filterActive = createMemo(() => root.children.length > 0);
   const total = createMemo(() => counts.image + counts.video + counts.file);
-
   const columns = createMemo(() => Math.max(1, Math.floor((viewportWidth() + GAP) / (MIN_COL_WIDTH + GAP))));
   const loadedRows = createMemo(() => Math.ceil(items.length / columns()));
   const totalHeight = createMemo(() => loadedRows() * ROW_HEIGHT);
   const contentScrollTop = createMemo(() => Math.max(0, scrollTop() - headerHeight()));
+  const scrolled = createMemo(() => scrollTop() > 0);
   const startRow = createMemo(() => Math.max(0, Math.floor(contentScrollTop() / ROW_HEIGHT) - OVERSCAN_ROWS));
   const endRow = createMemo(() =>
     Math.min(loadedRows(), Math.ceil((contentScrollTop() + viewportHeight()) / ROW_HEIGHT) + OVERSCAN_ROWS),
   );
   const visibleItems = createMemo(() => items.slice(startRow() * columns(), endRow() * columns()));
   const offsetY = createMemo(() => startRow() * ROW_HEIGHT);
+  const gridColumns = createMemo(() => `repeat(${columns()}, minmax(0, 1fr))`);
 
-  // A reload bumps this; in-flight appends whose token is stale are discarded.
+  const screenshotKeys = createMemo(() => shortcutChars(shortcuts.find(binding => binding.method.type === "screenshot")));
+  const recordKeys = createMemo(() => shortcutChars(shortcuts.find(binding => binding.method.type === "record")));
+  const scrollingKeys = createMemo(() => shortcutChars(shortcuts.find(binding => binding.method.type === "scrollingCapture")));
+  const emptyKeys = createMemo(() => ({ keys: (screenshotKeys() ?? []).map(char => ({ key: char, char })) }));
+  const updateTooltip = createMemo(() => {
+    const status = updateStatus();
+    if (!status) return undefined;
+    return status.kind === "upToDate" ? "Up to date" : `Update available: v${status.version}`;
+  });
+  const showSkeleton = createMemo(() => loading() && items.length === 0);
+  let footerEl: HTMLDivElement | undefined;
+
+  // A reload bumps this, so in-flight appends whose token is stale get discarded.
   let requestToken = 0;
   let filterTimer: number | undefined;
-  // Keyset cursor of the last loaded row; the backend only counts on the
-  // first (cursor-less) page.
+  // Keyset cursor of the last loaded row. The backend only counts on the first, cursor-less page.
   let nextCursor: HistoryCursor | null = null;
 
   async function reload() {
     const token = ++requestToken;
     setLoading(true);
     try {
-      const page = await safeInvoke("query_history", { filter: filterSnapshot(), sort: sort(), cursor: null, limit: PAGE_SIZE });
+      const filter = queryFilter();
+      // Each type chip's count reflects every other active filter, so it needs its own count without the type rule.
+      const [page, chipPage] = await Promise.all([
+        safeInvoke("query_history", { filter, sort: sort(), cursor: null, limit: PAGE_SIZE }),
+        quick.types.length > 0
+          ? safeInvoke("query_history", { filter: queryFilter(true), sort: sort(), cursor: null, limit: 1 })
+          : Promise.resolve(null),
+      ]);
       if (token !== requestToken) return;
-      setCounts(page.counts ?? { image: 0, video: 0, file: 0 });
+
+      setCounts(page.counts ?? { ...EMPTY_COUNTS });
+      setChipCounts((chipPage ?? page).counts ?? { ...EMPTY_COUNTS });
       nextCursor = page.nextCursor;
       setItems(reconcile(page.items, { key: "fileName" }));
       if (scrollEl) scrollEl.scrollTop = 0;
       setScrollTop(0);
+
+      clearTimeout(entranceTimer);
+      setAnimateEntrance(true);
+      entranceTimer = window.setTimeout(() => setAnimateEntrance(false), ENTRANCE_MS);
     } catch (error) {
-      if (token === requestToken) pushToast(`Failed to load screenshots: ${errorText(error)}`, "error", 6000);
+      if (token === requestToken) pushToast(`Failed to load captures: ${errorText(error)}`, "error", 6000);
     } finally {
       if (token === requestToken) setLoading(false);
     }
@@ -115,19 +177,19 @@ function Main() {
     const token = requestToken;
     setLoading(true);
     try {
-      const page = await safeInvoke("query_history", { filter: filterSnapshot(), sort: sort(), cursor: nextCursor, limit: PAGE_SIZE });
+      const page = await safeInvoke("query_history", { filter: queryFilter(), sort: sort(), cursor: nextCursor, limit: PAGE_SIZE });
       if (token !== requestToken) return;
       nextCursor = page.nextCursor;
       setItems(produce(list => list.push(...page.items)));
     } catch (error) {
-      if (token === requestToken) pushToast(`Failed to load screenshots: ${errorText(error)}`, "error", 6000);
+      if (token === requestToken) pushToast(`Failed to load captures: ${errorText(error)}`, "error", 6000);
     } finally {
       if (token === requestToken) setLoading(false);
     }
   }
 
-  // Re-query (debounced) whenever the filter tree changes.
-  createEffect(on(() => JSON.stringify(root), () => {
+  // Re-query (debounced) whenever the tree or a quick filter changes.
+  createEffect(on(() => JSON.stringify({ root, quick }), () => {
     clearTimeout(filterTimer);
     filterTimer = window.setTimeout(reload, 250);
   }, { defer: true }));
@@ -141,22 +203,26 @@ function Main() {
     }
   });
 
+  onCleanup(() => {
+    clearTimeout(filterTimer);
+    clearTimeout(entranceTimer);
+  });
+
   onMount(async () => {
     loadSystemDateTimePatterns();
 
-    // Real gate: only ever show onboarding once. Left active so the flow
-    // itself works end-to-end; it's `onboardingJustFinished` (not this
-    // check) that's currently the workaround, see its own comment.
     const general = await safeInvoke("get_general_settings");
     if (!general.hasCompletedOnboarding && !onboardingJustFinished()) {
       navigate("/onboarding", { replace: true });
       return;
     }
+    setFitThumbnails(general.fitCardThumbnails);
 
     if (general.checkForUpdatesOnStartup) {
       checkForUpdate()
         .then(update => {
-          if (update) pushToast(`Update available: v${update.version}, see Settings → Updates`, "info", 8000);
+          setUpdateStatus(update ? { kind: "available", version: update.version } : { kind: "upToDate" });
+          if (update) pushToast(`Update available: v${update.version}, see Settings › Updates`, "info", 8000);
         })
         .catch(error => console.error("Failed to check for updates", error));
     }
@@ -177,19 +243,18 @@ function Main() {
       onCleanup(() => filtersObserver.disconnect());
     }
 
-    // Tag metadata is a full-table scan; load it in parallel so it never blocks
-    // the (fast, indexed) first page of screenshots or the filter-less initial paint.
+    // A full-table scan, loaded in parallel so it never blocks the first page.
     refreshTagMetadata();
 
     const unlistenSaved = await getCurrentWebview().listen("screenshot://new-saved-image", (event: TauriEvent<ImageHistoryData>) => {
-      // A filter being active doesn't mean the new item is excluded, check
-      // it against the current filter tree instead of always hiding it.
+      // An active filter doesn't mean the new item is excluded, so check it against the filter.
       const { fileName, filePath, type, dateTime, tags, fileSize } = event.payload;
       const augmented = augmentTags(tags, fileName, filePath, type, new Date(dateTime).getTime(), fileSize);
-      if (matchTagsToFilter(root, augmented)) {
+      if (matchTagsToFilter(queryFilter(), augmented)) {
         setItems(produce(screenshots => screenshots.unshift(event.payload)));
         setCounts(type, current => current + 1);
       }
+      if (matchTagsToFilter(queryFilter(true), augmented)) setChipCounts(type, current => current + 1);
       pushToast("Saved to history", "success", 3000);
     });
     onCleanup(() => unlistenSaved());
@@ -223,10 +288,23 @@ function Main() {
     });
     onCleanup(() => unlistenUploadFailed());
 
-    // Dropping files anywhere on the window imports them (the backend copies each
-    // file in and emits `screenshot://new-saved-image`, handled above).
+    // Dropping files anywhere on the window imports them. Dragging one of our own cards over it does nothing.
     const unlistenDrop = await getCurrentWebview().onDragDropEvent(event => {
-      if (event.payload.type === "drop") importPaths(event.payload.paths);
+      switch (event.payload.type) {
+        case "enter":
+        case "over":
+          setDropActive(!draggingOwnCard);
+          break;
+        case "leave":
+          setDropActive(false);
+          draggingOwnCard = false;
+          break;
+        case "drop":
+          setDropActive(false);
+          if (!draggingOwnCard) importPaths(event.payload.paths);
+          draggingOwnCard = false;
+          break;
+      }
     });
     onCleanup(() => unlistenDrop());
 
@@ -235,8 +313,7 @@ function Main() {
     });
     onCleanup(() => unlistenImportFailed());
 
-    // Autostart and context-menu imports launch this window hidden (tray-only); a manual
-    // launch (including the very first one, before autostart is ever enabled) shows it.
+    // Autostart and context-menu imports launch this window hidden (tray only). A manual launch shows it.
     const launchedInBackground = await safeInvoke("launched_in_background", undefined);
     if (!launchedInBackground) await getCurrentWebview().window.show();
     await reload();
@@ -260,104 +337,31 @@ function Main() {
     }
   }
 
-  function flashStatus(fileName: string, message: string, clearAfterMs = 3000) {
-    clearTimeout(statusTimers[fileName]);
-    setCardStatus(fileName, message);
-
-    if (clearAfterMs > 0) {
-      statusTimers[fileName] = window.setTimeout(() => setCardStatus(fileName, undefined), clearAfterMs);
-    }
+  function flash(fileName: string, message: string) {
+    clearTimeout(flashTimers[fileName]);
+    setCardFlash(fileName, undefined);
+    queueMicrotask(() => setCardFlash(fileName, message));
+    flashTimers[fileName] = window.setTimeout(() => setCardFlash(fileName, undefined), FLASH_MS);
   }
 
   function errorText(error: unknown): string {
     return typeof error === "string" ? error : describeUploaderError(error);
   }
 
+  // A failed action is something the user might miss, so it's a toast. A success is a chip on the card.
+  async function runCardAction(screenshot: ImageHistoryData, action: () => Promise<unknown>, success?: string, failure = "That didn't work") {
+    try {
+      await action();
+      if (success) flash(screenshot.fileName, success);
+    } catch (error) {
+      pushToast(`${failure}: ${errorText(error)}`, "error", 6000);
+    }
+  }
+
   function refreshTagMetadata() {
     safeInvoke("get_tag_metadata")
       .then(setMetadata)
       .catch(error => console.error("Failed to load tag metadata", error));
-  }
-
-  function sourceWindow(screenshot: ImageHistoryData): string | null {
-    const windows = screenshot.tags?.["Windows"];
-    if (!Array.isArray(windows)) return null;
-
-    let bestName: string | null = null;
-    let bestPercentage = -1;
-
-    for (const entry of windows) {
-      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) continue;
-
-      const record = entry as { [key: string]: TagValue };
-      const name = record["Window Name"];
-      const percentage = record["Screenshot Percentage"];
-
-      if (typeof name !== "string") continue;
-
-      const value = typeof percentage === "number" ? percentage : 0;
-      if (value > bestPercentage) {
-        bestPercentage = value;
-        bestName = name;
-      }
-    }
-
-    return bestName;
-  }
-
-  function savedUrl(fileName: string): string {
-    return `http://rosemyne-photo.localhost/saved/${fileName}`;
-  }
-
-  function VideoCard(props: { screenshot: ImageHistoryData }) {
-    const [display, setDisplay] = createSignal<"thumb" | "video" | "placeholder">("thumb");
-    const [thumbVersion, setThumbVersion] = createSignal(0);
-    let triedGenerating = false;
-
-    async function onThumbnailMissing() {
-      if (triedGenerating) {
-        setDisplay(videoFallbackAllowed() ? "video" : "placeholder");
-        return;
-      }
-      triedGenerating = true;
-
-      // While the thumbnail generates, small files may show the (now cheap,
-      // Range-streamed) video element directly; large ones get a placeholder.
-      setDisplay(videoFallbackAllowed() ? "video" : "placeholder");
-
-      if (await generateVideoThumbnail(props.screenshot.fileName)) {
-        setThumbVersion(version => version + 1);
-        setDisplay("thumb");
-      }
-    }
-
-    function videoFallbackAllowed() {
-      return (props.screenshot.fileSize ?? 0) <= LARGE_VIDEO_BYTES;
-    }
-
-    return <Switch>
-      <Match when={display() === "thumb"}>
-        <img
-          src={`http://rosemyne-photo.localhost/thumb/${props.screenshot.fileName}?v=${thumbVersion()}`}
-          loading="lazy"
-          onError={onThumbnailMissing}
-        />
-      </Match>
-      <Match when={display() === "video"}>
-        <video src={savedUrl(props.screenshot.fileName)} preload="metadata" muted />
-      </Match>
-      <Match when={true}>
-        <div class={styles.FilePlaceholder}>
-          <Play size={40} />
-          <span>{fileExt(props.screenshot.fileName)}</span>
-        </div>
-      </Match>
-    </Switch>;
-  }
-
-  function fileExt(fileName: string): string {
-    const dot = fileName.lastIndexOf(".");
-    return dot >= 0 ? fileName.slice(dot + 1).toUpperCase() : "FILE";
   }
 
   function updateItem(fileName: string, update: (entry: ImageHistoryData) => void) {
@@ -367,17 +371,34 @@ function Main() {
     }));
   }
 
-  async function copyImage(screenshot: ImageHistoryData) {
-    try {
-      await safeInvoke("copy_screenshot_to_clipboard", { fileName: screenshot.fileName });
-      flashStatus(screenshot.fileName, "Copied to clipboard");
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
+  const copyImage = (screenshot: ImageHistoryData) =>
+    runCardAction(screenshot, () => safeInvoke("copy_screenshot_to_clipboard", { fileName: screenshot.fileName }), "Copied to clipboard", "Couldn't copy the image");
+
+  const copyFile = (screenshot: ImageHistoryData) =>
+    runCardAction(screenshot, () => safeInvoke("copy_file_to_clipboard", { fileName: screenshot.fileName }), "File copied", "Couldn't copy the file");
+
+  const copyLink = (screenshot: ImageHistoryData) => screenshot.url
+    ? runCardAction(screenshot, () => safeInvoke("copy_text_to_clipboard", { text: screenshot.url! }), "Link copied", "Couldn't copy the link")
+    : Promise.resolve();
+
+  const openFolder = (screenshot: ImageHistoryData) =>
+    runCardAction(screenshot, () => safeInvoke("show_in_folder", { fileName: screenshot.fileName }), "Opened in Explorer", "Couldn't open the folder");
+
+  const openFile = (screenshot: ImageHistoryData) =>
+    runCardAction(screenshot, () => safeInvoke("open_file", { fileName: screenshot.fileName }), undefined, "Couldn't open the file");
+
+  const copyFullPath = (screenshot: ImageHistoryData) =>
+    runCardAction(screenshot, () => safeInvoke("copy_text_to_clipboard", { text: screenshot.filePath }), "Path copied", "Couldn't copy the path");
+
+  const copyFolderPath = (screenshot: ImageHistoryData) =>
+    runCardAction(screenshot, () => safeInvoke("copy_text_to_clipboard", { text: folderPath(screenshot.filePath) }), "Folder path copied", "Couldn't copy the path");
+
+  function folderPath(filePath: string): string {
+    const cut = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+    return cut >= 0 ? filePath.slice(0, cut) : filePath;
   }
 
-  // Stages the saved image back into ScreenshotManager so the viewer can edit it
-  // through the same path a fresh capture uses; the save writes a new entry.
+  // Stages the saved image back into ScreenshotManager so the viewer can edit it like a fresh capture.
   async function startEdit(screenshot: ImageHistoryData) {
     if (screenshot.type !== "image") return;
 
@@ -390,8 +411,7 @@ function Main() {
     }
   }
 
-  // Frees the staged temp image for an abandoned edit. A successful save consumes
-  // it backend-side instead, so that path clears the session without calling this.
+  // Frees the staged temp image for an abandoned edit. A successful save consumes it backend-side instead.
   function cancelEdit() {
     const session = editSession();
     if (!session) return;
@@ -416,8 +436,7 @@ function Main() {
     }
 
     try {
-      // No capture sound: this is an edit of an existing image, not a new capture.
-      // The backend still runs the normal persist + auto-upload tail from here.
+      // No capture sound: this edits an existing image. The backend still runs the persist and auto-upload tail.
       await saveScreenshot(session.imageId, { x: final.x, y: final.y, width: final.width, height: final.height }, final.image, false);
       setEditSession(null);
       setPreview(null);
@@ -426,80 +445,15 @@ function Main() {
     }
   }
 
-  async function copyLink(screenshot: ImageHistoryData) {
-    if (!screenshot.url) return;
-
-    try {
-      await safeInvoke("copy_text_to_clipboard", { text: screenshot.url });
-      flashStatus(screenshot.fileName, "Link copied");
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
-  }
-
-  async function copyFile(screenshot: ImageHistoryData) {
-    try {
-      await safeInvoke("copy_file_to_clipboard", { fileName: screenshot.fileName });
-      flashStatus(screenshot.fileName, "File copied to clipboard");
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
-  }
-
-  // Fire-and-forget: the backend persists and broadcasts progress/success/failure
-  // via `upload://*` events (handled in onMount) whether this window is open or
-  // not, so there's nothing to await or reflect here beyond starting the request.
+  // Fire and forget: progress, success and failure arrive as `upload://*` events.
   function uploadImage(screenshot: ImageHistoryData) {
     safeInvoke("upload_image", { fileName: screenshot.fileName }).catch(() => { });
   }
 
-  // Uploading again would overwrite the previously saved link, so confirm first
-  // when one already exists.
+  // Uploading again replaces the saved link, so that asks first.
   function requestUpload(screenshot: ImageHistoryData) {
-    if (screenshot.url) {
-      setPendingReupload(screenshot);
-    } else {
-      uploadImage(screenshot);
-    }
-  }
-
-  async function openFolder(screenshot: ImageHistoryData) {
-    try {
-      await safeInvoke("show_in_folder", { fileName: screenshot.fileName });
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
-  }
-
-  async function openFile(screenshot: ImageHistoryData) {
-    try {
-      await safeInvoke("open_file", { fileName: screenshot.fileName });
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
-  }
-
-  async function copyFullPath(screenshot: ImageHistoryData) {
-    try {
-      await safeInvoke("copy_text_to_clipboard", { text: screenshot.filePath });
-      flashStatus(screenshot.fileName, "Path copied");
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
-  }
-
-  async function copyFolderPath(screenshot: ImageHistoryData) {
-    try {
-      await safeInvoke("copy_text_to_clipboard", { text: folderPath(screenshot.filePath) });
-      flashStatus(screenshot.fileName, "Folder path copied");
-    } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
-    }
-  }
-
-  function folderPath(filePath: string): string {
-    const cut = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-    return cut >= 0 ? filePath.slice(0, cut) : filePath;
+    if (screenshot.url) setPendingReupload(screenshot);
+    else uploadImage(screenshot);
   }
 
   async function deleteImage(screenshot: ImageHistoryData) {
@@ -507,249 +461,185 @@ function Main() {
 
     try {
       await safeInvoke("delete_screenshot", { fileName: screenshot.fileName });
+    } catch (error) {
+      pushToast(`Couldn't delete "${screenshot.fileName}": ${errorText(error)}`, "error", 6000);
+      return;
+    }
+
+    setRemoving(screenshot.fileName, true);
+    window.setTimeout(() => {
       setItems(items.filter(e => e.fileName !== screenshot.fileName));
+      setRemoving(screenshot.fileName, undefined);
       setCounts(screenshot.type, current => Math.max(0, current - 1));
+      setChipCounts(screenshot.type, current => Math.max(0, current - 1));
+    }, REMOVE_MS);
+  }
+
+  async function capture(command: "full_screenshot" | "record_screen" | "scrolling_capture_screen", failure: string) {
+    try {
+      await safeInvoke(command);
     } catch (error) {
-      flashStatus(screenshot.fileName, errorText(error));
+      pushToast(`${failure}: ${errorText(error)}`, "error", 6000);
     }
   }
 
-  async function takeScreenshot() {
-    try {
-      await safeInvoke('full_screenshot');
-    } catch (error) {
-      pushToast(`Failed to take screenshot: ${errorText(error)}`, "error", 6000);
-    }
-  }
-
-  async function recordScreen() {
-    try {
-      await safeInvoke('record_screen');
-    } catch (error) {
-      pushToast(`Failed to start recording: ${errorText(error)}`, "error", 6000);
-    }
-  }
-
-  async function scrollingCaptureScreen() {
-    try {
-      await safeInvoke('scrolling_capture_screen');
-    } catch (error) {
-      pushToast(`Failed to start scrolling capture: ${errorText(error)}`, "error", 6000);
-    }
+  function focusSearch() {
+    document.querySelector<HTMLInputElement>(`.${styles.FiltersHeader} input`)?.focus();
   }
 
   return <div class={styles.Main}>
-    <div class={styles.SideBar}>
-      <div class={styles.Actions}>
-        <Button filled color="var(--base-blue)" onClick={takeScreenshot}>
-          <Camera size={16} />
-          Take Screenshot
-        </Button>
-        <Button filled color="var(--base-blue)" onClick={recordScreen}>
-          <Video size={16} />
-          Record Screen
-        </Button>
-        <Button filled color="var(--base-blue)" onClick={scrollingCaptureScreen}>
-          <ScrollText size={16} />
-          Scrolling Capture
-        </Button>
+    <aside class={styles.SideBar}>
+      <div class={styles.SideLabel}>Capture</div>
+      <CaptureButton primary icon={Camera} label="Screenshot" tooltip="Take a screenshot" keys={screenshotKeys()} onClick={() => capture("full_screenshot", "Failed to take screenshot")} />
+      <CaptureButton icon={Video} label="Record screen" tooltip="Record the screen" keys={recordKeys()} onClick={() => capture("record_screen", "Failed to start recording")} />
+      <CaptureButton icon={ScrollText} label="Scrolling capture" tooltip="Scrolling capture" keys={scrollingKeys()} onClick={() => capture("scrolling_capture_screen", "Failed to start scrolling capture")} />
+      <div class={styles.SideSpacer} />
+      <SideNavItem icon={<Settings2 />} onClick={() => navigate("/settings/general")}>
+        Settings
+      </SideNavItem>
+      <div ref={footerEl} class={styles.Footer}>
+        <Show when={updateStatus()}>
+          {status => <span class={styles.UpdateDot} classList={{ [styles.Available]: status().kind === "available" }} />}
+        </Show>
+        v{pkg.version}
       </div>
-      <div class={styles.SettingsRow}>
-        <SideNavItem icon={<Settings2 />} onClick={() => navigate("/settings/general")}>
-          Settings
-        </SideNavItem>
-      </div>
-      <div class={styles.Footer}>v{pkg.version}</div>
-    </div>
-    <div class={styles.Content}>
-      <div class={styles.ScreenshotListing} ref={scrollEl} onScroll={onScroll}>
-        <div class={styles.FiltersHeader} ref={filtersEl}>
+      <Tooltip anchor={() => footerEl} text={updateTooltip()} />
+    </aside>
+
+    <section class={styles.Content}>
+      <div class={styles.Listing} ref={scrollEl} onScroll={onScroll}>
+        <div class={styles.FiltersHeader} classList={{ [styles.Scrolled]: scrolled() }} ref={filtersEl}>
           <div class={styles.FilterPanel}>
-            <FilterToolbar sort={sort()} onSortChange={setSort} counts={counts} />
-            <Show when={filtersOpen()}>
-              <SavedFilterBar />
-              <Show when={metadata()}>
-                {meta => <TagFilters tagMap={meta().schema} />}
-              </Show>
+            <FilterToolbar sort={sort()} onSortChange={setSort} counts={chipCounts} />
+            <Show when={!filtersOpen()}>
+              <FilterPills onSearchClick={focusSearch} />
             </Show>
+            <div class={styles.Collapse} classList={{ [styles.Open]: filtersOpen() }}>
+              <div>
+                <div class={styles.CollapseInner}>
+                  <Show when={metadata()}>
+                    {meta => <TagFilters tagMap={meta().schema} />}
+                  </Show>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <Show when={items.length > 0} fallback={
-          <Show when={loading()} fallback={
-            <div class={styles.EmptyState}>
-              <span>{filterActive() ? "No screenshots match the filter" : "No screenshots yet"}</span>
-              <Show when={!filterActive()}>
-                <span>Press the Screenshot button or your shortcut to take one.</span>
-              </Show>
-            </div>
-          }>
-            <div class={styles.CenterLoader}><div class={styles.Spinner} /></div>
-          </Show>
-        }>
-          <div class={styles.Viewport} style={{ height: `${totalHeight()}px` }}>
-            <div
-              class={styles.Grid}
-              style={{
-                transform: `translateY(${offsetY()}px)`,
-                "grid-template-columns": `repeat(${columns()}, minmax(0, 1fr))`,
-              }}
-            >
-              <For each={visibleItems()}>
-                {screenshot => {
-                  const { show: showContextMenu, id: menuId } = useContextMenu();
 
-                  return <>
-                    <div
-                      class={styles.Screenshot}
-                      onContextMenu={event => { event.preventDefault(); showContextMenu(event); }}
-                    >
-                      <div
-                        class={styles.ImageWrap}
-                        draggable="true"
-                        onDragStart={event => startFileDrag(event, screenshot)}
-                        onClick={() => setPreview(screenshot)}
-                      >
-                        <Switch>
-                          <Match when={screenshot.type === "video"}>
-                            <VideoCard screenshot={screenshot} />
-                            <div class={styles.PlayBadge}><Play size={24} /></div>
-                          </Match>
-                          <Match when={screenshot.type === "file"}>
-                            <div class={styles.FilePlaceholder}>
-                              <File size={40} />
-                              <span>{fileExt(screenshot.fileName)}</span>
-                            </div>
-                          </Match>
-                          <Match when={true}>
-                            <img src={savedUrl(screenshot.fileName)} loading="lazy" />
-                          </Match>
-                        </Switch>
-                      </div>
-                      <div class={styles.Meta}>
-                        <div class={styles.NameRow}>
-                          <div class={styles.FileName} title={screenshot.fileName}>{screenshot.fileName}</div>
-                          <Button
-                            isIcon
-                            tooltip={screenshot.type === "image" ? "Copy image" : "Copy file"}
-                            style={{ height: '22px', width: '22px', 'min-width': '22px' }}
-                            onClick={() => screenshot.type === "image" ? copyImage(screenshot) : copyFile(screenshot)}
-                          >
-                            <Copy size={14} />
-                          </Button>
-                        </div>
-                        <div class={styles.Date}>{formatSystemDateTime(new Date(screenshot.dateTime))}</div>
-                        <Show when={sourceWindow(screenshot)}>
-                          {name => <div class={styles.Tag} title={name()}>{name()}</div>}
-                        </Show>
-                        <Show when={screenshot.url}>
-                          {url => <div class={styles.UploadedRow}>
-                            <a class={styles.UploadedLink} href={url()} target="_blank" title={url()}>{url()}</a>
-                            <Button
-                              isIcon
-                              tooltip="Copy link"
-                              style={{ height: '22px', width: '22px', 'min-width': '22px' }}
-                              onClick={() => copyLink(screenshot)}
-                            >
-                              <Link size={13} />
-                            </Button>
-                          </div>}
-                        </Show>
-                        <Show when={cardStatus[screenshot.fileName]}>
-                          <div class={styles.Status}>{cardStatus[screenshot.fileName]}</div>
-                        </Show>
-                        <Switch>
-                          <Match when={uploadProgress[screenshot.fileName]}>
-                            {progress => {
-                              const percent = createMemo(() => progress().total > 0 ? Math.round((progress().sent / progress().total) * 100) : null);
-                              return <div class={styles.UploadBar}>
-                                <div class={styles.UploadTrack}>
-                                  <div
-                                    class={styles.UploadFill}
-                                    classList={{ [styles.Indeterminate]: percent() === null }}
-                                    style={percent() !== null ? { width: `${percent()}%` } : undefined}
-                                  />
-                                </div>
-                                <span class={styles.UploadLabel}>{percent() !== null ? `Uploading ${percent()}%` : "Uploading…"}</span>
-                              </div>;
-                            }}
-                          </Match>
-                          <Match when={uploadSuccess[screenshot.fileName]}>
-                            {success => <div class={styles.UploadBar} classList={{ [styles.Success]: true }}>
-                              <div class={styles.UploadTrack}><div class={styles.UploadFill} style={{ width: "100%" }} /></div>
-                              <span class={styles.UploadLabel}>{success().copied ? "Uploaded, link copied" : "Uploaded, copy failed"}</span>
-                            </div>}
-                          </Match>
-                          <Match when={screenshot.uploadError}>
-                            {error => <div class={styles.UploadBar} classList={{ [styles.Failed]: true }}>
-                              <div class={styles.UploadTrack}><div class={styles.UploadFill} style={{ width: "100%" }} /></div>
-                              <span class={styles.UploadLabel} title={describeUploaderError(error())}>{describeUploaderError(error())}</span>
-                              <Show when={errorHasRequestDetails(error())}>
-                                <Button
-                                  isIcon
-                                  tooltip="View request/response details"
-                                  style={{ height: '20px', width: '20px', 'min-width': '20px' }}
-                                  onClick={() => setViewingUploadError(error())}
-                                >
-                                  <FileSearch size={12} />
-                                </Button>
-                              </Show>
-                              <Button
-                                isIcon
-                                tooltip="Retry upload"
-                                style={{ height: '20px', width: '20px', 'min-width': '20px' }}
-                                onClick={() => uploadImage(screenshot)}
-                              >
-                                <RefreshCw size={12} />
-                              </Button>
-                            </div>}
-                          </Match>
-                        </Switch>
-                      </div>
-                    </div>
-                    <ContextMenu id={menuId} styles={{ width: "220px" }}>
-                      <Show when={screenshot.type === "image"} fallback={
-                        <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyFile(screenshot)}>Copy File</ContextMenuItem>
-                      }>
-                        <ContextMenuItem icon={{ icon: Pencil }} onClick={() => startEdit(screenshot)}>Edit</ContextMenuItem>
-                        <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyImage(screenshot)}>Copy Image</ContextMenuItem>
-                      </Show>
-                      <ContextMenuItem icon={{ icon: Link }} disabled={!screenshot.url} onClick={() => copyLink(screenshot)}>Copy Link</ContextMenuItem>
-                      <ContextMenuItem icon={{ icon: CloudUpload }} onClick={() => requestUpload(screenshot)}>{screenshot.url ? "Re-upload" : "Upload"}</ContextMenuItem>
-                      <div class={styles.Divider} />
-                      <ContextMenuItem icon={{ icon: ExternalLink }} onClick={() => openFile(screenshot)}>Open File</ContextMenuItem>
-                      <ContextMenuItem icon={{ icon: FolderOpen }} onClick={() => openFolder(screenshot)}>Open Containing Folder</ContextMenuItem>
-                      <div class={styles.Divider} />
-                      <ContextMenuItem icon={{ icon: FileSymlink }} onClick={() => copyFullPath(screenshot)}>Copy Full Path</ContextMenuItem>
-                      <ContextMenuItem icon={{ icon: FolderSymlink }} onClick={() => copyFolderPath(screenshot)}>Copy Folder Path</ContextMenuItem>
-                      <div class={styles.Divider} />
-                      <ContextMenuItem icon={{ icon: Tag }} onClick={() => setEditingTags(screenshot)}>Edit Tags</ContextMenuItem>
-                      <div class={styles.Divider} />
-                      <ContextMenuItem icon={{ icon: Trash2 }} danger onClick={() => setPendingDelete(screenshot)}>Delete</ContextMenuItem>
-                    </ContextMenu>
-                  </>;
-                }}
+        <Switch>
+          <Match when={showSkeleton()}>
+            <div class={styles.SkeletonGrid} style={{ "grid-template-columns": gridColumns() }}>
+              <For each={Array.from({ length: SKELETON_CARDS })}>
+                {() => (
+                  <div class={styles.SkeletonCard}>
+                    <Skeleton class={styles.SkeletonThumb} />
+                    <Skeleton class={styles.SkeletonLine} style={{ width: "70%" }} />
+                    <Skeleton class={styles.SkeletonLine} style={{ width: "45%" }} />
+                    <Skeleton class={styles.SkeletonLine} style={{ width: "58%" }} />
+                  </div>
+                )}
               </For>
             </div>
-          </div>
-          <Show when={loading()}>
-            <div class={styles.MoreLoader}><div class={styles.Spinner} /></div>
-          </Show>
-        </Show>
+          </Match>
+          <Match when={items.length === 0 && anyFilterActive()}>
+            <div class={styles.EmptyWrap}>
+              <EmptyState
+                icon={<SearchX size={24} />}
+                title="No captures match these filters"
+                action={<Button size="sm" onClick={clearFilter}>Clear filters</Button>}
+              />
+            </div>
+          </Match>
+          <Match when={items.length === 0}>
+            <div class={styles.EmptyWrap}>
+              <EmptyState icon={<Camera size={24} />} title="No captures yet">
+                <Show when={screenshotKeys()} fallback="Press the Screenshot button to take one.">
+                  Press <KeyRenderer keys={emptyKeys()} size="sm" /> or the Screenshot button to take one.
+                </Show>
+              </EmptyState>
+            </div>
+          </Match>
+          <Match when={true}>
+            <div class={styles.Viewport} style={{ height: `${totalHeight()}px` }}>
+              <div class={styles.Grid} style={{ transform: `translateY(${offsetY()}px)`, "grid-template-columns": gridColumns() }}>
+                <For each={visibleItems()}>
+                  {(screenshot, index) => {
+                    const { show: showContextMenu, id: menuId } = useContextMenu();
+                    const upload = createMemo(() => ({ progress: uploadProgress[screenshot.fileName], success: uploadSuccess[screenshot.fileName] }));
+
+                    return <>
+                      <HistoryCard
+                        screenshot={screenshot}
+                        upload={upload()}
+                        flash={cardFlash[screenshot.fileName]}
+                        entranceIndex={animateEntrance() ? index() : null}
+                        removing={removing[screenshot.fileName] ?? false}
+                        fitImage={fitThumbnails()}
+                        actions={{
+                          open: () => setPreview(screenshot),
+                          copy: () => screenshot.type === "image" ? copyImage(screenshot) : copyFile(screenshot),
+                          copyLink: () => copyLink(screenshot),
+                          upload: () => requestUpload(screenshot),
+                          retry: () => uploadImage(screenshot),
+                          showInFolder: () => openFolder(screenshot),
+                          showMenu: (event, position) => showContextMenu(event, { position }),
+                          showError: setViewingUploadError,
+                          startDrag: event => { draggingOwnCard = true; startFileDrag(event, screenshot); },
+                        }}
+                      />
+                      <ContextMenu id={menuId} styles={{ width: "220px" }}>
+                        <Show when={screenshot.type === "image"} fallback={
+                          <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyFile(screenshot)}>Copy file</ContextMenuItem>
+                        }>
+                          <ContextMenuItem icon={{ icon: Pencil }} onClick={() => startEdit(screenshot)}>Edit</ContextMenuItem>
+                          <ContextMenuItem icon={{ icon: Copy }} onClick={() => copyImage(screenshot)}>Copy image</ContextMenuItem>
+                        </Show>
+                        <ContextMenuItem icon={{ icon: Link }} disabled={!screenshot.url} onClick={() => copyLink(screenshot)}>Copy link</ContextMenuItem>
+                        <ContextMenuItem icon={{ icon: CloudUpload }} onClick={() => requestUpload(screenshot)}>{screenshot.url ? "Upload again" : "Upload"}</ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem icon={{ icon: ExternalLink }} onClick={() => openFile(screenshot)}>Open file</ContextMenuItem>
+                        <ContextMenuItem icon={{ icon: FolderOpen }} onClick={() => openFolder(screenshot)}>Open containing folder</ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem icon={{ icon: FileSymlink }} onClick={() => copyFullPath(screenshot)}>Copy full path</ContextMenuItem>
+                        <ContextMenuItem icon={{ icon: FolderSymlink }} onClick={() => copyFolderPath(screenshot)}>Copy folder path</ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem icon={{ icon: Tag }} onClick={() => setEditingTags(screenshot)}>Edit tags</ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem icon={{ icon: Trash2 }} danger onClick={() => setPendingDelete(screenshot)}>Delete</ContextMenuItem>
+                      </ContextMenu>
+                    </>;
+                  }}
+                </For>
+              </div>
+            </div>
+            <Show when={loading()}>
+              <div class={styles.MoreLoader}><Spinner /></div>
+            </Show>
+          </Match>
+        </Switch>
       </div>
-    </div>
+
+      <Show when={dropActive()}>
+        <div class={styles.DropPad}>
+          <Import size={28} />
+          Drop to add to history
+        </div>
+      </Show>
+    </section>
+
     <Modal
       show={!!preview()}
       onHide={closePreview}
       title={preview()?.fileName}
-      width="85%"
-      height="85%"
+      width="86%"
+      height="86%"
       headerActions={preview()?.type === "image" ? (
         <Show
           when={editSession()}
-          fallback={<Button onClick={() => startEdit(preview()!)}><Pencil size={16} />Edit</Button>}
+          fallback={<Button size="sm" onClick={() => startEdit(preview()!)}><Pencil size={14} />Edit</Button>}
         >
-          <Button onClick={cancelEdit}>Cancel</Button>
-          <Button filled color="var(--base-blue)" onClick={saveEdit}>Save as new</Button>
+          <Button size="sm" onClick={cancelEdit}>Cancel</Button>
+          <Button size="sm" variant="primary" onClick={saveEdit}>Save as new</Button>
         </Show>
       ) : undefined}
     >
@@ -762,9 +652,9 @@ function Main() {
               </Match>
               <Match when={screenshot.type === "file"}>
                 <div class={styles.FilePreview}>
-                  <File size={72} />
+                  <File size={56} />
                   <span>{screenshot.fileName}</span>
-                  <Button onClick={() => openFolder(screenshot)}>Show in folder</Button>
+                  <Button onClick={() => openFolder(screenshot)}><FolderOpen size={15} />Show in folder</Button>
                 </div>
               </Match>
               <Match when={true}>
@@ -772,8 +662,7 @@ function Main() {
                   when={editSession()}
                   fallback={<ImageViewer src={savedUrl(screenshot.fileName)} />}
                 >
-                  {/* A separate JSX position, so entering/leaving edit mode
-                      mounts a fresh viewer: `editable` is read once at setup. */}
+                  {/* A separate JSX position, so entering or leaving edit mode mounts a fresh viewer. */}
                   {session => (
                     <ImageViewer
                       src={`http://rosemyne-photo.localhost/preview/${session().imageId}`}
@@ -790,23 +679,29 @@ function Main() {
         )}
       </Show>
     </Modal>
-    <Modal show={!!pendingDelete()} onHide={() => setPendingDelete(null)} title="Delete screenshot?" width={420}>
-      <div class={styles.ConfirmBody}>
-        <p>"{pendingDelete()?.fileName}" will be removed from disk and history.</p>
-        <div class={styles.ConfirmActions}>
-          <Button color="var(--danger-color)" onClick={() => deleteImage(pendingDelete()!)}>Delete</Button>
-          <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
-        </div>
-      </div>
+    <Modal
+      show={!!pendingDelete()}
+      onHide={() => setPendingDelete(null)}
+      title="Delete this capture?"
+      width={420}
+      footer={<>
+        <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+        <Button variant="danger-solid" onClick={() => deleteImage(pendingDelete()!)}><Trash2 size={15} />Delete</Button>
+      </>}
+    >
+      <p>"{pendingDelete()?.fileName}" is removed from disk and from history.</p>
     </Modal>
-    <Modal show={!!pendingReupload()} onHide={() => setPendingReupload(null)} title="Upload again?" width={420}>
-      <div class={styles.ConfirmBody}>
-        <p>"{pendingReupload()?.fileName}" already has an uploaded link. Uploading again will replace it.</p>
-        <div class={styles.ConfirmActions}>
-          <Button color="var(--base-blue)" onClick={() => { uploadImage(pendingReupload()!); setPendingReupload(null); }}>Upload</Button>
-          <Button onClick={() => setPendingReupload(null)}>Cancel</Button>
-        </div>
-      </div>
+    <Modal
+      show={!!pendingReupload()}
+      onHide={() => setPendingReupload(null)}
+      title="Upload again?"
+      width={420}
+      footer={<>
+        <Button onClick={() => setPendingReupload(null)}>Cancel</Button>
+        <Button variant="primary" onClick={() => { uploadImage(pendingReupload()!); setPendingReupload(null); }}><CloudUpload size={15} />Upload</Button>
+      </>}
+    >
+      <p>"{pendingReupload()?.fileName}" already has a link. Uploading again replaces it.</p>
     </Modal>
     <UploadErrorDetailsModal
       show={!!viewingUploadError()}
@@ -815,6 +710,7 @@ function Main() {
     />
     <TagEditorModal
       screenshot={editingTags()}
+      schema={metadata()?.schema ?? null}
       onHide={() => setEditingTags(null)}
       onSaved={(fileName, tags) => {
         updateItem(fileName, entry => { entry.tags = tags; });

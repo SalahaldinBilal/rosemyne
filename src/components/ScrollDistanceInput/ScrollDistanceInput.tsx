@@ -1,38 +1,36 @@
-import { createMemo, JSX } from "solid-js";
-import Input from "../Input/Input";
-import Select from "../Select/Select";
+import { createMemo } from "solid-js";
+import NumberField from "../NumberField/NumberField";
 import { ScrollDistance, SelectItem } from "../../types";
 
-const DISTANCE_TYPE_ITEMS: SelectItem<ScrollDistance["type"]>[] = [
-  { id: "percent", value: "percent", label: "% of region" },
+const UNIT_ITEMS: SelectItem<string>[] = [
+  { id: "percent", value: "percent", label: "%" },
   { id: "pixels", value: "pixels", label: "px" },
 ];
 
+const MAX_PERCENT = 100;
+const MAX_PIXELS = 100_000;
+
+function toDistance(type: ScrollDistance["type"], data: number): ScrollDistance {
+  return type === "percent" ? { type: "percent", data: Math.min(MAX_PERCENT, data) } : { type: "pixels", data };
+}
+
 // Shared by the Settings page and the live-select overlay's per-instance panel.
-function ScrollDistanceInput(props: { value: ScrollDistance, onChange: (value: ScrollDistance) => void, style?: JSX.CSSProperties }) {
+function ScrollDistanceInput(props: { value: ScrollDistance, onChange: (value: ScrollDistance) => void, size?: "md" | "sm", width?: number | string }) {
   const type = createMemo(() => props.value.type);
 
   return (
-    <div style={{ display: "flex", gap: "6px", ...(props.style ?? {}) }}>
-      <Input
-        type="number"
-        min={1}
-        max={type() === "percent" ? 100 : undefined}
-        value={props.value.data}
-        onChange={e => {
-          const data = Math.max(1, e.currentTarget.valueAsNumber || 1);
-          props.onChange(type() === "percent" ? { type: "percent", data } : { type: "pixels", data });
-        }}
-        style={{ width: "80px" }}
-      />
-      <Select
-        value={type()}
-        items={DISTANCE_TYPE_ITEMS}
-        onItemClick={item => props.onChange(
-          item.value === "percent" ? { type: "percent", data: props.value.data } : { type: "pixels", data: props.value.data }
-        )}
-      />
-    </div>
+    <NumberField
+      value={props.value.data}
+      min={1}
+      max={type() === "percent" ? MAX_PERCENT : MAX_PIXELS}
+      size={props.size}
+      width={props.width ?? 110}
+      unit={type()}
+      units={UNIT_ITEMS}
+      tooltip={type() === "percent" ? "Percent of the selected region's height" : undefined}
+      onUnitChange={unit => props.onChange(toDistance(unit as ScrollDistance["type"], props.value.data))}
+      onChange={data => props.onChange(toDistance(type(), data))}
+    />
   );
 }
 

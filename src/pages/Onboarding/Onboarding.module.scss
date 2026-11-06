@@ -1,96 +1,175 @@
 .Onboarding {
   display: flex;
   flex-direction: column;
+  align-items: center;
   width: 100%;
   height: 100%;
-  background-color: var(--base-bg-color);
-  color: var(--base-font-color);
+  overflow-y: auto;
+  background: var(--bg-0);
+  color: var(--text-1);
 }
 
-.Header {
+.Column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: min(720px, 100%);
+  padding: 30px 24px 0;
+}
+
+.Brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
+  gap: 12px;
 
-  .Brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 16px;
-    font-weight: 600;
+  img {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
 
-    img {
-      width: 22px;
-      height: 22px;
+  b {
+    display: block;
+    font-size: 17px;
+    font-weight: 650;
+  }
+
+  span {
+    display: block;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+}
+
+.Steps {
+  margin: 22px 0 6px;
+}
+
+.Track {
+  position: relative;
+  height: 4px;
+}
+
+// 6px gap matches SEGMENT_GAP in Onboarding.tsx, which the fill's clip is computed with.
+.Bars {
+  display: flex;
+  gap: 6px;
+  height: 4px;
+
+  i {
+    flex: 1;
+    border-radius: 4px;
+    background: var(--bg-4);
+    cursor: pointer;
+  }
+
+  &.Filled {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transition: clip-path 520ms var(--e-io);
+
+    i {
+      background: var(--accent);
     }
   }
+}
 
-  .Progress {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.Labels {
+  display: grid;
+  grid-template-columns: repeat(var(--segments), minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
 
-  .Dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--control-border);
-    transition: background-color .15s ease, transform .15s ease;
-  }
+  button {
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-3);
+    font: inherit;
+    font-size: 11.5px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--t-fast);
 
-  .DotDone {
-    background-color: var(--base-blue);
-  }
+    &:hover,
+    &.Done {
+      color: var(--text-2);
+    }
 
-  .DotActive {
-    background-color: var(--base-blue);
-    transform: scale(1.35);
+    &.Current {
+      color: var(--text-1);
+      font-weight: 600;
+    }
   }
 }
 
 .Body {
-  flex-grow: 1;
-  min-height: 0;
-  padding: 20px 24px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  flex: 1;
+  padding: 18px 0 24px;
+}
+
+.Step {
+  animation: step-from-right var(--t-page) var(--e-out);
+
+  &.FromLeft {
+    animation-name: step-from-left;
+  }
 }
 
 .StepHeading {
-  max-width: 650px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 
   h2 {
-    margin: 0 0 6px;
+    margin: 0 0 4px;
     font-size: 20px;
-    font-weight: 600;
+    font-weight: 650;
+    letter-spacing: -0.01em;
   }
 
   p {
     margin: 0;
-    font-size: 13px;
-    color: var(--text-muted);
+    color: var(--text-2);
   }
 }
 
-.StepContent {
-  max-width: 650px;
+.Footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 100%;
+  border-top: 1px solid var(--line-1);
+  background: var(--bg-1);
 }
 
-.Footer {
+.FooterInner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
+  width: min(720px, 100%);
+  padding: 12px 24px;
+}
 
-  .NavButtons {
-    display: flex;
-    gap: 8px;
+.NavButtons {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes step-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes step-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
   }
 }

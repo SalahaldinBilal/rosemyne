@@ -1,0 +1,109 @@
+// On :root (not #root) so portaled menus, tooltips and toasts still resolve them.
+:root {
+  color-scheme: dark;
+
+  --font-sans: "Inter Variable", Inter, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+
+  --bg-0: #0c0c0f;
+  --bg-1: #121216;
+  --bg-2: #17171c;
+  --bg-3: #1d1d23;
+  --bg-4: #24242c;
+  --bg-5: #2c2c35;
+
+  --line-1: #222229;
+  --line-2: #2d2d36;
+  --line-3: #3b3b46;
+
+  --text-1: #ededf2;
+  --text-2: #a4a4b2;
+  --text-3: #6f6f7d;
+
+  --accent: #7b6cf6;
+  --accent-hi: #8c7ff8;
+  --accent-lo: #6a5be6;
+  --accent-text: #b7aeff;
+  --accent-soft: rgb(123 108 246 / 0.14);
+  --accent-soft-2: rgb(123 108 246 / 0.24);
+  --accent-ring: rgb(123 108 246 / 0.55);
+
+  --ok: #3fcf8e;
+  --ok-soft: rgb(63 207 142 / 0.14);
+  --warn: #f0b43c;
+  --warn-soft: rgb(240 180 60 / 0.14);
+  --danger: #f25555;
+  --danger-soft: rgb(242 85 85 / 0.14);
+  --rec: #ef4444;
+  --rec-soft: rgb(239 68 68 / 0.14);
+
+  --overlay-dim: rgb(6 6 10 / 0.55);
+  --glass: rgb(22 22 28 / 0.84);
+  --glass-line: rgb(255 255 255 / 0.08);
+
+  --method-post-color: #4c96f3;
+  --method-put-color: #0c71f1;
+
+  --r-xs: 5px;
+  --r-sm: 7px;
+  --r-md: 9px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 999px;
+
+  --sh-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --sh-2: 0 10px 28px -10px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(0 0 0 / 0.18);
+  --sh-3: 0 28px 70px -18px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(0 0 0 / 0.25);
+
+  --ctl-h: 32px;
+  --ctl-h-sm: 26px;
+
+  --t-press: 90ms;
+  --t-fast: 140ms;
+  --t-base: 200ms;
+  --t-slow: 280ms;
+  --t-page: 360ms;
+
+  --e-out: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --e-in: cubic-bezier(0.55, 0, 0.75, 0.2);
+  --e-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --e-pop: cubic-bezier(0.3, 1.45, 0.55, 1);
+
+  // The annotation layer is a stacking context, so an item's own z-index can never escape it.
+  // The undimmed selection preview shows the raw capture, so it must stay under the annotation layer.
+  --z-selection-preview: 29000;
+  --z-annotation-layer: 30000;
+  --z-annotation-drag-ghost: 30001;
+  --z-toolbox: 32000;
+
+  --z-modal: 35000;
+  --z-menu: 36000;
+  --z-tooltip: 37000;
+  --z-toast: 38000;
+  --z-titlebar: 39000;
+
+  --titlebar-height: 0px;
+
+  &.HasTitleBar {
+    --titlebar-height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-press: 1ms;
+    --t-fast: 1ms;
+    --t-base: 1ms;
+    --t-slow: 1ms;
+    --t-page: 1ms;
+  }
+
+  // Spinners and indeterminate bars opt out with data-keep-motion so loading never looks frozen.
+  :not([data-keep-motion]),
+  :not([data-keep-motion])::before,
+  :not([data-keep-motion])::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

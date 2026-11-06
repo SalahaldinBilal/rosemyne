@@ -1,6 +1,7 @@
 .Content {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  padding-right: 4px;
 }
 
 .Section {
@@ -8,9 +9,9 @@
   flex-direction: column;
   gap: 8px;
 
-  &+.Section {
-    border-top: 1px solid var(--border-color);
+  & + .Section {
     padding-top: 16px;
+    border-top: 1px solid var(--line-1);
   }
 }
 
@@ -19,32 +20,13 @@
   align-items: center;
   gap: 8px;
   margin: 0;
+  color: var(--text-2);
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.StatusBadge {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--success-color);
-  background-color: rgba(53, 213, 119, 0.12);
-  border-radius: 10px;
-  padding: 1px 8px;
-  text-transform: none;
-  letter-spacing: normal;
-
-  &.StatusError {
-    color: var(--danger-color);
-    background-color: rgba(225, 65, 44, 0.12);
-  }
 }
 
 .ErrorMessage {
-  color: var(--danger-color);
-  font-size: 14px;
+  color: var(--danger);
   word-break: break-word;
 }
 
@@ -53,27 +35,21 @@
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 
-  .Method {
-    flex-shrink: 0;
-    font-weight: 700;
-    color: var(--secondary-blue);
-  }
-
   .Url {
-    color: var(--base-font-color);
+    color: var(--text-1);
   }
 }
 
 .Headers {
   display: flex;
   flex-direction: column;
-  background-color: var(--control-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
   overflow: hidden;
+  background: var(--bg-0);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
 }
 
 .HeaderRow {
@@ -83,32 +59,32 @@
   font-family: var(--font-mono);
   font-size: 12px;
 
-  &+.HeaderRow {
-    border-top: 1px solid var(--border-color);
+  & + .HeaderRow {
+    border-top: 1px solid var(--line-1);
   }
 
   .HeaderName {
     flex-shrink: 0;
-    color: var(--text-muted);
+    color: var(--text-3);
   }
 
   .HeaderValue {
-    color: var(--base-font-color);
+    color: var(--text-1);
     overflow-wrap: anywhere;
   }
 }
 
 .Body {
+  max-height: 260px;
   margin: 0;
-  background-color: var(--control-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 10px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  background: var(--bg-0);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  color: var(--text-2);
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--base-font-color);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 260px;
-  overflow-y: auto;
 }

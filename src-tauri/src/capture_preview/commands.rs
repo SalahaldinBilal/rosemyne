@@ -21,6 +21,8 @@ struct CapturePreviewPayload {
     max_width: u32,
     max_height: u32,
     auto_dismiss_ms: u32,
+    show_countdown: bool,
+    corner: PreviewCorner,
     left_click_action: PreviewClickAction,
     right_click_action: PreviewClickAction,
 }
@@ -92,6 +94,8 @@ pub async fn trigger(app_handle: &AppHandle, history_store: &HistoryStoreHandler
             max_width: settings.max_width,
             max_height: settings.max_height,
             auto_dismiss_ms: settings.auto_dismiss_ms,
+            show_countdown: settings.show_countdown,
+            corner: settings.corner,
             left_click_action: settings.left_click_action,
             right_click_action: settings.right_click_action,
         }
@@ -122,15 +126,35 @@ pub async fn show_capture_preview_window(
     let handle = app_handle.clone();
     let result = app_handle.run_on_main_thread(move || {
         let Some(window) = handle.get_webview_window(CAPTURE_PREVIEW_LABEL) else { return };
-        let _ = window.set_size(PhysicalSize::new(width, height));
+        // Move before sizing: crossing into a monitor with another DPI rescales the window.
         let _ = window.set_position(PhysicalPosition::new(x, y));
-        // Toggle off then on: setting `true` alone is a no-op and won't rejump it above the taskbar's band.
-        let _ = window.set_always_on_top(false);
-        let _ = window.set_always_on_top(true);
+        let _ = window.set_size(PhysicalSize::new(width, height));
         let _ = window.show();
+        raise_topmost(&window, x, y, width, height);
     });
 
     result.map_err(|err| err.to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn raise_topmost(window: &WebviewWindow, x: i32, y: i32, width: u32, height: u32) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE};
+
+    match window.hwnd() {
+        Ok(hwnd) => unsafe {
+            if let Err(err) = SetWindowPos(HWND(hwnd.0 as _), Some(HWND_TOPMOST), x, y, width as i32, height as i32, SWP_NOACTIVATE) {
+                eprintln!("Failed to raise the capture preview: {}", err);
+            }
+        },
+        Err(err) => eprintln!("Failed to get the capture preview window handle: {}", err),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn raise_topmost(window: &WebviewWindow, _x: i32, _y: i32, _width: u32, _height: u32) {
+    let _ = window.set_always_on_top(false);
+    let _ = window.set_always_on_top(true);
 }
 
 #[tauri::command]
@@ -169,6 +193,15 @@ fn resolve_monitor(app_handle: &AppHandle, monitor_id: &Option<String>) -> Optio
         .map(monitor_to_bounds)
 }
 
+/// The work area, so a bottom corner sits above the taskbar instead of under it.
 fn monitor_to_bounds(monitor: &tauri::Monitor) -> (WindowBounds, f64) {
-    (monitors::bounds(monitor), monitor.scale_factor())
+    let area = monitor.work_area();
+    let bounds = WindowBounds {
+        left: area.position.x,
+        top: area.position.y,
+        right: area.position.x + area.size.width as i32,
+        bottom: area.position.y + area.size.height as i32,
+        z_order: 0,
+    };
+    (bounds, monitor.scale_factor())
 }

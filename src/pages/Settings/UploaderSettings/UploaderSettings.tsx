@@ -1,12 +1,15 @@
 import styles from "./UploaderSettings.module.scss";
 import UploaderCreator from "@core/components/UploaderCreator/UploaderCreator";
 import Button from "@core/components/Button/Button";
+import Badge, { MethodBadge } from "@core/components/Badge/Badge";
 import Modal from "@core/components/Modal/Modal";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { SavedUploader } from "@core/types/request";
 import { createSignal, For, onMount, Show } from "solid-js";
 import { Copy, Pencil, Plus, Star, Trash2 } from "lucide-solid";
 import useToastState from "@core/states/toastState";
+import useSettingsSavedState from "@core/states/settingsSavedState";
+import { SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 
 function UploaderSettings() {
   const [uploaders, setUploaders] = createSignal<SavedUploader[]>([]);
@@ -14,6 +17,7 @@ function UploaderSettings() {
   const [editing, setEditing] = createSignal<SavedUploader | "new" | null>(null);
   const [pendingDelete, setPendingDelete] = createSignal<SavedUploader | null>(null);
   const { pushToast } = useToastState;
+  const { markSettingsSaved } = useSettingsSavedState;
 
   async function refresh() {
     setUploaders(await safeInvoke("get_uploaders"));
@@ -26,6 +30,7 @@ function UploaderSettings() {
     try {
       await action();
       await refresh();
+      markSettingsSaved();
     } catch (err) {
       pushToast(typeof err === "string" ? err : JSON.stringify(err), "error", 6000);
     }
@@ -47,52 +52,54 @@ function UploaderSettings() {
 
   const makeDefault = (uploader: SavedUploader) => run(() => safeInvoke("set_default_uploader", { id: uploader.id }));
 
-  return <div class={styles.UploaderSettings}>
+  return <>
     <Show when={editing()} keyed fallback={
-      <>
-        <div class={styles.Toolbar}>
-          <Button onClick={() => setEditing("new")}>
-            <Plus style={{ "margin-right": '6px' }} /> New uploader
-          </Button>
-        </div>
-        <Show when={uploaders().length > 0} fallback={
-          <div class={styles.Empty}>No uploaders yet, create one to start sharing screenshots.</div>
-        }>
-          <div class={styles.List}>
-            <For each={uploaders()}>
-              {uploader =>
-                <div class={styles.Row}>
-                  <div class={styles.Info}>
-                    <div class={styles.Name}>
-                      {uploader.name}
-                      <Show when={uploader.id === defaultId()}>
-                        <span class={styles.DefaultBadge}>default</span>
-                      </Show>
-                    </div>
-                    <div class={styles.Summary} title={uploader.options.url}>
-                      {uploader.options.method} {uploader.options.url}
-                    </div>
-                  </div>
-                  <div class={styles.Actions}>
-                    <Button isIcon tooltip="Set as default" disabled={uploader.id === defaultId()} onClick={() => makeDefault(uploader)}>
-                      <Star size={18} />
-                    </Button>
-                    <Button isIcon tooltip="Edit" onClick={() => setEditing(uploader)}>
-                      <Pencil size={18} />
-                    </Button>
-                    <Button isIcon tooltip="Duplicate" onClick={() => duplicate(uploader)}>
-                      <Copy size={18} />
-                    </Button>
-                    <Button isIcon tooltip="Delete" onClick={() => setPendingDelete(uploader)}>
-                      <Trash2 size={18} />
-                    </Button>
+      <SettingsPage title="Uploaders" description="Where captures go when you upload them.">
+        <SettingsGroup
+          title="Saved uploaders"
+          right={<Button size="sm" variant="primary" onClick={() => setEditing("new")}><Plus size={14} />New uploader</Button>}
+        >
+          <For each={uploaders()} fallback={
+            <SettingRow label="No uploaders yet" hint="Add one to share captures with a link." />
+          }>
+            {uploader => (
+              <div class={styles.Row}>
+                <div class={styles.Info}>
+                  <b>
+                    {uploader.name}
+                    <Show when={uploader.id === defaultId()}>
+                      <Badge tone="accent"><Star size={10} />Default</Badge>
+                    </Show>
+                    <Show when={uploader.autoUpload}>
+                      <Badge>Auto upload</Badge>
+                    </Show>
+                  </b>
+                  <div class={styles.Url} title={uploader.options.url}>
+                    <MethodBadge method={uploader.options.method} />
+                    <span>{uploader.options.url}</span>
                   </div>
                 </div>
-              }
-            </For>
-          </div>
-        </Show>
-      </>
+                <div class={styles.Actions}>
+                  <Show when={uploader.id !== defaultId()}>
+                    <Button isIcon size="sm" tooltip="Set as default" onClick={() => makeDefault(uploader)}>
+                      <Star size={15} />
+                    </Button>
+                  </Show>
+                  <Button isIcon size="sm" tooltip="Edit" onClick={() => setEditing(uploader)}>
+                    <Pencil size={15} />
+                  </Button>
+                  <Button isIcon size="sm" tooltip="Duplicate" onClick={() => duplicate(uploader)}>
+                    <Copy size={15} />
+                  </Button>
+                  <Button isIcon size="sm" variant="danger" tooltip="Delete" onClick={() => setPendingDelete(uploader)}>
+                    <Trash2 size={15} />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </For>
+        </SettingsGroup>
+      </SettingsPage>
     }>
       {editing =>
         <UploaderCreator
@@ -102,16 +109,19 @@ function UploaderSettings() {
         />
       }
     </Show>
-    <Modal show={!!pendingDelete()} onHide={() => setPendingDelete(null)} title="Delete uploader?" width={420}>
-      <div class={styles.ConfirmBody}>
-        <p>"{pendingDelete()?.name}" will be removed permanently.</p>
-        <div class={styles.ConfirmActions}>
-          <Button color="var(--danger-color)" onClick={() => remove(pendingDelete()!)}>Delete</Button>
-          <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
-        </div>
-      </div>
+    <Modal
+      show={!!pendingDelete()}
+      onHide={() => setPendingDelete(null)}
+      title="Delete uploader?"
+      width={420}
+      footer={<>
+        <Button onClick={() => setPendingDelete(null)}>Cancel</Button>
+        <Button variant="danger-solid" onClick={() => remove(pendingDelete()!)}><Trash2 size={15} />Delete</Button>
+      </>}
+    >
+      <p>"{pendingDelete()?.name}" is removed for good.</p>
     </Modal>
-  </div>
+  </>
 }
 
 export default UploaderSettings;

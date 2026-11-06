@@ -1,6 +1,8 @@
 import styles from "./UploadErrorDetailsModal.module.scss";
-import { For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import Modal from "@core/components/Modal/Modal";
+import Button from "@core/components/Button/Button";
+import Badge, { MethodBadge } from "@core/components/Badge/Badge";
 import { RequestSnapshot, UploaderCreationError } from "@core/types/request";
 
 export function errorHasRequestDetails(error: UploaderCreationError | undefined): boolean {
@@ -39,11 +41,18 @@ function UploadErrorDetailsModal(props: {
   onHide: () => void,
   error: UploaderCreationError | undefined,
 }) {
-  const request = () => requestOf(props.error);
-  const networkError = () => networkErrorOf(props.error);
-  const response = () => responseOf(props.error);
+  const request = createMemo(() => requestOf(props.error));
+  const networkError = createMemo(() => networkErrorOf(props.error));
+  const response = createMemo(() => responseOf(props.error));
 
-  return <Modal show={props.show} onHide={props.onHide} title="Upload failure details" width={640} height={600}>
+  return <Modal
+    show={props.show}
+    onHide={props.onHide}
+    title="Upload failure details"
+    width={640}
+    height={600}
+    footer={<Button variant="primary" onClick={props.onHide}>Close</Button>}
+  >
     <div class={styles.Content}>
       <Show when={networkError()}>
         {message => <section class={styles.Section}>
@@ -55,7 +64,7 @@ function UploadErrorDetailsModal(props: {
         {req => <section class={styles.Section}>
           <h4 class={styles.SectionTitle}>Request</h4>
           <div class={styles.RequestLine}>
-            <span class={styles.Method}>{req().method}</span>
+            <MethodBadge method={req().method} />
             <span class={styles.Url}>{req().url}</span>
           </div>
           <Show when={(req().headers?.length ?? 0) > 0}>
@@ -68,7 +77,7 @@ function UploadErrorDetailsModal(props: {
         {res => <section class={styles.Section}>
           <h4 class={styles.SectionTitle}>
             Response
-            <span class={styles.StatusBadge} classList={{ [styles.StatusError]: res().status >= 400 }}>{res().status}</span>
+            <Badge tone={res().status >= 400 ? "danger" : "ok"}>{res().status}</Badge>
           </h4>
           <Show when={(res().headers?.length ?? 0) > 0}>
             <HeaderTable headers={res().headers} />

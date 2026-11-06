@@ -1,0 +1,87 @@
+.List {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.Row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 26px;
+  align-items: center;
+  gap: 6px;
+  animation: row-in var(--t-slow) var(--e-out);
+
+  & > * {
+    min-width: 0;
+  }
+
+  &:hover .Remove,
+  &:focus-within .Remove {
+    opacity: 1;
+  }
+}
+
+.Row .Value {
+  --ctl-h: 28px;
+}
+
+.Remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--t-fast),
+    background-color var(--t-fast),
+    color var(--t-fast);
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+}
+
+.Add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px dashed var(--line-3);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast),
+    background-color var(--t-fast);
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent-ring);
+    color: var(--accent-text);
+    background: var(--accent-soft);
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

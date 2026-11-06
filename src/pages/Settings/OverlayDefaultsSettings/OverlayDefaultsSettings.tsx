@@ -1,35 +1,109 @@
 import styles from "./OverlayDefaultsSettings.module.scss";
-import { createMemo, createSignal, For, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, JSX, Match, onMount, Show, Switch } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { CursorSource, GeneralSettings, SelectItem } from "@core/types";
 import Select from "@core/components/Select/Select";
+import Segmented from "@core/components/Segmented/Segmented";
 import useOverlayDefaultsState from "@core/states/overlayDefaultsState";
 import useOverlayImagesState from "@core/states/overlayImagesState";
 import useToastState from "@core/states/toastState";
+import useSettingsSavedState from "@core/states/settingsSavedState";
 import { CURSOR_IMAGE_NAME, TOOL_TO_OVERLAY } from "@core/constants";
 import { ImageOverlay, ImageOverlayAttributeMap } from "@core/types/imageOverlay";
 import { beautifyCamelOrPascalCase } from "@core/helpers";
 import OverlayAttributeList from "@core/components/OverlayAttributeList/OverlayAttributeList";
 import Button from "@core/components/Button/Button";
 import Input from "@core/components/Input/Input";
-import { RotateCcw, Trash2 } from "lucide-solid";
+import { ImagePlus, RotateCcw, Trash2 } from "lucide-solid";
+import { SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 
-// Every overlay type that's actually placeable via a tool (excludes "draw",
-// whose attributes are always empty, see DrawImageOverlay).
-const OVERLAY_TYPES = [...new Set(Object.values(TOOL_TO_OVERLAY))] as Exclude<ImageOverlay["type"], "draw">[];
+// Every overlay type a tool can place. "draw" has no attributes, see DrawImageOverlay.
+type PlaceableType = Exclude<ImageOverlay["type"], "draw">;
+const OVERLAY_TYPES = [...new Set(Object.values(TOOL_TO_OVERLAY))] as PlaceableType[];
+const TYPE_ITEMS = OVERLAY_TYPES.map(type => ({ id: type, label: beautifyCamelOrPascalCase(type) }));
 
 const CURSOR_SOURCE_ITEMS: SelectItem<CursorSource>[] = [
   { id: "live", value: "live", label: "Copy the cursor as it was" },
   { id: "picked", value: "picked", label: "Always use a chosen cursor" },
 ];
 
+type Values = { [key: string]: unknown };
+
+function attributeValues(attributes: ImageOverlayAttributeMap): Values {
+  return Object.fromEntries(Object.entries(attributes).map(([name, attribute]) => [name, (attribute as { value: unknown }).value]));
+}
+
+const num = (value: unknown, fallback: number) => typeof value === "number" ? value : fallback;
+const str = (value: unknown, fallback: string) => typeof value === "string" ? value : fallback;
+
+// A rough look at a freshly drawn item, drawn with CSS instead of the canvas renderer.
+function Sample(props: { type: PlaceableType, values: Values, imageUrl?: string }) {
+  const thickness = createMemo(() => Math.min(num(props.values.thickness, 5), 14));
+  const color = createMemo(() => str(props.values.color, "#ff0000"));
+  const headSize = createMemo(() => Math.min(num(props.values.headSize, 30), 40));
+  const intensity = createMemo(() => num(props.values.intensity, 5));
+  const isArrow = createMemo(() => props.type === "arrow");
+  const boxStyle = createMemo<JSX.CSSProperties>(() => ({
+    "background-color": color(),
+    border: `${Math.min(num(props.values.borderThickness, 1), 14)}px solid ${str(props.values.borderColor, "#ff0000")}`,
+  }));
+  const textStyle = createMemo<JSX.CSSProperties>(() => ({
+    color: color(),
+    "font-size": `${Math.min(num(props.values.size, 24), 44)}px`,
+    "font-family": str(props.values.font, "serif"),
+  }));
+  const text = createMemo(() => str(props.values.text, "Hello World"));
+  const blurStyle = createMemo<JSX.CSSProperties>(() => ({ "backdrop-filter": `blur(${intensity()}px)` }));
+  const pixelateStyle = createMemo<JSX.CSSProperties>(() => ({
+    "--cell": `${Math.max(2, intensity() * 2)}px`,
+    "backdrop-filter": `blur(${intensity() / 2}px)`,
+  }));
+  const imageOpacity = createMemo(() => num(props.values.opacity, 100) / 100);
+  const lineEnd = createMemo(() => isArrow() ? { x: 128 - headSize() * 0.6, y: 12 + headSize() * 0.32 } : { x: 128, y: 12 });
+  const arrowHead = createMemo(() =>
+    `128,12 ${128 - headSize()},${12 + headSize() * 0.15} ${128 - headSize() * 0.55},${12 + headSize() * 0.75}`,
+  );
+
+  return (
+    <Switch>
+      <Match when={props.type === "box"}>
+        <div class={styles.SampleBox} style={boxStyle()} />
+      </Match>
+      <Match when={props.type === "text"}>
+        <span class={styles.SampleText} style={textStyle()}>{text()}</span>
+      </Match>
+      <Match when={props.type === "blur"}>
+        <div class={styles.SampleEffect} style={blurStyle()} />
+      </Match>
+      <Match when={props.type === "pixelate"}>
+        <div class={`${styles.SampleEffect} ${styles.Pixelate}`} style={pixelateStyle()} />
+      </Match>
+      <Match when={props.type === "image"}>
+        <Show when={props.imageUrl}>
+          <img class={styles.SampleImage} src={props.imageUrl} style={{ opacity: imageOpacity() }} />
+        </Show>
+      </Match>
+      <Match when={props.type === "arrow" || props.type === "line"}>
+        <svg class={styles.SampleLine} viewBox="0 0 140 86">
+          <line x1="12" y1="74" x2={lineEnd().x} y2={lineEnd().y} stroke={color()} stroke-width={thickness()} stroke-linecap="round" />
+          <Show when={isArrow()}>
+            <polygon points={arrowHead()} fill={color()} />
+          </Show>
+        </svg>
+      </Match>
+    </Switch>
+  );
+}
+
 function OverlayDefaultsSettings() {
   const { merged, setOverrideValue, resetOverrides } = useOverlayDefaultsState;
   const { entries, names, systemCursors, addFromFile, remove, rename } = useOverlayImagesState;
   const { pushToast } = useToastState;
+  const { markSettingsSaved } = useSettingsSavedState;
   const [busy, setBusy] = createSignal(false);
   const [general, setGeneral] = createSignal<GeneralSettings | null>(null);
+  const [selectedType, setSelectedType] = createSignal<PlaceableType>(OVERLAY_TYPES[0]);
 
   onMount(async () => {
     try {
@@ -48,11 +122,20 @@ function OverlayDefaultsSettings() {
 
     try {
       await safeInvoke("set_general_settings", { general: next });
+      markSettingsSaved();
     } catch (error) {
       setGeneral(previous);
       report(error);
     }
   }
+
+  // The image list is the live library, not the static constant the other types carry.
+  const attributes = createMemo<ImageOverlayAttributeMap>(() => selectedType() === "image"
+    ? { ...merged.image, image: { ...merged.image.image, options: names() } }
+    : merged[selectedType()]
+  );
+  const sampleValues = createMemo(() => attributeValues(attributes()));
+  const sampleImageUrl = createMemo(() => entries.find(entry => entry.name === sampleValues().image)?.url);
 
   const cursorSource = createMemo<CursorSource>(() => general()?.cursorSource ?? "live");
 
@@ -97,100 +180,74 @@ function OverlayDefaultsSettings() {
     }
   }
 
-  return <div class={styles.OverlayDefaultsSettings}>
-    <div class={styles.Intro}>
-      <span>Starting values for newly placed Box, Text, Blur, Pixelate, Image, Arrow and Line overlays.</span>
-      <span class={styles.Hint}>Only affects overlays placed after this point, anything already drawn on a screenshot keeps its own values.</span>
+  return <SettingsPage title="Overlay defaults" description="Starting values for newly drawn boxes, text and effects. Items you already placed keep their own.">
+    <div class={styles.TypeBar}>
+      <Segmented items={TYPE_ITEMS} value={selectedType()} onChange={setSelectedType} />
+      <Button size="sm" variant="ghost" tooltip={`Reset ${beautifyCamelOrPascalCase(selectedType()).toLowerCase()} to the built-in values`} onClick={() => { resetOverrides(selectedType()); markSettingsSaved(); }}>
+        <RotateCcw size={14} />Reset
+      </Button>
     </div>
-    <For each={OVERLAY_TYPES}>
-      {type => {
-        // The image list is the live library, not the static constant the other types carry.
-        const attributes = createMemo<ImageOverlayAttributeMap>(() => type === "image"
-          ? { ...merged.image, image: { ...merged.image.image, options: names() } }
-          : merged[type]
-        );
 
-        return <div class={styles.ToolSection}>
-          <div class={styles.ToolHeader}>
-            <span>{beautifyCamelOrPascalCase(type)}</span>
-            <Button isIcon tooltip="Reset to defaults" onClick={() => resetOverrides(type)}>
-              <RotateCcw size={16} />
-            </Button>
-          </div>
-          {/* The store slice itself, not a clone: replacing it tears down an open color picker mid-edit. */}
-          <OverlayAttributeList
-            attributes={attributes()}
-            onChange={(name, value) => setOverrideValue(type, name as never, value)}
-          />
-        </div>;
-      }}
-    </For>
-
-    <div class={styles.ToolSection}>
-      <div class={styles.ToolHeader}>
-        <span>Image library</span>
-        <Button disabled={busy()} onClick={addImage}>Add image…</Button>
+    <div class={styles.Editor}>
+      <div class={styles.Attributes}>
+        {/* The store slice itself, not a clone: replacing it tears down an open color picker mid-edit. */}
+        <OverlayAttributeList
+          attributes={attributes()}
+          onChange={(name, value) => { setOverrideValue(selectedType(), name as never, value); markSettingsSaved(); }}
+        />
       </div>
-
-      <div class={styles.LibraryIntro}>
-        Images the Image overlay tool can stamp onto a capture. Added images are copied into
-        <code> overlay-images/ </code> as WebP, so moving or deleting the original doesn't break them.
-      </div>
-
-      <div class={styles.Row}>
-        <div class={styles.Preview}><img src={placedCursor()?.url} /></div>
-        <div class={styles.RowBody}>
-          <span>Cursor placed on a capture</span>
-          <span class={styles.Hint}>
-            Only used when "Include the mouse cursor in screenshots" is on, under General.
-          </span>
-          <div class={styles.CursorControls}>
-            <Select
-              value={cursorSource()}
-              items={CURSOR_SOURCE_ITEMS}
-              onItemClick={item => applyGeneral({ cursorSource: item.value })}
-            />
-            <Show when={cursorSource() === "picked"}>
-              <Select
-                style={{ "margin-left": "5px" }}
-                value={pickedCursor()?.id ?? ""}
-                items={systemCursorItems()}
-                onItemClick={item => applyGeneral({ pickedCursor: item.value })}
-              />
-            </Show>
-          </div>
+      <div class={styles.Preview}>
+        <div class={`${styles.Half} ${styles.Light}`}><span class={styles.PreviewLabel}>Light</span></div>
+        <div class={`${styles.Half} ${styles.Dark}`}><span class={styles.PreviewLabel}>Dark</span></div>
+        <div class={styles.SampleSlot}>
+          <Sample type={selectedType()} values={sampleValues()} imageUrl={sampleImageUrl()} />
         </div>
       </div>
+    </div>
 
-      <For each={library()} fallback={<div class={styles.Empty}>No images added yet.</div>}>
-        {entry => <div class={styles.Row}>
-          <div class={styles.Preview}><img src={entry.url} /></div>
-          <div class={styles.RowBody}>
-            <Input
-              value={entry.name}
-              onChange={async event => {
-                const next = event.currentTarget.value.trim();
-                if (!next || next === entry.name) {
-                  event.currentTarget.value = entry.name;
-                  return;
-                }
+    <SettingsGroup
+      title="Image library"
+      right={<Button size="sm" disabled={busy()} onClick={addImage}><ImagePlus size={14} />Add image</Button>}
+    >
+      <SettingRow
+        label="Cursor placed on a capture"
+        hint="Used when Include the mouse cursor is on, under General."
+      >
+        <div class={styles.CursorControls}>
+          <div class={styles.Thumb}><img src={placedCursor()?.url} /></div>
+          <Select value={cursorSource()} items={CURSOR_SOURCE_ITEMS} onItemClick={item => applyGeneral({ cursorSource: item.value })} />
+          <Show when={cursorSource() === "picked"}>
+            <Select value={pickedCursor()?.id ?? ""} items={systemCursorItems()} onItemClick={item => applyGeneral({ pickedCursor: item.value })} />
+          </Show>
+        </div>
+      </SettingRow>
+      <For each={library()} fallback={<SettingRow label="No images added yet" hint="Images the Image tool can stamp onto a capture. They're copied in as WebP." />}>
+        {entry => <div class={styles.LibraryRow}>
+          <div class={styles.Thumb}><img src={entry.url} /></div>
+          <Input
+            size="sm"
+            class={styles.NameInput}
+            value={entry.name}
+            onChange={async event => {
+              const input = event.currentTarget;
+              const next = input.value.trim();
+              if (!next || next === entry.name) return;
 
-                try {
-                  event.currentTarget.value = await rename(entry.name, next);
-                } catch (error) {
-                  event.currentTarget.value = entry.name;
-                  report(error);
-                }
-              }}
-            />
-          </div>
-          <Button isIcon tooltip="Remove" color="var(--danger-color)" onClick={() => remove(entry.name).catch(report)}>
-            <Trash2 size={16} />
+              try {
+                input.value = await rename(entry.name, next);
+              } catch (error) {
+                input.value = entry.name;
+                report(error);
+              }
+            }}
+          />
+          <Button isIcon size="sm" variant="danger" tooltip="Remove" onClick={() => remove(entry.name).catch(report)}>
+            <Trash2 size={14} />
           </Button>
         </div>}
       </For>
-    </div>
-  </div>;
+    </SettingsGroup>
+  </SettingsPage>;
 }
 
 export default OverlayDefaultsSettings;

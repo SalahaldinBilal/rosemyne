@@ -6,14 +6,16 @@ export type SelectItem<T> = {
   label: string
 }
 
+export type SelectVariant = "default" | "bare" | "pill" | "unit";
+
 export type SelectProps<T> = {
   value: SelectItem<T>["id"],
   items: readonly SelectItem<T>[],
   onItemClick: (item: SelectItem<T>) => any,
   placeholder?: string,
+  variant?: SelectVariant,
   accent?: boolean,
-  noRadius?: boolean,
-  borderless?: boolean,
-  color?: string,
+  labelColor?: string,
+  class?: string,
   style?: JSX.CSSProperties
 }

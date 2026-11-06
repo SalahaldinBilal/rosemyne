@@ -1,5 +1,4 @@
 import styles from "./SavedFilterBar.module.scss";
-import ghost from "../controls/ghost.module.scss";
 import { createMemo, createSignal, onMount, Show } from "solid-js";
 import { SelectItem } from "../../../../types";
 import useTagFilterState from "../../../../states/tagFilterState";
@@ -14,7 +13,7 @@ import { Bookmark, Save, Trash2 } from "lucide-solid";
 const NO_FILTER = "";
 
 function SavedFilterBar() {
-  const { savedFilters, activeFilterName, isFilterDirty, ruleCount, refreshSavedFilters, loadFilter, saveFilterAs, deleteFilter, clearFilter } = useTagFilterState;
+  const { savedFilters, activeFilterName, isFilterDirty, anyFilterActive, refreshSavedFilters, loadFilter, saveFilterAs, deleteFilter, clearFilter } = useTagFilterState;
   const { pushToast } = useToastState;
   const [naming, setNaming] = createSignal(false);
   const [draftName, setDraftName] = createSignal("");
@@ -25,15 +24,10 @@ function SavedFilterBar() {
 
   const items = createMemo<SelectItem<string>[]>(() => [
     { id: NO_FILTER, value: NO_FILTER, label: "No filter" },
-    ...savedFilters().map(saved => ({
-      id: saved.name,
-      value: saved.name,
-      label: saved.name === activeFilterName() && isFilterDirty() ? `${saved.name} (edited)` : saved.name,
-    })),
+    ...savedFilters().map(saved => ({ id: saved.name, value: saved.name, label: saved.name })),
   ]);
 
-  const savable = createMemo(() => ruleCount() > 0 && (activeFilterName() === null || isFilterDirty()));
-
+  const savable = createMemo(() => anyFilterActive() && (activeFilterName() === null || isFilterDirty()));
   const trimmedName = createMemo(() => draftName().trim());
   const replacing = createMemo(() =>
     savedFilters().some(saved => saved.name.toLowerCase() === trimmedName().toLowerCase()),
@@ -76,12 +70,10 @@ function SavedFilterBar() {
 
   return (
     <div class={styles.SavedFilterBar}>
-      <div class={styles.Title}>
-        <Bookmark size={15} /> Saved filter
-      </div>
+      <span class={styles.Label}>Saved</span>
       <Select
-        borderless
-        style={{ "min-width": "180px" }}
+        variant="pill"
+        class={styles.Picker}
         value={activeFilterName() ?? NO_FILTER}
         items={items()}
         onItemClick={item => {
@@ -90,25 +82,34 @@ function SavedFilterBar() {
           if (saved) loadFilter(saved);
         }}
       />
-      <div class={styles.Actions}>
-        <Show when={activeFilterName()}>
-          <button class={ghost.Ghost} onClick={removeActive}>
-            <Trash2 size={15} /> Delete
-          </button>
-        </Show>
-        <Show when={activeFilterName() && isFilterDirty()}>
-          <button class={ghost.Ghost} onClick={saveChanges}>
-            <Save size={15} /> Save changes
-          </button>
-        </Show>
-        <Show when={savable()}>
-          <button class={ghost.Ghost} onClick={openNaming}>
-            <Bookmark size={15} /> {activeFilterName() ? "Save as…" : "Save filter"}
-          </button>
-        </Show>
-      </div>
+      <Show when={activeFilterName() && isFilterDirty()}>
+        <span class={styles.Edited}>edited</span>
+      </Show>
+      <span class={styles.Spacer} />
+      <Show when={activeFilterName()}>
+        <Button size="sm" variant="danger" onClick={removeActive}><Trash2 size={14} />Delete</Button>
+      </Show>
+      <Show when={activeFilterName() && isFilterDirty()}>
+        <Button size="sm" variant="ghost" onClick={saveChanges}><Save size={14} />Save changes</Button>
+      </Show>
+      <Show when={savable()}>
+        <Button size="sm" variant="ghost" onClick={openNaming}>
+          <Bookmark size={14} />{activeFilterName() ? "Save as…" : "Save filter"}
+        </Button>
+      </Show>
 
-      <Modal show={naming()} onHide={() => setNaming(false)} title="Save filter" width={420}>
+      <Modal
+        show={naming()}
+        onHide={() => setNaming(false)}
+        title="Save filter"
+        width={420}
+        footer={<>
+          <Button onClick={() => setNaming(false)}>Cancel</Button>
+          <Button variant="primary" disabled={trimmedName().length === 0} onClick={confirmSave}>
+            {replacing() ? "Replace" : "Save"}
+          </Button>
+        </>}
+      >
         <div class={styles.SaveBody} onKeyDown={event => event.key === "Enter" && confirmSave()}>
           <Input
             value={draftName()}
@@ -117,15 +118,10 @@ function SavedFilterBar() {
             selectOnClick
             onChange={event => setDraftName(event.currentTarget.value)}
           />
+          <span class={styles.SaveHint}>Saves the search, type, date and the advanced conditions.</span>
           <Show when={replacing()}>
-            <div class={styles.SaveHint}>A filter named “{trimmedName()}” already exists and will be replaced.</div>
+            <span class={styles.SaveHint}>A filter named “{trimmedName()}” already exists and will be replaced.</span>
           </Show>
-          <div class={styles.SaveFooter}>
-            <Button onClick={() => setNaming(false)}>Cancel</Button>
-            <Button filled color="var(--base-blue)" disabled={trimmedName().length === 0} onClick={confirmSave}>
-              {replacing() ? "Replace" : "Save"}
-            </Button>
-          </div>
         </div>
       </Modal>
     </div>

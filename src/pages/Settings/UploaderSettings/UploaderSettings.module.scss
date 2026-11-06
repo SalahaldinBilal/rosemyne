@@ -1,78 +1,47 @@
-.UploaderSettings {
+.Row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 12px;
-  padding-right: 20px;
-  padding-bottom: 20px;
+  padding: 12px 14px;
 
-  .Toolbar {
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .Empty {
-    color: var(--text-muted);
-    padding: 20px 0;
-  }
-
-  .List {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    .Row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      background-color: var(--secondary-bg-color);
-      border-radius: 5px;
-      padding: 10px 14px;
-
-      .Info {
-        min-width: 0;
-
-        .Name {
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-
-          .DefaultBadge {
-            font-size: 12px;
-            font-weight: normal;
-            color: var(--base-bg-color);
-            background-color: var(--secondary-blue);
-            border-radius: 10px;
-            padding: 1px 8px;
-          }
-        }
-
-        .Summary {
-          font-size: 13px;
-          color: var(--text-muted);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-      }
-
-      .Actions {
-        display: flex;
-        gap: 4px;
-        flex-shrink: 0;
-      }
-    }
+  &:hover .Actions,
+  .Actions:focus-within {
+    opacity: 1;
   }
 }
 
-.ConfirmBody {
-  padding: 0 16px 16px;
+.Info {
+  flex: 1;
+  min-width: 0;
 
-  .ConfirmActions {
+  b {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
     gap: 8px;
-    margin-top: 12px;
+    font-weight: 600;
   }
+}
+
+.Url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  min-width: 0;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+
+  span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.Actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0.55;
+  transition: opacity var(--t-fast);
 }

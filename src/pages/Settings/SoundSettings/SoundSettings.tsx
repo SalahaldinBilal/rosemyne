@@ -1,8 +1,12 @@
 import styles from "./SoundSettings.module.scss";
-import { For, Show, onCleanup, onMount } from "solid-js";
+import { For, Show, createMemo, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 import { open } from "@tauri-apps/plugin-dialog";
 import Button from "@core/components/Button/Button";
+import Switch from "@core/components/Switch/Switch";
+import Checkbox from "@core/components/Checkbox/Checkbox";
+import useSettingsSavedState from "@core/states/settingsSavedState";
+import { SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { SoundKind, SoundSettings as SoundSettingsData } from "@core/types";
 import { FolderOpen, Play, RotateCcw } from "lucide-solid";
@@ -32,6 +36,7 @@ function SoundSettings() {
     taskSuccess: { enabled: true, instantCaptureEnabled: true, customFile: null, volume: 80 },
   });
   const { pushToast } = useToastState;
+  const { markSettingsSaved } = useSettingsSavedState;
   const volumeTimers: { [key in SoundKind]?: number } = {};
 
   onMount(async () => {
@@ -50,6 +55,7 @@ function SoundSettings() {
     setSettings(kind, "enabled", enabled);
     try {
       await safeInvoke("set_sound_enabled", { kind, enabled });
+      markSettingsSaved();
     } catch (error) {
       pushToast(`Failed to update the setting: ${errorText(error)}`, "error", 6000);
     }
@@ -59,6 +65,7 @@ function SoundSettings() {
     setSettings(kind, "instantCaptureEnabled", enabled);
     try {
       await safeInvoke("set_instant_capture_sound_enabled", { kind, enabled });
+      markSettingsSaved();
     } catch (error) {
       pushToast(`Failed to update the setting: ${errorText(error)}`, "error", 6000);
     }
@@ -70,6 +77,7 @@ function SoundSettings() {
     volumeTimers[kind] = window.setTimeout(async () => {
       try {
         await safeInvoke("set_sound_volume", { kind, volume });
+        markSettingsSaved();
       } catch (error) {
         pushToast(`Failed to update the volume: ${errorText(error)}`, "error", 6000);
       }
@@ -86,6 +94,7 @@ function SoundSettings() {
     try {
       const setting = await safeInvoke("set_custom_sound", { kind, path: picked });
       setSettings(kind, setting);
+      markSettingsSaved();
       await safeInvoke("preview_sound", { kind });
     } catch (error) {
       pushToast(`Failed to set the custom sound: ${errorText(error)}`, "error", 6000);
@@ -96,6 +105,7 @@ function SoundSettings() {
     try {
       const setting = await safeInvoke("reset_custom_sound", { kind });
       setSettings(kind, setting);
+      markSettingsSaved();
     } catch (error) {
       pushToast(`Failed to reset the sound: ${errorText(error)}`, "error", 6000);
     }
@@ -109,64 +119,59 @@ function SoundSettings() {
     }
   }
 
-  return <div class={styles.SoundSettings}>
-    <For each={SOUND_ROWS}>
-      {row => <div class={styles.SoundRow}>
-        <div class={styles.SoundHeader}>
-          <label class={styles.SettingRow}>
-            <input
-              type="checkbox"
-              checked={settings[row.kind].enabled}
-              onChange={e => toggleEnabled(row.kind, e.currentTarget.checked)}
-            />
-            <div class={styles.SettingText}>
-              <span>{row.title}</span>
-              <span class={styles.Hint}>{row.hint}</span>
+  return <SettingsPage title="Sounds" description="What plays after a capture or a task.">
+    <SettingsGroup title="Sounds">
+      <For each={SOUND_ROWS}>
+        {row => {
+          const setting = createMemo(() => settings[row.kind]);
+          const fileLabel = createMemo(() => setting().customFile ?? "Default");
+          return <div class={styles.Sound} classList={{ [styles.Off]: !setting().enabled }} data-setting={row.title}>
+            <Switch label={row.title} checked={setting().enabled} onChange={enabled => toggleEnabled(row.kind, enabled)} />
+            <div class={styles.Text}>
+              <b title={row.hint}>{row.title}</b>
+              <div class={styles.Meta}>
+                <span class={styles.File} title={setting().customFile ?? undefined}>{fileLabel()}</span>
+                <span class={styles.Instant} title={row.instantHint}>
+                  <Checkbox
+                    checked={setting().instantCaptureEnabled}
+                    disabled={!setting().enabled}
+                    onChange={enabled => toggleInstantCaptureEnabled(row.kind, enabled)}
+                  >
+                    Instant captures too
+                  </Checkbox>
+                </span>
+              </div>
             </div>
-          </label>
-          <div class={styles.SoundControls}>
-            <span class={styles.FileLabel} title={settings[row.kind].customFile ?? undefined}>
-              {settings[row.kind].customFile ?? "Default"}
-            </span>
-            <Button isIcon tooltip="Preview" onClick={() => preview(row.kind)}>
-              <Play size={16} />
-            </Button>
-            <Button isIcon tooltip="Choose file…" onClick={() => chooseFile(row.kind)}>
-              <FolderOpen size={16} />
-            </Button>
-            <Show when={settings[row.kind].customFile}>
-              <Button isIcon tooltip="Reset to default" onClick={() => resetFile(row.kind)}>
-                <RotateCcw size={16} />
+            <div class={styles.Volume}>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                aria-label={`${row.title} volume`}
+                value={setting().volume}
+                style={{ "--fill": `${setting().volume}%` }}
+                onInput={e => changeVolume(row.kind, e.currentTarget.valueAsNumber)}
+              />
+              <span>{setting().volume}%</span>
+            </div>
+            <div class={styles.Actions}>
+              <Button isIcon size="sm" tooltip="Play" onClick={() => preview(row.kind)}>
+                <Play size={15} />
               </Button>
-            </Show>
-          </div>
-        </div>
-        <div class={styles.VolumeRow}>
-          <span class={styles.VolumeLabel}>Volume</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={settings[row.kind].volume}
-            onInput={e => changeVolume(row.kind, e.currentTarget.valueAsNumber)}
-          />
-          <span class={styles.VolumeValue}>{settings[row.kind].volume}%</span>
-        </div>
-        <label class={`${styles.SettingRow} ${styles.ChildSetting}`}>
-          <input
-            type="checkbox"
-            checked={settings[row.kind].instantCaptureEnabled}
-            disabled={!settings[row.kind].enabled}
-            onChange={e => toggleInstantCaptureEnabled(row.kind, e.currentTarget.checked)}
-          />
-          <div class={styles.SettingText}>
-            <span>Play for instant captures</span>
-            <span class={styles.Hint}>{row.instantHint}</span>
-          </div>
-        </label>
-      </div>}
-    </For>
-  </div>
+              <Button isIcon size="sm" tooltip="Choose file" onClick={() => chooseFile(row.kind)}>
+                <FolderOpen size={15} />
+              </Button>
+              <Show when={setting().customFile}>
+                <Button isIcon size="sm" tooltip="Reset to default" onClick={() => resetFile(row.kind)}>
+                  <RotateCcw size={14} />
+                </Button>
+              </Show>
+            </div>
+          </div>;
+        }}
+      </For>
+    </SettingsGroup>
+  </SettingsPage>
 }
 
 export default SoundSettings;

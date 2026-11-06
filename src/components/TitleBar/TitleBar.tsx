@@ -5,6 +5,7 @@ import styles from "./TitleBar.module.scss";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { SETTINGS_ROUTES } from "@core/constants/settingsRoutes";
 import { WindowAction } from "@core/types";
+import useTitleBarState from "@core/states/titleBarState";
 
 function control(action: WindowAction) {
   safeInvoke("window_control", { action }).catch(error => console.error(`Window action "${action}" failed:`, error));
@@ -20,6 +21,7 @@ function TitleBar() {
   const location = useLocation();
   const appWindow = getCurrentWindow();
   const [maximized, setMaximized] = createSignal(false);
+  const { crumbTail } = useTitleBarState;
   let barEl: HTMLDivElement | undefined;
   let controlsEl: HTMLDivElement | undefined;
 
@@ -27,12 +29,14 @@ function TitleBar() {
     const [, section, page] = location.pathname.split("/");
     if (section === "settings") {
       const title = SETTINGS_ROUTES.find(route => route.path === page)?.title;
-      return title ? ["Settings", title] : ["Settings"];
+      return title ? ["Settings", title, ...crumbTail()] : ["Settings"];
     }
     if (section === "onboarding") return ["Setup"];
     if (section === "scroll-capture-result") return ["Scrolling Capture"];
     return ["Rosemyne"];
   });
+  const crumbParents = createMemo(() => crumb().slice(0, -1));
+  const crumbCurrent = createMemo(() => crumb()[crumb().length - 1]);
 
   // Hit-tested by position, not event target, so nothing layered over the bar can swallow a drag.
   function onWindowMouseDown(event: MouseEvent) {
@@ -57,14 +61,15 @@ function TitleBar() {
     </div>
 
     <div class={styles.Crumb}>
-      <For each={crumb()}>
-        {(part, index) => <>
-          <Show when={index() > 0}>
-            <span>›</span>
-          </Show>
-          <span classList={{ [styles.Current]: index() === crumb().length - 1 }}>{part}</span>
+      <For each={crumbParents()}>
+        {part => <>
+          <span>{part}</span>
+          <span>›</span>
         </>}
       </For>
+      <Show when={crumbCurrent()} keyed>
+        {part => <span class={styles.Current}>{part}</span>}
+      </Show>
     </div>
 
     <div ref={controlsEl} class={styles.Controls}>

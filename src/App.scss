@@ -1,3 +1,5 @@
+@use "./styles/tokens";
+
 html,
 body {
   margin: 0;
@@ -12,75 +14,33 @@ body {
   box-sizing: border-box;
 }
 
-// Tokens live on :root (not #root) so portaled elements (tooltips, menus,
-// toasts, select dropdowns) can still resolve them.
-:root {
-  color-scheme: dark;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-5) transparent;
+}
 
-  --font-sans: "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif;
-  --font-mono: Consolas, "Cascadia Mono", monospace;
-
-  --base-bg-color: #121212;
-  --panel-bg: #171717;
-  --secondary-bg-color: #262626;
-  --control-bg: #1f1f1f;
-  --control-bg-hover: #242424;
-
-  --border-color: #2e2e2e;
-  --control-border: #3a3a3a;
-  --control-border-hover: #4d4d4d;
-
-  --base-font-color: #ececec;
-  --text-muted: #9aa0a6;
-  --text-faint: #6a6a6a;
-
-  --base-blue: #007eff;
-  --secondary-blue: #90caf9;
-  --danger-color: #e1412c;
-  --success-color: #35d577;
-  --warning-color: #efcc48;
-  --method-post-color: #4c96f3;
-  --method-put-color: #0c71f1;
-
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
-  // Screenshot overlay chrome. The annotation layer is a stacking context, so an
-  // item's own z-index (which grows with creation order) can never escape it.
-  // The undimmed selection preview shows the raw capture, so it must stay under
-  // the annotation layer or it hides every overlay inside the selection.
-  --z-selection-preview: 29000;
-  --z-annotation-layer: 30000;
-  --z-annotation-drag-ghost: 30001;
-  --z-toolbox: 32000;
-
-  // Floating UI, above all overlay chrome.
-  --z-modal: 35000;
-  --z-menu: 36000;
-  --z-tooltip: 37000;
-  --z-toast: 38000;
-  --z-titlebar: 39000;
-
-  --titlebar-height: 0px;
-
-  &.HasTitleBar {
-    --titlebar-height: 32px;
-  }
+::selection {
+  background: var(--accent-soft-2);
 }
 
 body {
   font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.45;
   font-weight: 400;
-  color: var(--base-font-color);
+  color: var(--text-1);
+  font-feature-settings: "cv11", "ss01";
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 #root {

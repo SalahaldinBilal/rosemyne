@@ -1,6 +1,7 @@
-import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import styles from "./CaptureHud.module.scss";
 import Button from "@core/components/Button/Button";
+import Progress, { Spinner } from "@core/components/Progress/Progress";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { RecordingStatus, ScrollCaptureProgress } from "@core/types";
 import { listen } from "@tauri-apps/api/event";
@@ -24,6 +25,19 @@ function CaptureHud() {
   const [progress, setProgress] = createSignal<ScrollCaptureProgress | null>(null);
   const [now, setNow] = createSignal(Date.now());
   const [busy, setBusy] = createSignal(false);
+  const [leaving, setLeaving] = createSignal(false);
+  const elapsed = createMemo(() => {
+    const active = status();
+    return active ? formatElapsed(now() - active.startedAtMs) : "";
+  });
+  const frameText = createMemo(() => {
+    const current = progress();
+    return `Frame ${current?.frame ?? 0}${current?.maxFrames ? ` / ${current.maxFrames}` : ""}`;
+  });
+  const framePercent = createMemo(() => {
+    const current = progress();
+    return current && current.maxFrames > 0 ? Math.min(100, (current.frame / current.maxFrames) * 100) : null;
+  });
   let fetching = false;
   let timer: number | undefined;
 
@@ -42,6 +56,7 @@ function CaptureHud() {
   }
 
   function beginRecording() {
+    resetSession();
     setSession("recording");
     setStatus(null);
     setBusy(false);
@@ -56,16 +71,23 @@ function CaptureHud() {
   }
 
   function beginScrollCapture() {
+    resetSession();
     setSession("scrollCapture");
     setProgress({ frame: 0, maxFrames: 0 });
     setBusy(false);
   }
 
+  // The window hides a moment after this (capture_overlay's HIDE_DELAY_MS), so the content stays for the fade.
   function endSession() {
     if (timer !== undefined) {
       window.clearInterval(timer);
       timer = undefined;
     }
+    setLeaving(true);
+  }
+
+  function resetSession() {
+    setLeaving(false);
     setSession(null);
     setStatus(null);
     setProgress(null);
@@ -120,36 +142,42 @@ function CaptureHud() {
     }
   }
 
-  return <div class={styles.CaptureHud}>
-    <Show when={session() === "recording"}>
-      <div class={styles.RecordDot} classList={{ [styles.Starting]: !status() }} />
-      <Show when={status()} fallback={<span class={styles.StartingLabel}>Starting…</span>}>
-        {active => <>
-          <span class={styles.Timer}>{formatElapsed(now() - active().startedAtMs)}</span>
-          <span class={styles.Audio} title={active().withAudio ? "System audio is recorded" : "No audio"}>
-            <Show when={active().withAudio} fallback={<VolumeX size={16} />}>
-              <Volume2 size={16} />
-            </Show>
-          </span>
-        </>}
-      </Show>
-    </Show>
-    <Show when={session() === "scrollCapture"}>
-      <div class={styles.RecordDot} />
-      <span class={styles.Timer}>
-        Frame {progress()?.frame ?? 0}{progress()?.maxFrames ? ` / ${progress()!.maxFrames}` : ""}
-      </span>
-    </Show>
-    <div class={styles.Spacer} />
-    <Show when={!busy()} fallback={<span class={styles.Saving}>Saving…</span>}>
-      <Button isIcon tooltip="Stop and save" onClick={stop}>
-        <Square size={16} fill="currentColor" />
-      </Button>
-      <Button isIcon tooltip="Discard" color="var(--danger-color)" onClick={cancel}>
-        <X size={18} />
-      </Button>
-    </Show>
-  </div>;
+  return <Show when={session()} keyed>
+    {kind => (
+      <div class={styles.CaptureHud} classList={{ [styles.Leaving]: leaving() }}>
+        <Show when={kind === "recording"}>
+          <div class={styles.RecordDot} classList={{ [styles.Starting]: !status() }} />
+          <Show when={status()} fallback={<span class={styles.Muted}>Starting</span>}>
+            {active => <>
+              <span class={styles.Timer}>{elapsed()}</span>
+              <span class={styles.Audio} title={active().withAudio ? "System audio is recorded" : "No audio"}>
+                <Show when={active().withAudio} fallback={<VolumeX size={16} />}>
+                  <Volume2 size={16} />
+                </Show>
+              </span>
+            </>}
+          </Show>
+        </Show>
+        <Show when={kind === "scrollCapture"}>
+          <div class={styles.RecordDot} classList={{ [styles.Scroll]: true }} />
+          <span class={styles.Timer}>{frameText()}</span>
+          <Show when={framePercent() !== null}>
+            <Progress class={styles.FrameProgress} percent={framePercent()} />
+          </Show>
+        </Show>
+        <div class={styles.Spacer} />
+        <span class={styles.Divider} />
+        <Show when={!busy()} fallback={<span class={styles.Saving}><Spinner size="sm" />Saving</span>}>
+          <Button isIcon size="sm" tooltip="Stop and save" onClick={stop}>
+            <Square size={14} fill="currentColor" />
+          </Button>
+          <Button isIcon size="sm" variant="danger" tooltip="Discard" onClick={cancel}>
+            <X size={16} />
+          </Button>
+        </Show>
+      </div>
+    )}
+  </Show>;
 }
 
 export default CaptureHud;

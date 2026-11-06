@@ -3,7 +3,9 @@ use reqwest::Client;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use super::{SavedUploader, UploadFile, UploaderError, UploaderOptions, execute_and_capture};
+use std::time::Instant;
+
+use super::{SavedUploader, UploadFile, UploaderError, UploaderOptions, execute_and_capture, execute_and_capture_with_status};
 use crate::{
     HistoryStoreHandler, HttpClientHandler, SettingsHandler,
     emit_on_main_thread,
@@ -224,28 +226,38 @@ pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String, is_inst
     .await;
 }
 
+/// A test that reached the server and got a success status. The link is parsed separately,
+/// so a wrong link path still shows the raw response instead of failing the whole test.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UploaderTestResult {
+    pub status: u16,
+    pub elapsed_ms: u64,
+    pub body: String,
+    pub url: Option<String>,
+    pub link_error: Option<UploaderError>,
+}
+
 #[tauri::command]
 pub async fn test_uploader(
     http_client: State<'_, HttpClientHandler>,
     uploader: UploaderOptions,
-) -> Result<UploadResult, UploaderError> {
+) -> Result<UploaderTestResult, UploaderError> {
     let image = RgbaImage::from_pixel(64, 64, Rgba([0, 126, 255, 255]));
     let bytes = encode_image_as(&image, ImageFormat::Png)
         .expect("in-memory PNG encoding of a valid image cannot fail");
     let file = UploadFile::from_file_name("rosemyne-test.png".to_owned(), bytes);
 
-    let url = perform_upload(&http_client, &uploader, &file).await?;
+    let client: &Client = http_client.inner();
+    let (request, body_summary) = uploader.build_request(client, &file)?;
+    let started = Instant::now();
+    let (status, body) = execute_and_capture_with_status(client, request, body_summary).await?;
+    let elapsed_ms = started.elapsed().as_millis() as u64;
 
-    Ok(UploadResult { url, copied: false })
-}
+    let (url, link_error) = match uploader.response_handler.parse_response(&body) {
+        Ok(url) => (Some(url), None),
+        Err(error) => (None, Some(error)),
+    };
 
-async fn perform_upload(
-    client: &Client,
-    options: &UploaderOptions,
-    file: &UploadFile,
-) -> Result<String, UploaderError> {
-    let (request, body_summary) = options.build_request(client, file)?;
-    let body = execute_and_capture(client, request, body_summary).await?;
-
-    options.response_handler.parse_response(&body)
+    Ok(UploaderTestResult { status, elapsed_ms, body, url, link_error })
 }

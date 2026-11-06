@@ -1,93 +1,108 @@
 .Container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   position: fixed;
   z-index: var(--z-modal);
   inset: var(--titlebar-height) 0 0 0;
-  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  // solid-transition-group only ends on a transition of this element itself, not its children.
+  transition: opacity var(--t-base) var(--e-out);
+}
 
-  &.StartState {
-    &>.Body {
-      opacity: 0;
-      transform: scale(0.96);
-    }
+.Backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(4 4 8 / 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.Body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--bg-2);
+  color: var(--text-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-3);
+  transition: transform var(--t-slow) var(--e-out);
+}
+
+.Header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 14px 14px 10px 18px;
+}
+
+.Title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.HeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.Content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0 18px 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: var(--text-2);
+
+  &:last-child {
+    padding-bottom: 18px;
   }
 
-  &.EnterAnimation {
-    &>.Body {
-      animation: modalOpenTransition 0.16s ease-out;
-    }
-  }
-
-  &.EndAnimation {
-    &>.Body {
-      animation: modalOpenTransition 0.16s ease-in reverse;
-    }
-  }
-
-  &>.Body {
-    margin: 15px;
-    position: relative;
-    max-width: calc(100vw - 30px);
-    max-height: calc(100vh - var(--titlebar-height) - 30px);
-    background-color: var(--panel-bg);
-    color: var(--base-font-color);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 24px 64px -16px rgba(0, 0, 0, .7);
-    display: flex;
-    flex-direction: column;
-    padding: 15px;
-
-    .Header {
-      display: flex;
-      align-items: center;
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 10px;
-      flex-shrink: 0;
-
-      .Title {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .HeaderActions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-left: 12px;
-        flex-shrink: 0;
-      }
-
-      .Close {
-        margin-left: 12px;
-        flex-shrink: 0;
-      }
-    }
-
-    .Content {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-    }
+  p {
+    margin: 0 0 6px;
   }
 }
 
-@keyframes modalOpenTransition {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
+.Footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 14px 18px 16px;
+}
+
+.Hidden {
+  opacity: 0;
+
+  .Body {
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+.Exiting {
+  pointer-events: none;
+  transition-duration: 160ms;
+  transition-timing-function: var(--e-in);
+
+  .Body {
+    transition-duration: 160ms;
+    transition-timing-function: var(--e-in);
   }
 
-  to {
-    opacity: 1;
-    transform: scale(1);
+  &.Hidden .Body {
+    transform: scale(0.98);
   }
 }

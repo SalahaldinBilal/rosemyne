@@ -195,9 +195,17 @@ export type FilterGroup = {
 
 export type FilterNode = FilterCondition | FilterGroup;
 
+export type DatePreset = "any" | "today" | "week" | "month" | "year";
+
+export type QuickFilters = {
+  search: string,
+  types: HistoryItemType[],
+  date: DatePreset,
+};
+
 export type SavedFilter = {
   name: string,
-  filter: FilterGroup,
+  filter: FilterGroup & { quick?: QuickFilters },
 };
 
 export type TagValueSuggestion = { value: string | number, count: number };
@@ -208,17 +216,17 @@ export const RELATION_LABELS: Record<FilterRelationOperations, string> = {
 };
 
 export const OPERATION_LABELS: Record<FilterOperations, string> = {
-  [FilterOperations.equals]: "Equals",
-  [FilterOperations.notEquals]: "Not equals",
-  [FilterOperations.greaterThan]: "Greater than",
-  [FilterOperations.lessThan]: "Less than",
-  [FilterOperations.greaterThanOrEqualTo]: "At least",
-  [FilterOperations.lessThanOrEqualTo]: "At most",
-  [FilterOperations.contains]: "Contains",
-  [FilterOperations.notContains]: "Doesn't contain",
-  [FilterOperations.startsWith]: "Starts with",
-  [FilterOperations.endsWith]: "Ends with",
-  [FilterOperations.fuzzy]: "Fuzzy match",
+  [FilterOperations.equals]: "is",
+  [FilterOperations.notEquals]: "is not",
+  [FilterOperations.greaterThan]: ">",
+  [FilterOperations.lessThan]: "<",
+  [FilterOperations.greaterThanOrEqualTo]: "≥",
+  [FilterOperations.lessThanOrEqualTo]: "≤",
+  [FilterOperations.contains]: "contains",
+  [FilterOperations.notContains]: "doesn't contain",
+  [FilterOperations.startsWith]: "starts with",
+  [FilterOperations.endsWith]: "ends with",
+  [FilterOperations.fuzzy]: "fuzzy",
 };
 
 export const OPERATIONS_BY_TYPE: Record<FilterValueType, FilterOperations[]> = {

@@ -1,64 +1,53 @@
 .Input {
   display: inline-flex;
   align-items: stretch;
-  background-color: var(--control-bg);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  transition: border-color .15s ease, background-color .15s ease;
+  min-width: 0;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast),
+    background-color var(--t-fast);
 
-  &:hover:not(.Focused):not(.Disabled) {
-    border-color: var(--control-border-hover);
+  &:hover:not(.Disabled) {
+    border-color: var(--line-3);
   }
 
-  &.Focused:not(.Disabled) {
-    border-color: var(--input-accent);
+  &:focus-within:not(.Disabled) {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    background: var(--bg-1);
+  }
+
+  &.Invalid:not(.Disabled),
+  &.Invalid:focus-within:not(.Disabled) {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-soft);
   }
 
   &.Disabled {
-    opacity: .5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
 
-  &.Invalid:not(.Disabled) {
-    border-color: var(--danger-color);
-  }
-
-  &>* {
+  & > * {
     flex-shrink: 0;
-  }
-
-  &.Borderless {
-    border-color: transparent;
-    background-color: transparent;
-
-    &:hover:not(.Focused):not(.Disabled) {
-      background-color: var(--control-bg);
-      border-color: transparent;
-    }
-
-    &.Focused:not(.Disabled) {
-      background-color: var(--control-bg);
-      border-color: var(--input-accent);
-    }
-  }
-
-  &.NoRadius {
-    border-radius: 0;
   }
 
   input {
     all: unset;
     box-sizing: border-box;
-    font-family: inherit;
-    font-size: 13px;
-    color: var(--base-font-color);
     flex-grow: 1;
     min-width: 0;
-    height: 32px;
+    height: calc(var(--ctl-h) - 2px);
     padding: 0 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-1);
 
     &::placeholder {
-      color: var(--text-faint);
+      color: var(--text-3);
     }
 
     &::-webkit-outer-spin-button,
@@ -66,9 +55,35 @@
       -webkit-appearance: none;
       margin: 0;
     }
+  }
 
-    &:focus {
-      outline: none;
+  &.Small input {
+    height: 26px;
+    padding: 0 8px;
+  }
+
+  &.Mono input {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+
+  &.Borderless {
+    border-color: transparent;
+    background: transparent;
+
+    &:hover:not(.Disabled) {
+      border-color: transparent;
+      background: rgb(255 255 255 / 0.04);
     }
+
+    &:focus-within:not(.Disabled) {
+      border-color: transparent;
+      box-shadow: none;
+      background: transparent;
+    }
+  }
+
+  &.NoRadius {
+    border-radius: 0;
   }
 }

@@ -1,43 +1,65 @@
-.Condition {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  background-color: var(--base-bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-}
-
-.Body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
+// Fixed columns so the operation and value start at the same x on every row.
+.Row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 250px) 120px minmax(0, 1fr) var(--ctl-h-sm);
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  padding: 2px 0;
 }
 
-.Path {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.Sep {
-  color: var(--text-faint);
+.JoinerFirst,
+.Joiner {
+  justify-self: end;
+  height: 24px;
+  padding: 0 8px;
   font-size: 12px;
+}
+
+.JoinerFirst {
+  display: flex;
+  align-items: center;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.Joiner {
+  border: 0;
+  border-radius: 6px;
+  background: var(--bg-4);
+  color: var(--accent-text);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--t-fast);
+
+  &:hover {
+    background: var(--accent-soft-2);
+  }
+}
+
+.Row .Operation {
+  width: 100%;
+}
+
+.FixedOperation {
+  padding-left: 10px;
+  color: var(--text-3);
 }
 
 .Values {
   display: flex;
   align-items: center;
-  gap: 6px;
   flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+
+  & > * {
+    min-width: 0;
+  }
 }
 
-.Value {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+.ValueJoin {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 12px;
 }

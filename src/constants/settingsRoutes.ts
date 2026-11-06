@@ -5,9 +5,9 @@ export const SETTINGS_ROUTES = [
   { path: "shortcuts", title: "Shortcuts", icon: SquareSlash },
   { path: "uploaders", title: "Uploaders", icon: CloudUpload },
   { path: "sounds", title: "Sounds", icon: Volume2 },
-  { path: "overlay-defaults", title: "Overlay Defaults", icon: Shapes },
-  { path: "capture-preview", title: "Capture Preview", icon: PictureInPicture2 },
-  { path: "scrolling-capture", title: "Scrolling Capture", icon: ScrollText },
+  { path: "overlay-defaults", title: "Overlay defaults", icon: Shapes },
+  { path: "capture-preview", title: "Capture preview", icon: PictureInPicture2 },
+  { path: "scrolling-capture", title: "Scrolling capture", icon: ScrollText },
   { path: "sharex", title: "ShareX import", icon: Import },
   { path: "updates", title: "Updates", icon: RefreshCw },
 ];

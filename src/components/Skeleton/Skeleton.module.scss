@@ -1,0 +1,16 @@
+.Skeleton {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-3) 0%, var(--bg-4) 40%, var(--bg-3) 80%);
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -50% 0;
+  }
+}

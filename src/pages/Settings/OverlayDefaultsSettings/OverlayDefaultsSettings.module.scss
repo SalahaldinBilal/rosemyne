@@ -1,102 +1,177 @@
-.OverlayDefaultsSettings {
+.TypeBar {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 650px;
-  padding-right: 20px;
-  padding-bottom: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
 
-  // The color picker's own popup (@thednp/color-picker) anchors its "picker"
-  // panel with `left: 0`, expanding rightward from its trigger, fine in the
-  // overlay's own (viewport-clamped, centrally-positioned) right-click menu,
-  // but here the swatch sits near the settings column's right edge with no
-  // room to expand into, so it runs off the actual window. Flip it to expand
-  // leftward instead, where this page actually has room.
+.Editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 14px;
+
+  // The picker popup opens rightward from its swatch, which runs off the window here, so it opens leftward.
   :global(.color-dropdown.picker) {
     left: auto;
     right: 0;
   }
 }
 
-.Intro {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.Hint {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.ToolSection {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-
-  .ToolHeader {
-    border-radius: 8px 8px 0 0;
+@media (max-width: 640px) {
+  .Editor {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.ToolHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  font-weight: 600;
-  background-color: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--border-color);
+.Attributes {
+  padding: 6px 2px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
 }
 
-.LibraryIntro {
-  padding: 10px 12px;
-  font-size: 13px;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.Row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--border-color);
-  }
-}
-
+// One backdrop split down the middle, the sample straddling the seam, so a default that only reads on one side is obvious.
 .Preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+}
+
+.Half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  padding: 34px 12px 12px;
+
+  &.Light {
+    left: 0;
+    background:
+      repeating-linear-gradient(#dcdfe6 0 5px, transparent 5px 14px) content-box,
+      #f4f5f8;
+  }
+
+  &.Dark {
+    right: 0;
+    background:
+      repeating-linear-gradient(#2e2e38 0 5px, transparent 5px 14px) content-box,
+      #18181d;
+
+    .PreviewLabel {
+      left: auto;
+      right: 8px;
+      background: rgb(255 255 255 / 0.1);
+      color: #ededf2;
+    }
+  }
+}
+
+.PreviewLabel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
+  background: rgb(0 0 0 / 0.08);
+  color: #3a3a44;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.SampleSlot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 140px;
+  height: 86px;
+}
+
+.SampleBox {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  transition: all var(--t-base) var(--e-out);
+}
+
+.SampleText {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.SampleEffect {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed rgb(128 128 128 / 0.6);
+
+  &.Pixelate {
+    background-image:
+      linear-gradient(rgb(128 128 128 / 0.25) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(128 128 128 / 0.25) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+  }
+}
+
+.SampleImage {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.SampleLine {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.CursorControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.Thumb {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.04);
+  width: 36px;
+  height: 36px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
 
   img {
-    max-width: 40px;
-    max-height: 40px;
+    max-width: 28px;
+    max-height: 28px;
     object-fit: contain;
   }
 }
 
-.RowBody {
+.LibraryRow {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-grow: 1;
-  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 14px;
 }
 
-.Empty {
-  padding: 14px 12px;
-  font-size: 13px;
-  color: var(--text-muted);
+.LibraryRow .NameInput {
+  flex: 1;
 }

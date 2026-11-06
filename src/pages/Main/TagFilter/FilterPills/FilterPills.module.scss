@@ -1,0 +1,80 @@
+.Pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 10px;
+}
+
+.Pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 3px 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: var(--bg-3);
+  font-size: 12px;
+  transition: border-color var(--t-fast);
+  animation: pill-pop var(--t-base) var(--e-pop);
+
+  &.Clickable {
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--line-3);
+    }
+  }
+
+  b {
+    min-width: 0;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+}
+
+.Key {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.Operation {
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+
+.Remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-5);
+    color: var(--text-1);
+  }
+}
+
+.Join {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+@keyframes pill-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}

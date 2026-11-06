@@ -11,6 +11,8 @@ function ContextMenuItem(props: ContextMenuItemProps) {
   return (
     <div
       class={styles.Container}
+      role="menuitem"
+      aria-disabled={disabled()}
       classList={{ [styles.Disabled]: disabled(), [styles.Danger]: props.danger }}
       onClick={ev => {
         if (disabled()) return;
@@ -19,13 +21,15 @@ function ContextMenuItem(props: ContextMenuItemProps) {
         if (shouldCloseOnClick()) contextMenuEventHandler.emit("hideAll");
       }}
     >
-
       <Show when={props.icon}>
         <span class={styles.Icon}>
-          <Dynamic component={props.icon!.icon} {...(props.icon!.props ?? {})} />
+          <Dynamic component={props.icon!.icon} size={15} {...(props.icon!.props ?? {})} />
         </span>
       </Show>
-      {props.children}
+      <span class={styles.Label}>{props.children}</span>
+      <Show when={props.hint}>
+        <span class={styles.Hint}>{props.hint}</span>
+      </Show>
     </div>
   );
 }

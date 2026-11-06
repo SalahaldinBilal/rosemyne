@@ -1,25 +1,20 @@
-.ShortcutPickerContainer {
+.KeyBox {
   display: flex;
-  flex-direction: column;
-  width: 100%;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+  margin: 4px 0 8px;
+  padding: 10px;
+  border: 1px dashed var(--line-3);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+}
 
-  .Controls {
-    display: flex;
-  }
+.Warning {
+  color: var(--warn);
+  font-size: 12px;
+}
 
-  .Warning {
-    color: var(--warning-color);
-    font-size: 13px;
-    text-align: center;
-    padding-bottom: 10px;
-  }
-
-  .KeyRenderer {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-width: 400px;
-    min-height: 200px;
-    padding: 0 50px;
-  }
+.ClearButton {
+  margin-right: auto;
 }

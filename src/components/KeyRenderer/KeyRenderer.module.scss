@@ -1,64 +1,73 @@
-.KeyContainers {
-  display: flex;
+.Keys {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 
-  &.WithDeletion {
-    .Plus {
-      justify-content: start;
-    }
-  }
-
-  .Placeholder {
-    color: var(--text-muted);
-  }
-
-  .Plus {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+  kbd {
+    display: inline-flex;
     align-items: center;
-    height: calc((var(--key-size) * 2) + 7px); // to match the keys height
-
-    svg {
-      margin: 0 10px;
-      height: var(--key-size);
-      width: var(--key-size);
-    }
-  }
-
-  .KeyContainer {
-    display: flex;
-    flex-direction: column;
     justify-content: center;
-    align-items: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border: 1px solid var(--line-3);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: linear-gradient(var(--bg-5), var(--bg-4));
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    user-select: none;
+  }
+}
 
-    button {
-      height: var(--key-size);
-      width: 100%;
-      padding: calc(0.15 * var(--key-size));
-    }
+.Small kbd {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-width: 1px;
+  border-radius: var(--r-xs);
+  border-color: var(--line-2);
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: 10.5px;
+}
 
-    svg {
-      height: var(--key-size);
-      width: var(--key-size);
-    }
+.Large {
+  gap: 8px;
 
-    kbd {
-      text-align: center;
-      min-width: calc(0.15 * var(--key-size) + var(--key-size));
-      user-select: none;
-      background-color: #eee;
-      border-radius: 3px;
-      border: 1px solid #b4b4b4;
-      box-shadow:
-        0 1px 1px rgba(0, 0, 0, 0.2),
-        0 2px 0 0 rgba(255, 255, 255, 0.7) inset;
-      color: #333;
-      display: inline-block;
-      font-size: var(--key-size);
-      font-weight: 700;
-      line-height: 1;
-      padding: 2px 4px;
-      white-space: nowrap;
-    }
+  kbd {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 15px;
+    animation: key-pop var(--t-base) var(--e-pop);
+  }
+}
+
+.Removable {
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast);
+
+  &:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+}
+
+.Placeholder {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+@keyframes key-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
   }
 }

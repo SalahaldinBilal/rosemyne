@@ -8,7 +8,8 @@ export type ContextMenuItemProps = {
   onClick?: (event: MouseEvent) => void,
   disabled?: boolean,
   shouldCloseOnClick?: boolean,
-  danger?: boolean
+  danger?: boolean,
+  hint?: JSX.Element
 }
 
 export type AbbyContextMenuProps = {

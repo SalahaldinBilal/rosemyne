@@ -31,13 +31,13 @@ const MOVE_MIN_INTERVAL_MS = 12;
 const MOVE_ACCELERATION = 0.85;
 
 function Screenshot() {
-  const { imageData, setImageData, cancelCurrentAction, hasActiveInteraction, mouseEventHandler, selectedBox } = useScreenshotOverlayStateInner;
+  const { imageData, setImageData, cancelCurrentAction, hasActiveInteraction, mouseEventHandler, selectedBox, setClosing } = useScreenshotOverlayStateInner;
   const { refresh: refreshOverlayDefaults } = useOverlayDefaultsState;
   const { refresh: refreshOverlayImages } = useOverlayImagesState;
   const mouseMovement = { x: 0, y: 0 };
   let movementTimer: ReturnType<typeof setTimeout> | undefined;
   let movementInterval = MOVE_START_INTERVAL_MS;
-  const hasSelection = () => selectedBox.width > 5 && selectedBox.height > 5;
+  const hasSelection = createMemo(() => selectedBox.width > 5 && selectedBox.height > 5);
 
   createEffect(() => {
     if (!imageData()) {
@@ -85,6 +85,7 @@ function Screenshot() {
     document.body.style.background = "transparent";
 
     getCurrentWebviewWindow().listen("screenshot://data", (event: TauriEvent<Data>) => {
+      setClosing(false);
       setImageData(event.payload);
       refreshOverlayDefaults();
       refreshOverlayImages();
@@ -155,41 +156,43 @@ function Screenshot() {
     }
   }
 
-  return (<>
+  return (
     <Show when={imageData()}>
       {imageData => {
         const liveSelect = createMemo(() => imageData().pickRegion || imageData().record || imageData().scrollCapture);
+        const previewSrc = createMemo(() => `http://rosemyne-photo.localhost/preview/${imageData().imageId}`);
+        const hintMonitor = createMemo(() =>
+          getDimensionFromPoints(imageData().mousePosition, imageData().monitorPositions) ?? imageData().monitorPositions[0]
+        );
+        const hintPosition = createMemo(() => ({
+          left: `${hintMonitor().x + hintMonitor().width / 2}px`,
+          top: `${hintMonitor().y + 18}px`,
+        }));
+        const holeStyle = createMemo(() => ({
+          left: `${selectedBox.x}px`, top: `${selectedBox.y}px`,
+          width: `${selectedBox.width}px`, height: `${selectedBox.height}px`,
+        }));
 
-        return <>
+        return <div>
           <Show
             when={liveSelect()}
             fallback={
               <img
-                src={`http://rosemyne-photo.localhost/preview/${imageData().imageId}`}
-                style={{ filter: 'brightness(70%)', 'user-select': 'none' }}
+                class={styles.Frozen}
+                src={previewSrc()}
                 onMouseDown={e => mouseEventHandler.emit("mouseDown", e)}
                 draggable="false"
               />
             }
           >
-            {/* Transparent window shows the real desktop; dim it with CSS and
-                cut a bright hole at the selection via a large box-shadow. */}
+            {/* The transparent window shows the real desktop. Dim it with CSS and cut a hole at the selection. */}
             <div
-              style={{
-                position: 'fixed', inset: '0',
-                'background-color': hasSelection() ? 'transparent' : 'rgba(0, 0, 0, 0.3)',
-              }}
+              class={styles.LiveDim}
+              classList={{ [styles.Clear]: hasSelection() }}
               onMouseDown={e => mouseEventHandler.emit("mouseDown", e)}
             />
             <Show when={hasSelection()}>
-              <div
-                style={{
-                  position: 'fixed', 'pointer-events': 'none',
-                  left: `${selectedBox.x}px`, top: `${selectedBox.y}px`,
-                  width: `${selectedBox.width}px`, height: `${selectedBox.height}px`,
-                  'box-shadow': '0 0 0 100vmax rgba(0, 0, 0, 0.3)',
-                }}
-              />
+              <div class={styles.LiveHole} style={holeStyle()} />
             </Show>
           </Show>
           <SelectionBox />
@@ -203,44 +206,26 @@ function Screenshot() {
             </AnnotationContext.Provider>
           </Show>
           <Show when={imageData().record || imageData().scrollCapture}>
-            {(() => {
-              const monitor = getDimensionFromPoints(imageData().mousePosition, imageData().monitorPositions) ?? imageData().monitorPositions[0];
-              return <div style={{
-                position: "fixed",
-                left: `${monitor.x + monitor.width / 2}px`,
-                top: `${monitor.y + 16}px`,
-                transform: "translateX(-50%)",
-                display: "flex",
-                "flex-direction": "column",
-                "align-items": "center",
-                gap: "8px",
-                // Above SelectionBox's per-window boxes (z-index: box.zOrder,
-                // uncapped and otherwise on top of everything here since this
-                // wrapper has no z-index of its own to compete with them).
-                "z-index": 40000,
-              }}>
-                <div style={{
-                  padding: "6px 14px",
-                  "border-radius": "8px",
-                  background: "rgba(20, 20, 24, 0.85)",
-                  color: "#eee",
-                  "font-size": "13px",
-                  "pointer-events": "none",
-                }}>
-                  {imageData().scrollCapture
-                    ? "Drag or click a scrollable region to capture · Esc to cancel"
-                    : "Drag or click a window to record · Esc to cancel"}
-                </div>
-                <Show when={imageData().scrollCapture}>
-                  <ScrollCaptureLiveParams />
-                </Show>
-              </div>;
-            })()}
+            <div class={styles.HintStack} style={hintPosition()}>
+              <div class={styles.HintPill}>
+                <span class={styles.ModePill} classList={{ [styles.Rec]: !!imageData().record }}>
+                  <span class={styles.ModeDot} />
+                  {imageData().scrollCapture ? "Scrolling capture" : "Record"}
+                </span>
+                <span>
+                  {imageData().scrollCapture ? "Drag or click a scrollable region" : "Drag or click a window to record"}
+                </span>
+                <span class={styles.Keys}><kbd>Esc</kbd> to cancel</span>
+              </div>
+              <Show when={imageData().scrollCapture}>
+                <ScrollCaptureLiveParams />
+              </Show>
+            </div>
           </Show>
-        </>
+        </div>;
       }}
     </Show>
-  </>);
+  );
 }
 
 export default Screenshot;

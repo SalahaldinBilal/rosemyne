@@ -1,10 +1,10 @@
-import { createEffect, createMemo, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import styles from "./AnnotationToolBar.module.scss";
 import { useAnnotationState } from "../../states/annotationContext";
 import { beautifyCamelOrPascalCase } from "../../helpers";
 import Button from "../Button/Button";
-import Input from "../Input/Input";
+import NumberField from "../NumberField/NumberField";
 import { ArrowUpRight, BookAIcon, Droplets, Eraser, Grid3X3Icon, ImageIcon, LucideIcon, MousePointer2, MousePointerSquareDashed, Pencil, Redo2, Slash, SquareMousePointer, Trash2, Undo2, X } from "lucide-solid";
 import { SelectItem, Tools } from "../../types";
 import Select from "../Select/Select";
@@ -113,9 +113,32 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
     }
   });
 
+  // One accent pill for the whole bar, so the active tool's highlight slides instead of jumping.
+  const toolButtons = new Map<Tools, HTMLButtonElement>();
+  const [indicator, setIndicator] = createSignal<{ left: number, top: number } | null>(null);
+  const [indicatorReady, setIndicatorReady] = createSignal(false);
+
+  function measureIndicator() {
+    const button = toolButtons.get(currentTool());
+    setIndicator(button ? { left: button.offsetLeft, top: button.offsetTop } : null);
+  }
+
+  onMount(() => {
+    measureIndicator();
+    requestAnimationFrame(() => setIndicatorReady(true));
+  });
+  createEffect(on(currentTool, measureIndicator, { defer: true }));
+
+  const indicatorStyle = createMemo(() => ({ transform: `translate(${indicator()?.left ?? 0}px, ${indicator()?.top ?? 0}px)` }));
+
   return (<>
     <div class={styles.ToolBoxColumn} classList={{ [styles.Interacting]: isOverlayInteracting() }}>
       <div class={styles.ToolBox}>
+        <span
+          class={styles.Indicator}
+          classList={{ [styles.Animated]: indicatorReady(), [styles.Hidden]: !indicator() }}
+          style={indicatorStyle()}
+        />
         <For each={TOOL_GROUPS}>
           {(group, groupIndex) => <>
             <Show when={groupIndex() > 0}><div class={styles.Divider} /></Show>
@@ -128,12 +151,10 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
 
                 return <Button
                   isIcon
-                  tooltip={shortcutIndex < 9 ? `${label} (${shortcutIndex + 1})` : label}
-                  color={isActive() ? "var(--base-blue)" : undefined}
-                  style={{
-                    width: "36px", height: "36px", "border-radius": "9px",
-                    "background-color": isActive() ? "rgb(from var(--base-blue) r g b / .18)" : undefined,
-                  }}
+                  ref={element => toolButtons.set(tool.tool, element)}
+                  tooltip={label}
+                  tooltipKeys={shortcutIndex < 9 ? [`${shortcutIndex + 1}`] : undefined}
+                  class={isActive() ? `${styles.Tool} ${styles.On}` : styles.Tool}
                   children={<tool.icon size={18} />}
                   onClick={() => setCurrentTool(tool.tool)}
                 />
@@ -144,7 +165,7 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
                 isIcon
                 tooltip="Clear drawing"
                 disabled={!hasDrawing()}
-                style={{ width: "36px", height: "36px", "border-radius": "9px" }}
+                class={styles.Tool}
                 children={<Trash2 size={18} />}
                 onClick={clearDrawing}
               />
@@ -154,17 +175,19 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
         <div class={styles.Divider} />
         <Button
           isIcon
-          tooltip="Undo (Ctrl+Z)"
+          tooltip="Undo"
+          tooltipKeys={["Ctrl", "Z"]}
           disabled={!history.canUndo()}
-          style={{ width: "36px", height: "36px", "border-radius": "9px" }}
+          class={styles.Tool}
           children={<Undo2 size={18} />}
           onClick={history.undo}
         />
         <Button
           isIcon
-          tooltip="Redo (Ctrl+Y)"
+          tooltip="Redo"
+          tooltipKeys={["Ctrl", "Y"]}
           disabled={!history.canRedo()}
-          style={{ width: "36px", height: "36px", "border-radius": "9px" }}
+          class={styles.Tool}
           children={<Redo2 size={18} />}
           onClick={history.redo}
         />
@@ -172,9 +195,10 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
           <div class={styles.Divider} />
           <Button
             isIcon
-            tooltip="Cancel (Esc)"
-            color="var(--danger-color)"
-            style={{ width: "36px", height: "36px", "border-radius": "9px" }}
+            tooltip="Cancel"
+            tooltipKeys={["Esc"]}
+            variant="danger"
+            class={styles.Tool}
             children={<X size={18} />}
             onClick={() => props.onClose?.()}
           />
@@ -193,20 +217,14 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
             </div>
           </Show>
           <span class={styles.ToolOptionsLabel}>{isDrawTool() ? "Brush size" : "Eraser size"}</span>
-          <Input
-            type="number"
+          <NumberField
+            size="sm"
+            width={76}
             min={1}
             max={200}
+            unit="px"
             value={isDrawTool() ? brushSize() : eraserSize()}
-            onChange={e => {
-              const value = e.currentTarget.valueAsNumber;
-              if (!Number.isFinite(value) || value <= 0) return;
-              if (isDrawTool()) setBrushSize(value);
-              else setEraserSize(value);
-            }}
-            alignText="right"
-            style={{ width: "60px" }}
-            inputStyle={{ height: "26px", padding: "0 8px" }}
+            onChange={value => isDrawTool() ? setBrushSize(value) : setEraserSize(value)}
           />
         </div>
       </Show>
@@ -214,13 +232,14 @@ function AnnotationToolBar(props: { hint?: string, onClose?: () => void, cursorS
         <div class={styles.ToolOptions}>
           <span class={styles.ToolOptionsLabel}>Image</span>
           <Select
+            variant="pill"
+            class={styles.ImageSelect}
             value={selectedImage()}
             items={imageItems()}
             onItemClick={item => setSelectedImage(item.value)}
-            style={{ "min-width": "130px", height: "26px", padding: "0 8px", "font-size": "12px" }}
           />
-          <Button style={{ height: "26px", "font-size": "12px" }} onClick={() => filePicker?.click()}>
-            Add image…
+          <Button size="sm" onClick={() => filePicker?.click()}>
+            Add image
           </Button>
           <input ref={filePicker} type="file" accept="image/*" style={{ display: "none" }} onChange={pickOneOffImage} />
         </div>

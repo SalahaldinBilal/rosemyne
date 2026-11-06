@@ -6,7 +6,7 @@
 
 .Section {
   &+.Section {
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--line-1);
     padding-top: 16px;
   }
 }
@@ -15,5 +15,5 @@
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--base-font-color);
+  color: var(--text-1);
 }

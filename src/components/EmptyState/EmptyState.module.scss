@@ -1,0 +1,47 @@
+.EmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 40px 16px;
+  color: var(--text-3);
+  text-align: center;
+  animation: empty-in var(--t-base) var(--e-out);
+
+  b {
+    color: var(--text-1);
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+
+.Icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  color: var(--text-2);
+}
+
+.Body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.Action {
+  margin-top: 4px;
+}
+
+@keyframes empty-in {
+  from {
+    opacity: 0;
+  }
+}

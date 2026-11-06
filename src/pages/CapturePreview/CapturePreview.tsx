@@ -1,12 +1,29 @@
-import { createSignal, onCleanup, onMount, Show, Switch, Match } from "solid-js";
+import { createMemo, createSignal, onCleanup, onMount, Show, Switch, Match } from "solid-js";
 import styles from "./CapturePreview.module.scss";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { startFileDrag } from "@core/helpers/fileDrag";
-import { CapturePreviewPayload, PreviewClickAction } from "@core/types";
+import { CapturePreviewPayload, PreviewClickAction, PreviewCorner } from "@core/types";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { File, Play } from "lucide-solid";
+import { CircleCheck, File, Play } from "lucide-solid";
 
 const PLACEHOLDER_SIZE = 120;
+const EXIT_MS = 160;
+
+const ORIGINS: Record<PreviewCorner, string> = {
+  topLeft: "top left",
+  topRight: "top right",
+  bottomLeft: "bottom left",
+  bottomRight: "bottom right",
+};
+
+const ACTION_LABELS: Record<PreviewClickAction, string | null> = {
+  nothing: null,
+  close: "Close",
+  openFile: "Open",
+  openFolder: "Show in folder",
+  copyFile: "Copy",
+  copyLink: "Copy link",
+};
 
 function mediaUrl(fileName: string, itemType: CapturePreviewPayload["itemType"]): string {
   return itemType === "video"
@@ -14,10 +31,40 @@ function mediaUrl(fileName: string, itemType: CapturePreviewPayload["itemType"])
     : `http://rosemyne-photo.localhost/saved/${fileName}`;
 }
 
+// The window is sized exactly to this content (no margin, so it can't block clicks), so every
+// animation stays inside its own bounds and there's no outer shadow.
 function CapturePreview() {
   const [current, setCurrent] = createSignal<CapturePreviewPayload | null>(null);
   const [thumbnailFailed, setThumbnailFailed] = createSignal(false);
+  const [leaving, setLeaving] = createSignal(false);
+  const [paused, setPaused] = createSignal(false);
   let dismissTimer: number | undefined;
+  let exitTimer: number | undefined;
+  let remainingMs = 0;
+  let startedAt = 0;
+
+  const origin = createMemo(() => ORIGINS[current()?.corner ?? "bottomRight"]);
+  const status = createMemo(() => {
+    const item = current();
+    if (!item) return null;
+    if (item.url) return "Uploaded";
+    if (item.itemType === "video") return "Recording saved";
+    return null;
+  });
+  const showCountdown = createMemo(() => (current()?.autoDismissMs ?? 0) > 0 && (current()?.showCountdown ?? true));
+  const leftLabel = createMemo(() => ACTION_LABELS[current()?.leftClickAction ?? "nothing"]);
+  const rightLabel = createMemo(() => ACTION_LABELS[current()?.rightClickAction ?? "nothing"]);
+  const imageSrc = createMemo(() => {
+    const item = current();
+    return item ? mediaUrl(item.fileName, item.itemType) : "";
+  });
+
+  function startDismiss(ms: number) {
+    window.clearTimeout(dismissTimer);
+    remainingMs = ms;
+    startedAt = Date.now();
+    dismissTimer = window.setTimeout(close, ms);
+  }
 
   onMount(() => {
     document.documentElement.style.background = "transparent";
@@ -25,17 +72,37 @@ function CapturePreview() {
 
     const unlisten = getCurrentWebviewWindow().listen<CapturePreviewPayload>("capture-preview://show", event => {
       window.clearTimeout(dismissTimer);
+      window.clearTimeout(exitTimer);
+      setLeaving(false);
+      setPaused(false);
       setThumbnailFailed(false);
       setCurrent(event.payload);
 
       if (event.payload.itemType === "file") showPlaceholder();
-      if (event.payload.autoDismissMs > 0) {
-        dismissTimer = window.setTimeout(close, event.payload.autoDismissMs);
-      }
+      if (event.payload.autoDismissMs > 0) startDismiss(event.payload.autoDismissMs);
     });
 
-    onCleanup(() => { unlisten.then(fn => fn()); window.clearTimeout(dismissTimer); });
+    onCleanup(() => {
+      unlisten.then(fn => fn());
+      window.clearTimeout(dismissTimer);
+      window.clearTimeout(exitTimer);
+    });
   });
+
+  // Hovering pauses the countdown, so it doesn't close while being read. Mouse moves pause too,
+  // since after a file drag the page still thinks the mouse is inside and no new mouseenter comes.
+  function pause() {
+    if (paused() || !current() || current()!.autoDismissMs <= 0 || leaving()) return;
+    window.clearTimeout(dismissTimer);
+    remainingMs = Math.max(0, remainingMs - (Date.now() - startedAt));
+    setPaused(true);
+  }
+
+  function resume() {
+    if (!paused()) return;
+    setPaused(false);
+    startDismiss(remainingMs);
+  }
 
   function showPlaceholder() {
     safeInvoke("show_capture_preview_window", { width: PLACEHOLDER_SIZE, height: PLACEHOLDER_SIZE }).catch(() => { });
@@ -55,7 +122,14 @@ function CapturePreview() {
 
   function close() {
     window.clearTimeout(dismissTimer);
-    safeInvoke("hide_capture_preview_window").catch(() => { }).finally(() => setCurrent(null));
+    if (leaving()) return;
+    setLeaving(true);
+    exitTimer = window.setTimeout(() => {
+      safeInvoke("hide_capture_preview_window").catch(() => { }).finally(() => {
+        setCurrent(null);
+        setLeaving(false);
+      });
+    }, EXIT_MS);
   }
 
   async function performAction(action: PreviewClickAction) {
@@ -84,8 +158,13 @@ function CapturePreview() {
   return <Show when={current()} keyed>
     {item => <div
       class={styles.CapturePreview}
+      classList={{ [styles.Leaving]: leaving() }}
+      style={{ "transform-origin": origin() }}
       draggable="true"
-      onDragStart={event => startFileDrag(event, item)}
+      onDragStart={event => startFileDrag(event, item, resume)}
+      onMouseEnter={pause}
+      onMouseMove={pause}
+      onMouseLeave={resume}
       onClick={() => performAction(item.leftClickAction)}
       onContextMenu={event => { event.preventDefault(); performAction(item.rightClickAction); }}
     >
@@ -97,12 +176,33 @@ function CapturePreview() {
         </Match>
         <Match when={true}>
           <img
-            src={mediaUrl(item.fileName, item.itemType)}
+            src={imageSrc()}
+            draggable={false}
             onLoad={e => onImageLoad(e.currentTarget)}
             onError={() => { setThumbnailFailed(true); showPlaceholder(); }}
           />
         </Match>
       </Switch>
+
+      <Show when={status()}>
+        {text => <span class={styles.Status}><CircleCheck size={12} />{text()}</span>}
+      </Show>
+
+      <Show when={leftLabel() || rightLabel()}>
+        <div class={styles.Hover}>
+          <span>{leftLabel() ? `Click: ${leftLabel()}` : ""}</span>
+          <span>{rightLabel() ? `Right click: ${rightLabel()}` : ""}</span>
+        </div>
+      </Show>
+
+      <Show when={showCountdown()}>
+        <span
+          class={styles.Countdown}
+          classList={{ [styles.Paused]: paused() }}
+          style={{ "animation-duration": `${item.autoDismissMs}ms` }}
+          data-keep-motion
+        />
+      </Show>
     </div>}
   </Show>;
 }

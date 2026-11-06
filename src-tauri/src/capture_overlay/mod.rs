@@ -1,3 +1,6 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::screen_manager::window::WindowBounds;
@@ -5,12 +8,17 @@ use crate::screen_manager::window::WindowBounds;
 pub const OVERLAY_HUD_LABEL: &str = "capture-hud";
 pub const OVERLAY_BORDER_LABEL: &str = "capture-border";
 
-const HUD_LOGICAL_WIDTH: f64 = 300.0;
+const HUD_LOGICAL_WIDTH: f64 = 320.0;
 const HUD_LOGICAL_HEIGHT: f64 = 56.0;
 const HUD_MARGIN: i32 = 12;
 /// Stroke width (physical px) of the border ring drawn *outside* the region ,
 /// it never covers or appears in the captured/recorded pixels.
 const BORDER_PX: i32 = 3;
+/// Long enough for the HUD and border to play their exit fade before the windows hide.
+const HIDE_DELAY_MS: u64 = 160;
+
+/// Bumped on every show, so a delayed hide from the previous session can't hide a new one.
+static OVERLAY_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// Pre-creates the border ring + status HUD hidden, so showing them later is
 /// a reposition + show instead of a multi-second webview spin-up.
@@ -34,6 +42,7 @@ pub fn create_overlay_windows(app_handle: &AppHandle) {
 /// Shows the border ring and status HUD around the region, both excluded from
 /// capture. Callers emit their own feature-specific "overlay-shown" event.
 pub fn show_overlay_windows(app_handle: &AppHandle, region: WindowBounds, monitors: Vec<WindowBounds>) {
+    OVERLAY_GENERATION.fetch_add(1, Ordering::SeqCst);
     let handle = app_handle.clone();
 
     let result = app_handle.run_on_main_thread(move || {
@@ -184,14 +193,34 @@ fn show_hud_window(app_handle: &AppHandle, region: &WindowBounds, monitors: &[Wi
     let _ = window.show();
 }
 
-/// Hides the capture chrome (the windows persist for next time). Callers are
-/// responsible for emitting their own feature-specific "overlay-hidden" event.
+/// Hides the capture chrome (the windows persist for next time) after a short delay for the exit fade.
+/// Callers are responsible for emitting their own feature-specific "overlay-hidden" event.
 pub fn hide_overlay_windows(app_handle: &AppHandle) {
-    for label in [OVERLAY_HUD_LABEL, OVERLAY_BORDER_LABEL] {
-        if let Some(window) = app_handle.get_webview_window(label) {
-            let _ = window.hide();
+    let generation = OVERLAY_GENERATION.load(Ordering::SeqCst);
+    let handle = app_handle.clone();
+
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(HIDE_DELAY_MS));
+        if OVERLAY_GENERATION.load(Ordering::SeqCst) != generation {
+            return;
         }
-    }
+
+        let main_handle = handle.clone();
+        let result = handle.run_on_main_thread(move || {
+            if OVERLAY_GENERATION.load(Ordering::SeqCst) != generation {
+                return;
+            }
+            for label in [OVERLAY_HUD_LABEL, OVERLAY_BORDER_LABEL] {
+                if let Some(window) = main_handle.get_webview_window(label) {
+                    let _ = window.hide();
+                }
+            }
+        });
+
+        if let Err(err) = result {
+            eprintln!("Failed to schedule the capture overlay windows hide: {}", err);
+        }
+    });
 }
 
 #[cfg(target_os = "windows")]

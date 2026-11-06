@@ -1,0 +1,30 @@
+.Part {
+  padding: 0 1px;
+  border: 0;
+  border-radius: 4px;
+  outline: none;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  caret-color: transparent;
+  transition: background-color var(--t-fast);
+
+  &:focus {
+    background: var(--accent-soft-2);
+    color: var(--accent-text);
+  }
+}
+
+.Label {
+  margin: 0 7px 0 2px;
+  color: var(--text-3);
+  font-size: 12px;
+  user-select: none;
+
+  &:last-child {
+    margin-right: 2px;
+  }
+}

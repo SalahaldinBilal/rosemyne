@@ -99,23 +99,24 @@ function ShortcutPicker(props: { show: boolean, onHide: () => any, onConfirm: (k
   }
 
   return (
-    <Modal title="Shortcut Picker" show={props.show} onHide={props.onHide}>
-      <div class={styles.ShortcutPickerContainer}>
-        <div class={styles.KeyRenderer}>
-          <KeyRenderer keys={pressedKeys} ref={containerElement!} onRemove={(_, index) => removeKey(index)} placeholder="Type anything to start registering your shortcut ..." />
-        </div>
-        <Show when={shortcutAlreadyExists()}>
-          <div class={styles.Warning}>This shortcut is already in use.</div>
-        </Show>
-        <div class={styles.Controls}>
-          <Button onClick={clear}>
-            Clear All
-          </Button>
-          <Button onClick={confirm} style={{ "margin-left": "auto" }} disabled={!hasPressedMainKey() || shortcutAlreadyExists()}>
-            Save Changes
-          </Button>
-        </div>
+    <Modal
+      title="Set shortcut"
+      width={440}
+      show={props.show}
+      onHide={props.onHide}
+      footer={<>
+        <Button variant="ghost" class={styles.ClearButton} disabled={pressedKeys.keys.length === 0} onClick={clear}>Clear</Button>
+        <Button onClick={props.onHide}>Cancel</Button>
+        <Button variant="primary" onClick={confirm} disabled={!hasPressedMainKey() || shortcutAlreadyExists()}>Save</Button>
+      </>}
+    >
+      <p>Press the keys you want to use. Click a key to remove it.</p>
+      <div class={styles.KeyBox}>
+        <KeyRenderer keys={pressedKeys} size="lg" ref={containerElement!} onRemove={(_, index) => removeKey(index)} placeholder="Waiting for keys…" />
       </div>
+      <Show when={shortcutAlreadyExists()}>
+        <p class={styles.Warning}>This shortcut is already in use.</p>
+      </Show>
     </Modal>
   );
 }

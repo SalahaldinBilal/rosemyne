@@ -1,4 +1,4 @@
-import { DATE_TIME_TAG_KEY, SelectItem, TagValue, TIME_TAG_KEY } from "../../../types";
+import { DATE_TIME_TAG_KEY, SelectItem, TagValue, TagValueTypeMap, TIME_TAG_KEY } from "../../../types";
 
 export type TagKind = "string" | "number" | "boolean" | "time" | "dateTime" | "object" | "array" | "null";
 
@@ -17,17 +17,16 @@ let nextId = 1;
 export const KIND_ITEMS: SelectItem<TagKind>[] = [
   { id: "string", value: "string", label: "Text" },
   { id: "number", value: "number", label: "Number" },
-  { id: "boolean", value: "boolean", label: "True/False" },
+  { id: "boolean", value: "boolean", label: "Yes/No" },
   { id: "time", value: "time", label: "Duration" },
-  { id: "dateTime", value: "dateTime", label: "Date/Time" },
+  { id: "dateTime", value: "dateTime", label: "Date & time" },
   { id: "object", value: "object", label: "Group" },
   { id: "array", value: "array", label: "List" },
 ];
 
-export const BOOLEAN_ITEMS: SelectItem<boolean>[] = [
-  { id: "true", value: true, label: "True" },
-  { id: "false", value: false, label: "False" },
-];
+export function isContainer(kind: TagKind): kind is "object" | "array" {
+  return kind === "object" || kind === "array";
+}
 
 export function defaultScalarFor(kind: TagKind): string | number | boolean {
   if (kind === "number" || kind === "time") return 0;
@@ -148,4 +147,93 @@ export function findParentList(entries: TagEntry[], id: number): TagEntry[] | nu
     }
   }
   return null;
+}
+
+export function walkEntries(entries: TagEntry[], visit: (entry: TagEntry, parent: TagEntry | null) => void, parent: TagEntry | null = null): void {
+  for (const entry of entries) {
+    visit(entry, parent);
+    walkEntries(entry.children, visit, entry);
+  }
+}
+
+export function parentsById(entries: TagEntry[]): Map<number, TagEntry | null> {
+  const parents = new Map<number, TagEntry | null>();
+  walkEntries(entries, (entry, parent) => parents.set(entry.id, parent));
+  return parents;
+}
+
+export function subtreeIds(entry: TagEntry): Set<number> {
+  const ids = new Set([entry.id]);
+  walkEntries(entry.children, child => ids.add(child.id));
+  return ids;
+}
+
+// Structure and values only, so undoing back to the original reads as unchanged.
+export function entriesSignature(entries: TagEntry[]): string {
+  const shape = (list: TagEntry[]): unknown[] => list.map(entry => [entry.key, entry.kind, entry.scalar, shape(entry.children)]);
+  return JSON.stringify(shape(entries));
+}
+
+export function cloneEntries(entries: TagEntry[]): TagEntry[] {
+  return entries.map(entry => ({ ...entry, children: cloneEntries(entry.children) }));
+}
+
+// The names along the way to an entry's parent. List items have no name, so lists are transparent like in the filter.
+export function namePath(id: number, parents: Map<number, TagEntry | null>): string[] {
+  const path: string[] = [];
+  for (let parent = parents.get(id) ?? null; parent; parent = parents.get(parent.id) ?? null) {
+    if (parent.key.trim()) path.unshift(parent.key.trim());
+  }
+  return path;
+}
+
+export function entryLabel(entry: TagEntry, parent: TagEntry | null): string {
+  if (parent?.kind === "array") return `Item ${parent.children.indexOf(entry) + 1}`;
+  return entry.key.trim() || "Unnamed tag";
+}
+
+export type NameSuggestion = { key: string, kind: TagKind, schema: TagValueTypeMap | null };
+
+function kindFromSchema(entry: TagValueTypeMap[string]): TagKind {
+  if (entry.isArray) return "array";
+  if (typeof entry.type === "object") return "object";
+  return entry.type === "byteSize" ? "number" : entry.type;
+}
+
+export function schemaAt(schema: TagValueTypeMap | null, path: string[]): TagValueTypeMap | null {
+  let map = schema;
+  for (const key of path) {
+    const next = map?.[key]?.type;
+    if (!next || typeof next !== "object") return null;
+    map = next;
+  }
+  return map;
+}
+
+// "$" keys are the reserved system namespace (the virtual $file tag), never offered as names.
+export function nameSuggestions(map: TagValueTypeMap | null): NameSuggestion[] {
+  if (!map) return [];
+  return Object.entries(map)
+    .filter(([key]) => !key.startsWith("$"))
+    .map(([key, entry]) => ({ key, kind: kindFromSchema(entry), schema: typeof entry.type === "object" ? entry.type : null }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+// A new list item takes the shape of the existing ones, or of the schema when the list is empty.
+export function newListItem(list: TagEntry, schema: TagValueTypeMap | null, path: string[]): TagEntry {
+  const last = list.children[list.children.length - 1];
+  if (last) {
+    const item = makeEntry("", last.kind);
+    if (last.kind === "object") item.children = last.children.map(child => makeEntry(child.key, child.kind));
+    return item;
+  }
+
+  const listSchema = schemaAt(schema, path)?.[list.key.trim()];
+  if (listSchema && typeof listSchema.type === "object") {
+    const item = makeEntry("", "object");
+    item.children = nameSuggestions(listSchema.type).map(suggestion => makeEntry(suggestion.key, suggestion.kind));
+    return item;
+  }
+  if (listSchema && typeof listSchema.type === "string") return makeEntry("", kindFromSchema({ type: listSchema.type, isArray: false }));
+  return makeEntry("");
 }

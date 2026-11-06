@@ -11,6 +11,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-solid";
 import useToastState from "@core/states/toastState";
 import { LARGE_VIDEO_BYTES, generateVideoThumbnail } from "@core/helpers/videoThumbnail";
+import Progress from "@core/components/Progress/Progress";
+import { InlineControls, SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 
 function ShareXImport() {
   const [sharexPath, setSharexPath] = createSignal("");
@@ -93,104 +95,62 @@ function ShareXImport() {
 
   const busy = createMemo(() => running() || thumbnailBackfill() !== null);
 
-  return <div class={styles.ShareXImport}>
-    <div class={styles.Intro}>
-      <span>Import your ShareX screenshot history into Rosemyne.</span>
-      <span class={styles.Hint}>
-        Image files are copied into Rosemyne's own storage, your ShareX folder is never modified.
-        Uploaders, hotkeys and settings are not imported. Close ShareX before importing.
-      </span>
-    </div>
+  const backfillPercent = createMemo(() => {
+    const current = thumbnailBackfill();
+    return current ? Math.round((current.current / current.total) * 100) : 0;
+  });
 
-    <div class={styles.Field}>
-      <span>ShareX folder</span>
-      <div class={styles.FieldRow}>
-        <Input
-          value={sharexPath()}
-          placeholder="Documents\ShareX"
-          disabled={busy()}
-          style={{ 'flex-grow': 1 }}
-          onChange={e => setSharexPath(e.currentTarget.value)}
-        />
-        <Button isIcon tooltip="Browse…" disabled={busy()} onClick={browseFolder}>
-          <FolderOpen size={18} />
-        </Button>
-      </div>
-    </div>
-
-    <div class={styles.Actions}>
-      <Button
-        color="var(--base-font-color)"
-        disabled={busy() || !sharexPath().trim()}
-        onClick={() => run(true)}
-      >
-        Dry run
-      </Button>
-      <Button
-        disabled={busy() || !sharexPath().trim()}
-        onClick={() => run(false)}
-      >
-        Import
-      </Button>
-    </div>
-
-    <Show when={running()}>
-      <div class={styles.Progress}>
-        <div class={styles.ProgressBar}>
-          <div class={styles.ProgressFill} style={{ width: `${percent()}%` }} />
+  return <SettingsPage
+    title="ShareX import"
+    description="Bring your ShareX history over. Files are copied, your ShareX folder isn't touched. Uploaders, hotkeys and settings aren't imported."
+  >
+    <SettingsGroup title="Source">
+      <SettingRow stack label="ShareX folder" hint="Close ShareX before importing.">
+        <InlineControls grow>
+          <Input
+            mono
+            value={sharexPath()}
+            placeholder="Documents\ShareX"
+            disabled={busy()}
+            onChange={e => setSharexPath(e.currentTarget.value)}
+          />
+          <Button isIcon tooltip="Browse" disabled={busy()} onClick={browseFolder}>
+            <FolderOpen size={16} />
+          </Button>
+        </InlineControls>
+        <div class={styles.Actions}>
+          <Button disabled={busy() || !sharexPath().trim()} onClick={() => run(true)}>Dry run</Button>
+          <Button variant="primary" disabled={busy() || !sharexPath().trim()} onClick={() => run(false)}>Import</Button>
         </div>
-        <Show when={progress()} fallback={<span class={styles.Hint}>Reading history…</span>}>
-          {current => <span class={styles.Hint}>
-            {current().current} / {current().total}, {current().currentFile}
-          </span>}
-        </Show>
-      </div>
-    </Show>
+      </SettingRow>
+      <Show when={running()}>
+        <SettingRow stack label={progress() ? "Importing" : "Reading history"}>
+          <Progress percent={progress() ? percent() : null} />
+          <Show when={progress()}>
+            {current => <span class={styles.Hint}>{current().current} / {current().total}, {current().currentFile}</span>}
+          </Show>
+        </SettingRow>
+      </Show>
+      <Show when={thumbnailBackfill()}>
+        {current => <SettingRow stack label="Generating thumbnails for large videos">
+          <Progress percent={backfillPercent()} />
+          <span class={styles.Hint}>{current().current} / {current().total}</span>
+        </SettingRow>}
+      </Show>
+    </SettingsGroup>
 
     <Show when={summary()}>
-      {result => <div class={styles.Summary}>
-        <div class={styles.SummaryTitle}>
-          {result().dryRun ? "Dry run complete" : "Import complete"}
+      {result => <SettingsGroup title={result().dryRun ? "Dry run result" : "Import result"}>
+        <div class={styles.Stats}>
+          <div class={styles.Stat}><b>{result().data.imported}</b><span>{result().dryRun ? "Would import" : "Imported"}</span></div>
+          <div class={styles.Stat}><b>{result().data.missingFile}</b><span>Missing file</span></div>
+          <div class={styles.Stat}><b>{result().data.skippedNonImage}</b><span>Not an image</span></div>
+          <div class={styles.Stat}><b>{result().data.errors}</b><span>Errors</span></div>
+          <div class={styles.Stat}><b>{result().data.total}</b><span>Total rows</span></div>
         </div>
-        <div class={styles.SummaryGrid}>
-          <div class={styles.Stat}>
-            <span class={styles.StatValue}>{result().data.imported}</span>
-            <span class={styles.StatLabel}>{result().dryRun ? "Would import" : "Imported"}</span>
-          </div>
-          <div class={styles.Stat}>
-            <span class={styles.StatValue}>{result().data.missingFile}</span>
-            <span class={styles.StatLabel}>Missing file</span>
-          </div>
-          <div class={styles.Stat}>
-            <span class={styles.StatValue}>{result().data.skippedNonImage}</span>
-            <span class={styles.StatLabel}>Not an image</span>
-          </div>
-          <div class={styles.Stat}>
-            <span class={styles.StatValue}>{result().data.errors}</span>
-            <span class={styles.StatLabel}>Errors</span>
-          </div>
-          <div class={styles.Stat}>
-            <span class={styles.StatValue}>{result().data.total}</span>
-            <span class={styles.StatLabel}>Total rows</span>
-          </div>
-        </div>
-      </div>}
+      </SettingsGroup>}
     </Show>
-
-    <Show when={thumbnailBackfill()}>
-      {current => <div class={styles.Progress}>
-        <div class={styles.ProgressBar}>
-          <div
-            class={styles.ProgressFill}
-            style={{ width: `${Math.round((current().current / current().total) * 100)}%` }}
-          />
-        </div>
-        <span class={styles.Hint}>
-          Generating thumbnails for large videos: {current().current} / {current().total}
-        </span>
-      </div>}
-    </Show>
-  </div>
+  </SettingsPage>
 }
 
 export default ShareXImport;

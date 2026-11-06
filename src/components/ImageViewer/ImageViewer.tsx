@@ -11,6 +11,8 @@ import DrawLayer from "../../pages/Screenshot/DrawLayer/DrawLayer";
 import CropSelectionBox from "../CropSelectionBox/CropSelectionBox";
 import { renderFinalImage } from "../../helpers/canvasRenderer";
 import { makeEventListener } from "@solid-primitives/event-listener";
+import { Portal } from "solid-js/web";
+import { Transition } from "solid-transition-group";
 import { Maximize, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-solid";
 
 const ZOOM_STEP = 1.25;
@@ -266,6 +268,20 @@ function ImageViewer(props: ImageViewerProps) {
   // until the Provider has set its context on the owner. A precomputed value
   // would construct ImageOverlayContainer/DrawLayer/AnnotationToolBar (and
   // their useAnnotationState() calls) before the Provider is in scope.
+  // Leaves with a short fade, so going back from annotating doesn't snap the bar away.
+  function renderToolbar() {
+    return <Transition onExit={(element, done) => element.animate(
+      [{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, -4px)" }],
+      { duration: 140, easing: "cubic-bezier(.55,0,.75,.2)" },
+    ).finished.then(done)}>
+      <Show when={annotation && props.annotating}>
+        <div class={styles.AnnotationToolbar} onPointerDown={event => event.stopPropagation()} onDblClick={event => event.stopPropagation()}>
+          <AnnotationToolBar hint={props.annotationHint} cursorScale={scale} screenshotToolLabel="Crop" />
+        </div>
+      </Show>
+    </Transition>;
+  }
+
   function renderBody() {
     // The native menu would offer "copy image address" for an internal rosemyne-photo URL.
     return <div class={styles.ImageViewer} onContextMenu={event => event.preventDefault()}>
@@ -315,35 +331,31 @@ function ImageViewer(props: ImageViewerProps) {
         </Show>
       </div>
       <div class={styles.Toolbar} onPointerDown={event => event.stopPropagation()} onDblClick={event => event.stopPropagation()}>
-        <Button isIcon color="var(--base-font-color)" tooltip="Zoom out (-)" onClick={() => zoomBy(1 / ZOOM_STEP)}>
-          <ZoomOut size={18} />
+        <Button isIcon size="sm" tooltip="Zoom out" tooltipKeys={["-"]} onClick={() => zoomBy(1 / ZOOM_STEP)}>
+          <ZoomOut size={16} />
         </Button>
         <span class={styles.ZoomLabel}>{Math.round(scale() * 100)}%</span>
-        <Button isIcon color="var(--base-font-color)" tooltip="Zoom in (+)" onClick={() => zoomBy(ZOOM_STEP)}>
-          <ZoomIn size={18} />
+        <Button isIcon size="sm" tooltip="Zoom in" tooltipKeys={["+"]} onClick={() => zoomBy(ZOOM_STEP)}>
+          <ZoomIn size={16} />
         </Button>
         <div class={styles.Divider} />
-        <Button isIcon color="var(--base-font-color)" tooltip="Fit to window (0)" onClick={applyFit}>
-          <Maximize size={18} />
+        <Button isIcon size="sm" tooltip="Fit to window" tooltipKeys={["0"]} onClick={applyFit}>
+          <Maximize size={16} />
         </Button>
-        <Button isIcon color="var(--base-font-color)" tooltip="Actual size (1)" onClick={() => zoomTo(1)}>
+        <Button isIcon size="sm" tooltip="Actual size" tooltipKeys={["1"]} onClick={() => zoomTo(1)}>
           <span class={styles.ActualSize}>1:1</span>
         </Button>
         <Show when={!props.hideRotate}>
           <div class={styles.Divider} />
-          <Button isIcon color="var(--base-font-color)" tooltip="Rotate left (Shift+R)" onClick={() => rotate(-90)}>
-            <RotateCcw size={18} />
+          <Button isIcon size="sm" tooltip="Rotate left" tooltipKeys={["Shift", "R"]} onClick={() => rotate(-90)}>
+            <RotateCcw size={16} />
           </Button>
-          <Button isIcon color="var(--base-font-color)" tooltip="Rotate right (R)" onClick={() => rotate(90)}>
-            <RotateCw size={18} />
+          <Button isIcon size="sm" tooltip="Rotate right" tooltipKeys={["R"]} onClick={() => rotate(90)}>
+            <RotateCw size={16} />
           </Button>
         </Show>
       </div>
-      <Show when={annotation && props.annotating}>
-        <div class={styles.AnnotationToolbar} onPointerDown={event => event.stopPropagation()} onDblClick={event => event.stopPropagation()}>
-          <AnnotationToolBar hint={props.annotationHint} cursorScale={scale} screenshotToolLabel="Crop" />
-        </div>
-      </Show>
+      {props.toolbarMount ? <Portal mount={props.toolbarMount}>{renderToolbar()}</Portal> : renderToolbar()}
     </div>;
   }
 

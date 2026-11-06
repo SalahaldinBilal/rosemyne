@@ -1,48 +1,5 @@
 .TagFilters {
-  padding: 8px 14px 10px;
-}
-
-.Header {
   display: flex;
-  align-items: center;
-  gap: 12px;
-
-  &:not(:last-child) {
-    margin-bottom: 12px;
-  }
-}
-
-.Title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 12px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  font-weight: 600;
-
-  svg {
-    flex-shrink: 0;
-  }
-}
-
-.Actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.Badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background-color: var(--control-bg);
-  border: 1px solid var(--control-border);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+  flex-direction: column;
+  gap: 10px;
 }

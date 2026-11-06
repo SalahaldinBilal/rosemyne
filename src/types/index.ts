@@ -108,6 +108,7 @@ export type GeneralSettings = {
   minSelectionWidth: number,
   minSelectionHeight: number,
   contextMenu: boolean,
+  fitCardThumbnails: boolean,
 }
 
 export type CmrsStatus = {
@@ -179,6 +180,7 @@ export type CapturePreviewSettings = {
   maxWidth: number,
   maxHeight: number,
   autoDismissMs: number,
+  showCountdown: boolean,
   leftClickAction: PreviewClickAction,
   rightClickAction: PreviewClickAction,
 }
@@ -194,6 +196,8 @@ export type CapturePreviewPayload = {
   maxWidth: number,
   maxHeight: number,
   autoDismissMs: number,
+  showCountdown: boolean,
+  corner: PreviewCorner,
   leftClickAction: PreviewClickAction,
   rightClickAction: PreviewClickAction,
 }

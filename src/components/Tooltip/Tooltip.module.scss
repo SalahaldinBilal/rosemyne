@@ -1,0 +1,56 @@
+// Portaled into document.body.
+.Tooltip {
+  --rise: 3px;
+
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: var(--r-sm);
+  background: #2a2a33;
+  border: 1px solid var(--line-3);
+  box-shadow: var(--sh-2);
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  animation: tooltip-in var(--t-fast) var(--e-out);
+
+  &.Above {
+    --rise: -3px;
+    transform: translate(-50%, -100%);
+  }
+}
+
+.Keys {
+  display: inline-flex;
+  gap: 3px;
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--line-2);
+    background: var(--bg-3);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--rise);
+  }
+}

@@ -1,0 +1,19 @@
+// 3px matches BORDER_PX in capture_overlay (Rust), which inflates the window by exactly this much.
+.Border {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  border: 3px solid var(--rec);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-base) var(--e-in);
+
+  &.Scroll {
+    border-color: var(--accent);
+  }
+
+  &.Visible {
+    opacity: 1;
+    transition: opacity var(--t-slow) var(--e-out);
+  }
+}

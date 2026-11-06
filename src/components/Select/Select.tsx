@@ -2,25 +2,41 @@ import styles from "./Select.module.scss";
 import { SelectProps } from "../../types";
 import { For, JSX, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
-import { ChevronDown } from "lucide-solid";
+import { Check, ChevronDown } from "lucide-solid";
 
 const MENU_MARGIN = 4;
 const MENU_MAX_HEIGHT = 300;
+const CLOSE_DURATION = 110;
+
+const VARIANT_CLASSES = {
+  default: undefined,
+  bare: styles.Bare,
+  pill: styles.Pill,
+  unit: styles.Unit,
+};
 
 function Select<T>(props: SelectProps<T>) {
   const [open, setOpen] = createSignal(false);
+  const [mounted, setMounted] = createSignal(false);
   const [highlight, setHighlight] = createSignal(0);
   const [menuStyle, setMenuStyle] = createSignal<JSX.CSSProperties>({});
+  const [upwards, setUpwards] = createSignal(false);
   const selected = createMemo(() => props.items.find(item => item.id === props.value));
+  const controlClass = createMemo(() =>
+    [styles.Select, VARIANT_CLASSES[props.variant ?? "default"], props.class].filter(Boolean).join(" "),
+  );
 
   let controlRef!: HTMLDivElement;
   let menuRef: HTMLDivElement | undefined;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function openMenu() {
     const rect = controlRef.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom - MENU_MARGIN;
     const openUpwards = spaceBelow < Math.min(MENU_MAX_HEIGHT, 160) && rect.top > spaceBelow;
 
+    clearTimeout(closeTimer);
+    setUpwards(openUpwards);
     setMenuStyle({
       left: rect.left + "px",
       "min-width": rect.width + "px",
@@ -30,24 +46,32 @@ function Select<T>(props: SelectProps<T>) {
     });
     followHighlight = true;
     setHighlight(Math.max(0, props.items.findIndex(item => item.id === props.value)));
+    setMounted(true);
     setOpen(true);
   }
 
-  function choose(item: SelectProps<T>["items"][number]) {
-    props.onItemClick(item);
+  function closeMenu() {
+    if (!open()) return;
+
     setOpen(false);
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => setMounted(false), CLOSE_DURATION);
   }
 
-  // The dropdown is portaled with a viewport position; any ancestor scroll or
-  // window resize would leave it floating detached, so just close it, but
-  // not for a scroll inside the menu's own (possibly overflowing) item list,
-  // which the capture-phase listener would otherwise see too.
+  onCleanup(() => clearTimeout(closeTimer));
+
+  function choose(item: SelectProps<T>["items"][number]) {
+    props.onItemClick(item);
+    closeMenu();
+  }
+
+  // The menu is portaled at a viewport position, so an ancestor scroll or a resize would leave it detached.
   createEffect(() => {
     if (!open()) return;
 
     const close = (event: Event) => {
       if (menuRef && event.target instanceof Node && menuRef.contains(event.target)) return;
-      setOpen(false);
+      closeMenu();
     };
     window.addEventListener("scroll", close, { capture: true });
     window.addEventListener("resize", close);
@@ -57,8 +81,7 @@ function Select<T>(props: SelectProps<T>) {
     });
   });
 
-  // Hover must never scroll: the list shifting under a still pointer fires another
-  // mouseenter, highlighting again, and the menu creeps on its own.
+  // Hover must never scroll the list, or the list shifting under a still pointer re-highlights on its own.
   let followHighlight = false;
 
   createEffect(() => {
@@ -69,7 +92,7 @@ function Select<T>(props: SelectProps<T>) {
     const item = menuRef.children[index] as HTMLElement | undefined;
     if (!item) return;
 
-    // Only ever scrolls the menu; scrollIntoView would also scroll the page behind it.
+    // scrollIntoView would also scroll the page behind the menu.
     if (item.offsetTop < menuRef.scrollTop) {
       menuRef.scrollTop = item.offsetTop;
     } else if (item.offsetTop + item.offsetHeight > menuRef.scrollTop + menuRef.clientHeight) {
@@ -111,8 +134,10 @@ function Select<T>(props: SelectProps<T>) {
         return;
       }
       case "Escape":
+        event.stopPropagation();
+        return closeMenu();
       case "Tab":
-        return setOpen(false);
+        return closeMenu();
     }
   }
 
@@ -124,29 +149,25 @@ function Select<T>(props: SelectProps<T>) {
         role="combobox"
         aria-expanded={open()}
         aria-haspopup="listbox"
-        style={{ ...(props.style ?? {}), ...(props.color ? { color: props.color } : {}) }}
-        class={styles.Select}
-        classList={{
-          [styles.Open]: open(),
-          [styles.Accent]: props.accent ?? false,
-          [styles.Borderless]: props.borderless ?? false,
-          [styles.NoRadius]: props.noRadius ?? false,
-        }}
-        onClick={() => open() ? setOpen(false) : openMenu()}
+        style={props.style}
+        class={controlClass()}
+        classList={{ [styles.Open]: open(), [styles.Accent]: props.accent ?? false }}
+        onClick={() => open() ? closeMenu() : openMenu()}
         onKeyDown={onKeyDown}
-        onFocusOut={() => setOpen(false)}
+        onFocusOut={closeMenu}
       >
         <Show when={selected()} fallback={<span class={styles.Placeholder}>{props.placeholder ?? "Select…"}</span>}>
-          {item => <span class={styles.Label}>{item().label}</span>}
+          {item => <span class={styles.Label} style={props.labelColor ? { color: props.labelColor } : undefined}>{item().label}</span>}
         </Show>
-        <ChevronDown class={styles.Chevron} size={14} />
+        <ChevronDown class={styles.Chevron} size={props.variant === "unit" ? 11 : 14} />
       </div>
-      <Show when={open()}>
+      <Show when={mounted()}>
         <Portal>
           <div
             ref={menuRef}
             role="listbox"
             class={styles.Menu}
+            classList={{ [styles.Upwards]: upwards(), [styles.Closing]: !open() }}
             style={menuStyle()}
             onMouseDown={event => event.preventDefault()}
           >
@@ -159,7 +180,10 @@ function Select<T>(props: SelectProps<T>) {
                 onMouseEnter={() => setHighlight(index())}
                 onClick={() => choose(item)}
               >
-                {item.label}
+                <span class={styles.ItemLabel}>{item.label}</span>
+                <Show when={item.id === props.value}>
+                  <Check class={styles.Check} size={14} />
+                </Show>
               </div>
             }</For>
           </div>

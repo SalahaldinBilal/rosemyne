@@ -1,0 +1,372 @@
+// Height is fixed by CARD_HEIGHT in Main.tsx, which drives the virtualization.
+.Card {
+  display: flex;
+  flex-direction: column;
+  height: 230px;
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  transition:
+    border-color var(--t-fast),
+    background-color var(--t-fast);
+
+  &:hover {
+    border-color: var(--line-3);
+    background: var(--bg-3);
+  }
+
+  &.Enter {
+    animation: card-in var(--t-slow) var(--e-out) backwards;
+  }
+
+  &.Removing {
+    pointer-events: none;
+    animation: card-out 220ms var(--e-in) forwards;
+  }
+}
+
+.Thumb {
+  position: relative;
+  flex-shrink: 0;
+  height: 128px;
+  overflow: hidden;
+  background: var(--bg-0);
+  cursor: zoom-in;
+
+  img,
+  video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--t-slow) var(--e-out);
+    -webkit-user-drag: none;
+  }
+
+  .CardImage {
+    width: 100%;
+    height: 100%;
+  }
+
+  &.Fit {
+    img,
+    video {
+      object-fit: contain;
+    }
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgb(0 0 0 / 0.55), transparent 42%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--t-base) var(--e-out);
+  }
+}
+
+.Card:hover .Thumb {
+  img,
+  video {
+    transform: scale(1.04);
+  }
+
+  &::after {
+    opacity: 1;
+  }
+}
+
+.Quick {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity var(--t-base) var(--e-out);
+}
+
+.Card:hover .Quick,
+.Quick:focus-within {
+  opacity: 1;
+}
+
+.QuickButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: rgb(18 18 24 / 0.72);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transition:
+    background-color var(--t-fast),
+    transform var(--t-press) var(--e-out);
+
+  &:hover {
+    background: var(--accent);
+  }
+
+  &:active {
+    transform: translateZ(0) scale(0.92);
+  }
+}
+
+.FlashChip {
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  left: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.72);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  // Matches FLASH_MS in Main.tsx.
+  animation: flash-chip 2600ms linear forwards;
+
+  svg {
+    color: var(--ok);
+  }
+}
+
+// Fades in, holds, then fades out on its own before Main drops it.
+@keyframes flash-chip {
+  0% {
+    opacity: 0;
+  }
+
+  8%,
+  88% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.Play {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  pointer-events: none;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transition:
+    transform var(--t-base) var(--e-pop),
+    background-color var(--t-fast);
+}
+
+.Card:hover .Play {
+  transform: translateZ(0) scale(1.1);
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.Duration {
+  position: absolute;
+  z-index: 2;
+  left: 7px;
+  bottom: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgb(0 0 0 / 0.62);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.FilePlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(135deg, var(--bg-1) 0 10px, var(--bg-0) 10px 20px);
+  color: var(--text-2);
+
+  b {
+    color: var(--text-1);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+}
+
+.UploadBar {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgb(255 255 255 / 0.1);
+  animation: flash-in var(--t-base);
+
+  i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition:
+      width var(--t-base) var(--e-out),
+      background-color var(--t-base);
+  }
+
+  &.Done i {
+    background: var(--ok);
+  }
+}
+
+.Meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 10px 9px 11px;
+  font-size: 12px;
+}
+
+.Name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.Sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.Line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 18px;
+  color: var(--text-2);
+  white-space: nowrap;
+
+  &.Error .Text {
+    color: var(--danger);
+  }
+}
+
+.Text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.Faint {
+  color: var(--text-3);
+}
+
+.SourceDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+
+.LinkIcon {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.Link {
+  color: var(--accent-text);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.State {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  animation: flash-in var(--t-base);
+
+  &.Ok {
+    color: var(--ok);
+  }
+}
+
+.ErrorIcon {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+@keyframes card-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes flash-in {
+  from {
+    opacity: 0;
+  }
+}

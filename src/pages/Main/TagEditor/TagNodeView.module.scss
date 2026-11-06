@@ -1,0 +1,315 @@
+.Canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+  background-color: var(--bg-0);
+  background-image: radial-gradient(circle, var(--line-2) 1px, transparent 1.3px);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &.Panning {
+    cursor: grabbing;
+  }
+}
+
+.World {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  opacity: 0;
+
+  &.Ready {
+    opacity: 1;
+    transition: opacity var(--t-base) var(--e-out);
+  }
+}
+
+.Edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    fill: none;
+    stroke: var(--line-3);
+    stroke-width: 1.5;
+    transition: stroke var(--t-fast);
+
+    &.Hot {
+      stroke: var(--accent);
+      stroke-width: 2;
+    }
+  }
+}
+
+.Node {
+  position: absolute;
+  width: 312px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
+  cursor: grab;
+  user-select: none;
+  animation: node-in var(--t-slow) var(--e-out);
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast),
+    opacity var(--t-fast);
+
+  &:hover {
+    border-color: var(--line-3);
+  }
+
+  &.Selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft), var(--sh-2);
+  }
+
+  &.Invalid {
+    border-color: var(--danger);
+  }
+
+  &.Dragged {
+    z-index: 2;
+    cursor: grabbing;
+    box-shadow: var(--sh-3);
+  }
+
+  &.Drop {
+    border-style: dashed;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft-2), var(--sh-2);
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+}
+
+.Head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 42px;
+  padding: 0 4px 0 8px;
+}
+
+.KindIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: var(--bg-4);
+  color: var(--text-2);
+
+  &.ContainerKind {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+}
+
+.Index {
+  flex: 1;
+  min-width: 0;
+  padding: 0 10px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.Mark {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+
+  &.New {
+    background: var(--ok);
+  }
+
+  &.Changed {
+    background: var(--warn);
+  }
+}
+
+.Node .Remove {
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+.Node:hover .Remove,
+.Node.Selected .Remove,
+.Node .Remove:focus-visible {
+  opacity: 1;
+}
+
+.Body {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+
+.Body .KindSelect {
+  width: 100%;
+  color: var(--text-2);
+}
+
+.PortIn {
+  position: absolute;
+  top: 21px;
+  left: -6px;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border: 2px solid var(--line-3);
+  border-radius: 50%;
+  background: var(--bg-2);
+}
+
+.PortOut {
+  position: absolute;
+  top: 21px;
+  right: -12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  padding: 0;
+  border: 1px solid var(--line-3);
+  border-radius: 50%;
+  background: var(--bg-3);
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast),
+    transform var(--t-press);
+
+  &:hover {
+    border-color: transparent;
+    background: var(--accent);
+    color: #fff;
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
+.Count {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.Root {
+  width: 200px;
+  padding: 8px;
+
+  .PortOut {
+    top: 62px;
+  }
+}
+
+.Thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--bg-1);
+  color: var(--text-3);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+}
+
+.RootName {
+  margin-top: 8px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.RootMeta {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.Hint,
+.Controls {
+  position: absolute;
+  bottom: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-md);
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  cursor: default;
+}
+
+.Hint {
+  left: 10px;
+  max-width: calc(100% - 240px);
+  height: 30px;
+  padding: 0 10px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.Controls {
+  right: 10px;
+  gap: 2px;
+  padding: 2px;
+  box-shadow: var(--sh-2);
+}
+
+.Zoom {
+  min-width: 44px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.Divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--line-3);
+}
+
+@keyframes node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}

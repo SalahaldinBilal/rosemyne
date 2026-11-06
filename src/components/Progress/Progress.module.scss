@@ -1,0 +1,63 @@
+.Progress {
+  --progress-color: var(--accent);
+
+  height: 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-5);
+
+  & > i {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--progress-color);
+    transition:
+      width var(--t-base) var(--e-out),
+      background-color var(--t-base);
+  }
+
+  &.Ok {
+    --progress-color: var(--ok);
+  }
+
+  &.Danger {
+    --progress-color: var(--danger);
+  }
+
+  .Indeterminate {
+    width: 38%;
+    animation: progress-sweep 1.2s var(--e-io) infinite;
+  }
+}
+
+.Spinner {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.14);
+  border-top-color: var(--accent);
+  animation: spinner-turn 0.7s linear infinite;
+
+  &.SmallSpinner {
+    width: 11px;
+    height: 11px;
+    border-width: 1.5px;
+  }
+}
+
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(270%);
+  }
+}
+
+@keyframes spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,10 +1,105 @@
-.MarginRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+.WideSelect.WideSelect {
+  min-width: 220px;
 }
 
-.MarginSep {
-  color: var(--text-muted);
+// A small monitor drawing. Each quarter is a button that lights its corner.
+.Monitor {
+  position: relative;
+  flex-shrink: 0;
+  width: 190px;
+  height: 116px;
+  margin-bottom: 12px;
+  border: 2px solid var(--line-3);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1b1830, #0f1a22);
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -12px;
+    width: 40px;
+    height: 8px;
+    margin-left: -20px;
+    border-radius: 0 0 6px 6px;
+    background: var(--line-3);
+  }
+
+  button {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+
+    &::after {
+      content: "";
+      position: absolute;
+      width: 46px;
+      height: 30px;
+      border-radius: 5px;
+      background: var(--accent);
+      opacity: 0;
+      transform: scale(0.8);
+      transition:
+        opacity var(--t-base) var(--e-out),
+        transform var(--t-base) var(--e-pop);
+    }
+
+    &:hover::after,
+    &:focus-visible::after {
+      opacity: 0.5;
+    }
+
+    &:focus-visible {
+      outline: none;
+    }
+
+    &.On::after {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .topLeft {
+    left: 0;
+    top: 0;
+
+    &::after {
+      left: 8px;
+      top: 8px;
+    }
+  }
+
+  .topRight {
+    right: 0;
+    top: 0;
+
+    &::after {
+      right: 8px;
+      top: 8px;
+    }
+  }
+
+  .bottomLeft {
+    left: 0;
+    bottom: 0;
+
+    &::after {
+      left: 8px;
+      bottom: 8px;
+    }
+  }
+
+  .bottomRight {
+    right: 0;
+    bottom: 0;
+
+    &::after {
+      right: 8px;
+      bottom: 8px;
+    }
+  }
 }

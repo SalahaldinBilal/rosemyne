@@ -65,6 +65,32 @@ function applyPattern(pattern: string, date: Date): string {
   });
 }
 
+export type DatePartKey = "d" | "m" | "y";
+
+function orderFromPattern(pattern: string): DatePartKey[] {
+  const positions: [DatePartKey, number][] = [
+    ["d", pattern.search(/d/)],
+    ["m", pattern.search(/M/)],
+    ["y", pattern.search(/y/)],
+  ];
+  return positions.filter(([, index]) => index >= 0).sort((a, b) => a[1] - b[1]).map(([key]) => key);
+}
+
+function orderFromLocale(): DatePartKey[] {
+  const order = new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "numeric" })
+    .formatToParts(new Date(2000, 10, 22))
+    .map(part => part.type === "day" ? "d" : part.type === "month" ? "m" : part.type === "year" ? "y" : null)
+    .filter((key): key is DatePartKey => key !== null);
+  return order.length === 3 ? order : ["d", "m", "y"];
+}
+
+/** Day/month/year order of the OS short date, reactive like formatSystemDateTime. */
+export function systemDateOrder(): DatePartKey[] {
+  const current = patterns();
+  const order = current ? orderFromPattern(current.shortDate) : [];
+  return order.length === 3 ? order : orderFromLocale();
+}
+
 /**
  * Formats a date using the OS's real short-date + time preference, falling
  * back to the browser default until `loadSystemDateTimePatterns` resolves

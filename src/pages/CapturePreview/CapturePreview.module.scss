@@ -1,10 +1,17 @@
 .CapturePreview {
   position: fixed;
   inset: 0;
-  cursor: pointer;
-  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 10px;
+  background: var(--bg-2);
+  cursor: pointer;
+  animation: preview-in var(--t-slow) var(--e-pop);
+
+  &.Leaving {
+    pointer-events: none;
+    animation: preview-out 160ms var(--e-in) forwards;
+  }
 
   img {
     display: block;
@@ -15,11 +22,99 @@
 }
 
 .Placeholder {
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--secondary-bg-color);
-  color: var(--text-muted);
+  width: 100%;
+  height: 100%;
+  background: var(--bg-3);
+  color: var(--text-2);
+}
+
+.Status {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.62);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  animation: status-pop var(--t-slow) var(--e-pop) 120ms both;
+
+  svg {
+    color: var(--ok);
+  }
+}
+
+.Hover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(transparent 50%, rgb(0 0 0 / 0.65));
+  color: #fff;
+  font-size: 11.5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-base) var(--e-out);
+}
+
+.CapturePreview:hover .Hover {
+  opacity: 1;
+}
+
+.Countdown {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--accent);
+  animation-name: countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+
+  &.Paused {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes preview-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes status-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes countdown {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0;
+  }
 }

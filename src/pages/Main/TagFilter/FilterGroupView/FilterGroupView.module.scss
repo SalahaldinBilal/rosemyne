@@ -1,79 +1,61 @@
 .Group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
 
   &.Nested {
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    background-color: rgba(255, 255, 255, .02);
+    background: var(--bg-1);
+  }
+
+  &.Scoped {
+    border-left: 2px solid var(--accent-ring);
   }
 }
 
 .Head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   flex-wrap: wrap;
-}
-
-.Scope {
-  display: flex;
-  align-items: center;
   gap: 8px;
+  padding: 0 2px 2px;
 }
 
-.ScopeLabel {
-  color: var(--text-muted);
+.Label {
+  color: var(--text-3);
   font-size: 12px;
-  font-weight: 600;
 }
 
-.Actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
+.Spacer {
+  flex: 1;
 }
 
-.Children {
+.Rows {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-left: 16px;
-  border-left: 2px solid var(--border-color);
+  gap: 4px;
+  min-width: 0;
 }
 
-.Segment {
-  display: inline-flex;
-  background-color: var(--base-bg-color);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  padding: 2px;
-  gap: 2px;
+.NestedRow {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 2px 0;
 
-  button {
-    padding: 5px 12px;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background-color .15s, color .15s;
-
-    &:hover:not(.Active) {
-      color: var(--base-font-color);
-    }
-
-    &.Active {
-      background-color: var(--base-blue);
-      color: #fff;
-    }
+  & > :first-child {
+    margin-top: 10px;
   }
 }
 
+.Empty {
+  padding: 10px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  text-align: center;
+}

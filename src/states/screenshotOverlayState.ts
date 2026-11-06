@@ -17,6 +17,8 @@ function useScreenshotOverlayStateInner() {
   const { pushToast } = useToastState;
   const [imageData, setImageData] = createSignal<null | Data>(null);
   const [selectedWindow, setSelectedWindow] = createSignal<WindowInfo | null>(null);
+  // Set once a capture is being saved, so a trailing click can't start a second save.
+  const [closing, setClosing] = createSignal(false);
   // Per-instance scroll-capture tuning, re-seeded from settings every time that mode starts; never written back.
   const [scrollCaptureParams, setScrollCaptureParams] = createStore<ScrollCaptureOverrides>({
     maxFrames: 9,
@@ -136,6 +138,8 @@ function useScreenshotOverlayStateInner() {
   });
 
   async function closeOverlay(imageIdToSave?: number) {
+    if (closing()) return;
+
     const box = { ...unwrap(selectedBox) };
     const dataAtClose = imageData();
     const currentImageId = dataAtClose?.imageId;
@@ -149,6 +153,7 @@ function useScreenshotOverlayStateInner() {
     const finishEditingSession = () => {
       // An awaited save path can land here after a newer session took the overlay.
       if (imageData() !== dataAtClose) return;
+      setClosing(false);
       setImageData(null);
       setSelectedWindow(null);
       autoPlacedCursor = null;
@@ -199,8 +204,8 @@ function useScreenshotOverlayStateInner() {
     }
 
     if (imageIdToSave !== undefined) {
-      // Hide instantly (keeps the temp image Rust-side for window tagging),
-      // then render the final pixels from the same code paths as the preview.
+      // The hide keeps the temp image Rust-side for window tagging, and the final pixels render meanwhile.
+      setClosing(true);
       safeInvoke('hide_screenshot_window');
 
       // image() is unset until the preview loads; wait instead of discarding (timeout because loadImage never rejects).
@@ -218,7 +223,7 @@ function useScreenshotOverlayStateInner() {
         return;
       }
 
-      // Worker render on inputs snapshotted at call time, so teardown needn't wait.
+      // Worker render on inputs snapshotted at call time, so teardown needn't wait for it.
       const finalJob = renderFinalImageAsync(base, box, overlays, effectLayers);
       finishEditingSession();
 
@@ -253,7 +258,7 @@ function useScreenshotOverlayStateInner() {
 
   return {
     ...annotation,
-    imageData, setImageData, selectedWindow, setSelectedWindow,
+    imageData, setImageData, selectedWindow, setSelectedWindow, setClosing,
     closeOverlay, cancelCurrentAction, hasActiveInteraction, previewUrl, minSelectionSize,
     scrollCaptureParams, setScrollCaptureParams,
   };

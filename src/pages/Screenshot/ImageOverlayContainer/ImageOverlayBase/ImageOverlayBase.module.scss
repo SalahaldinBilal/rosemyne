@@ -15,19 +15,16 @@
 }
 
 .MenuHeader {
-  padding: 4px 12px 8px;
   margin-bottom: 4px;
-  font-size: 11px;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--text-2);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .5);
-  border-bottom: 1px solid var(--border-color);
 }
 
 .Divider {
   height: 1px;
-  margin: 6px 0;
-  background-color: var(--border-color);
-  opacity: .6;
+  margin: 4px 6px;
+  background: var(--line-2);
 }

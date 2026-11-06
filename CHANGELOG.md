@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Search the history by file name, window title or app, with Ctrl+F to jump to it.
+- Quick filters for images, videos and files with live counts, plus date presets like Today and Last 7 days.
+- Active filters show as pills under the toolbar, each one removable on its own.
+- Saved filters also keep the search, type and date filters.
+- A searchable tag picker and value suggestions in the advanced filter.
+- Search in Settings, with fuzzy matching and Ctrl+F.
+- A node view in the tag editor where tags can be dragged between groups, next to a new table view.
+- The tag editor suggests tag names already used on other captures.
+- Undo in the tag editor, and closing it with unsaved changes asks first.
+- An option to show whole images on history cards instead of cropping them, in Settings → General.
+- A countdown bar on the capture preview, which can be hidden in Settings → Capture preview.
+- The capture preview pauses its countdown while the mouse is over it.
+- Pick the capture preview corner on a small screen drawing.
+- Testing an uploader shows the status, time and raw response, and checks the link path against it.
+- Template fields highlight variables and suggest them as you type.
+- Dragging files over the main window shows where to drop them.
+- The scrolling capture HUD shows frame progress, and its border turns violet.
+- Click a step in onboarding to jump to it.
+
+### Changed
+
+- A new look across every window, with a violet accent and smoother animations.
+- History cards show the file size and source app, with quick actions on hover and an upload progress bar.
+- History card thumbnails are sharper.
+- The history filter bar fits on one line, and the search box widens while you type.
+- Settings changes show a Saved tick instead of a notification.
+- Settings use switches, and General is split into groups.
+- Number, size, duration and date fields only accept valid values and show the allowed range.
+- Dialogs put Cancel on the left and the main action on the right.
+- Repeated notifications merge into one, with at most three on screen.
+- The scrolling capture result window has Stitch and Annotate steps, and Discard asks first.
+- True/False tags are now called Yes/No.
+
+### Fixed
+
+- The capture preview no longer hides behind the taskbar or other always-on-top windows.
+
 ## [0.2.10] - 2026-10-24
 
 ### Changed

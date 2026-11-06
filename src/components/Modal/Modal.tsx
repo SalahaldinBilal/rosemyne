@@ -7,29 +7,16 @@ import { isNotNullish } from "../../helpers";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { X } from "lucide-solid";
 
+function toCssSize(value: number | string | undefined): string | undefined {
+  if (!isNotNullish(value)) return undefined;
+  return typeof value === "string" ? value : `${value}px`;
+}
+
 function Modal(props: ModalProps) {
-  const width = createMemo(() => {
-    if (isNotNullish(props.width)) {
-      return typeof props.width === 'string' ? props.width : `${props.width}px`
-    }
-
-    return undefined
-  })
-
-  const height = createMemo(() => {
-    if (isNotNullish(props.height)) {
-      return typeof props.height === 'string' ? props.height : `${props.height}px`
-    }
-
-    return undefined
-  })
-
-  const extraStyles = createMemo(() => {
-    const obj: JSX.CSSProperties = {}
-    if (isNotNullish(width())) obj.width = width();
-    if (isNotNullish(height())) obj.height = height();
-    return obj;
-  })
+  const sizeStyle = createMemo<JSX.CSSProperties>(() => ({
+    width: toCssSize(props.width),
+    height: toCssSize(props.height),
+  }));
 
   makeEventListener(window, "keydown", event => {
     if (props.show && event.key === "Escape") props.onHide?.();
@@ -37,33 +24,30 @@ function Modal(props: ModalProps) {
 
   return (
     <Transition
-      onBeforeEnter={(el) => el.classList.add(styles.StartState, styles.EnterAnimation)}
-      onEnter={async (el, done) => el.addEventListener("animationend", done)}
-      onAfterEnter={(el) => el.classList.remove(styles.StartState, styles.EnterAnimation)}
-      onBeforeExit={(el) => el.classList.add(styles.EndAnimation)}
-      onExit={(el, done) => el.addEventListener("animationend", done)}
+      enterActiveClass={styles.Entering}
+      enterClass={styles.Hidden}
+      exitActiveClass={styles.Exiting}
+      exitToClass={styles.Hidden}
     >
       <Show when={props.show}>
         <div class={styles.Container} onClick={() => props.onHide?.()}>
-          <div class={styles.Body} role="dialog" aria-modal="true" style={extraStyles()} onClick={event => event.stopPropagation()}>
+          <div class={styles.Backdrop} />
+          <div class={styles.Body} role="dialog" aria-modal="true" style={sizeStyle()} onClick={event => event.stopPropagation()}>
             <div class={styles.Header}>
               <div class={styles.Title}>{props.title ?? ""}</div>
               <Show when={props.headerActions}>
                 <div class={styles.HeaderActions}>{props.headerActions}</div>
               </Show>
-              <div class={styles.Close}>
-                <Button
-                  isIcon
-                  color="var(--base-font-color)"
-                  onClick={() => props.onHide?.()}
-                >
-                  <X size={18} />
-                </Button>
-              </div>
+              <Button isIcon size="sm" tooltip="Close" tooltipKeys={["Esc"]} onClick={() => props.onHide?.()}>
+                <X size={16} />
+              </Button>
             </div>
             <div class={styles.Content}>
               {props.children}
             </div>
+            <Show when={props.footer}>
+              <div class={styles.Footer}>{props.footer}</div>
+            </Show>
           </div>
         </div>
       </Show>

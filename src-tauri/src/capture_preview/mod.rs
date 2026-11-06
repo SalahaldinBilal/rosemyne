@@ -37,6 +37,8 @@ pub struct CapturePreviewSettings {
     pub max_height: u32,
     /// 0, stays open until clicked instead of auto-dismissing.
     pub auto_dismiss_ms: u32,
+    /// Hides only the shrinking bar. The auto-dismiss timer still runs.
+    pub show_countdown: bool,
     pub left_click_action: PreviewClickAction,
     pub right_click_action: PreviewClickAction,
 }
@@ -52,6 +54,7 @@ impl Default for CapturePreviewSettings {
             max_width: 320,
             max_height: 240,
             auto_dismiss_ms: 5000,
+            show_countdown: true,
             left_click_action: PreviewClickAction::Close,
             right_click_action: PreviewClickAction::Nothing,
         }

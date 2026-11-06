@@ -5,20 +5,19 @@ function SideNavItem(props: {
   icon?: JSX.Element,
   children: JSX.Element,
   active?: boolean,
-  // Colors the item like an action without the active nav bar.
-  highlight?: boolean,
-  color?: string,
   onClick?: () => any,
 }) {
   return (
     <button
+      type="button"
       class={styles.SideNavItem}
-      classList={{ [styles.Active]: props.active ?? false, [styles.Highlight]: props.highlight ?? false }}
-      style={{ '--nav-color': props.color ?? 'var(--base-blue)' }}
+      classList={{ [styles.Active]: props.active ?? false }}
+      data-active={props.active ? "" : undefined}
+      aria-current={props.active ? "page" : undefined}
       onClick={() => props.onClick?.()}
     >
       <span class={styles.Icon}>{props.icon}</span>
-      {props.children}
+      <span class={styles.Label}>{props.children}</span>
     </button>
   );
 }

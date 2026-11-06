@@ -1,0 +1,108 @@
+.NumberField {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 110px;
+  height: var(--ctl-h);
+  padding: 0 7px 0 10px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  cursor: text;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast),
+    opacity var(--t-fast);
+
+  &:hover {
+    border-color: var(--line-3);
+  }
+
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  &.Bad,
+  &.Bad:focus-within {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-soft);
+  }
+
+  &.Limit {
+    animation: limit-flash 360ms var(--e-out);
+  }
+
+  &.Disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  &.Small {
+    height: 28px;
+  }
+
+  &.Segments {
+    width: auto;
+    padding-left: 8px;
+  }
+
+  &.Dimension {
+    width: auto;
+
+    .Input {
+      flex: none;
+      width: 46px;
+    }
+  }
+}
+
+.Times {
+  margin: 0 7px;
+  color: var(--text-3);
+  user-select: none;
+}
+
+.Input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+
+  &::placeholder {
+    color: var(--text-3);
+  }
+}
+
+.Unit {
+  flex-shrink: 0;
+  padding: 0 3px 0 6px;
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+  user-select: none;
+
+  &.Scrub {
+    cursor: ew-resize;
+
+    &:hover {
+      color: var(--text-1);
+    }
+  }
+}
+
+@keyframes limit-flash {
+  40% {
+    border-color: var(--warn);
+    box-shadow: 0 0 0 3px var(--warn-soft);
+  }
+}

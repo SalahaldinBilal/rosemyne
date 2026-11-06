@@ -1,7 +1,6 @@
 import { JSX } from "solid-js";
 
 export type InputProps = Partial<{
-  color: `#${string}`;
   min: number | string | undefined;
   max: number | string | undefined;
   value: string | number | string[] | undefined;
@@ -11,13 +10,20 @@ export type InputProps = Partial<{
   afterInput: JSX.Element;
   onChange: JSX.EventHandler<HTMLInputElement, InputEvent>;
   onClick: JSX.EventHandler<HTMLInputElement, MouseEvent>;
+  onBlur: JSX.EventHandler<HTMLInputElement, FocusEvent>;
+  onKeyDown: JSX.EventHandler<HTMLInputElement, KeyboardEvent>;
   style: JSX.CSSProperties;
   inputStyle: JSX.CSSProperties;
+  class: string;
   alignText: "left" | "center" | "right";
+  size: "md" | "sm";
+  mono: boolean;
   disallowEmpty: boolean;
   selectOnClick: boolean;
   disabled: boolean;
   borderless: boolean;
   noRadius: boolean;
   focusOnCreation: boolean;
+  invalid: boolean;
+  tooltip: string;
 }>

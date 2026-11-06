@@ -1,43 +1,42 @@
 .SideNavItem {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  height: 44px;
-  padding: 0 16px;
+  height: 34px;
+  padding: 0 10px;
   border: 0;
+  border-radius: var(--r-md);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-2);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
   user-select: none;
-  box-shadow: inset 3px 0 0 transparent;
-  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+  transition:
+    color var(--t-fast),
+    background-color var(--t-fast);
 
   &:hover {
-    color: var(--base-font-color);
-    background-color: rgba(255, 255, 255, .04);
+    color: var(--text-1);
+    background: rgb(255 255 255 / 0.04);
   }
 
   &:focus-visible {
     outline: none;
-    background-color: rgba(255, 255, 255, .06);
+    box-shadow: inset 0 0 0 2px var(--accent-ring);
   }
 
   &.Active {
-    color: var(--nav-color);
-    background-color: rgb(from var(--nav-color) r g b / .10);
-    box-shadow: inset 3px 0 0 var(--nav-color);
-  }
+    color: var(--text-1);
+    background: transparent;
 
-  &.Highlight {
-    color: var(--nav-color);
-
-    &:hover {
-      background-color: rgb(from var(--nav-color) r g b / .10);
+    .Icon {
+      color: var(--accent-text);
     }
   }
 
@@ -45,12 +44,20 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
     flex-shrink: 0;
+    width: 16px;
+    transition: color var(--t-fast);
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
     }
+  }
+
+  .Label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

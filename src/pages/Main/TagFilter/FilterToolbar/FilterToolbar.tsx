@@ -1,10 +1,11 @@
 import styles from "./FilterToolbar.module.scss";
 import { createMemo, For, Show } from "solid-js";
-import { Dynamic } from "solid-js/web";
-import { HistoryItemType, HistorySort, HistoryTypeCounts, SelectItem } from "../../../../types";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { DatePreset, HistoryItemType, HistorySort, HistoryTypeCounts, SelectItem } from "../../../../types";
 import useTagFilterState from "../../../../states/tagFilterState";
 import Select from "../../../../components/Select/Select";
-import { ChevronDown, ChevronUp, File, Image, ListFilter, LucideIcon, Video } from "lucide-solid";
+import Tooltip from "../../../../components/Tooltip/Tooltip";
+import { Search, SlidersHorizontal, X } from "lucide-solid";
 
 const SORT_ITEMS: SelectItem<HistorySort>[] = [
   { id: "date-desc", value: { field: "date", direction: "desc" }, label: "Newest first" },
@@ -13,65 +14,104 @@ const SORT_ITEMS: SelectItem<HistorySort>[] = [
   { id: "name-desc", value: { field: "name", direction: "desc" }, label: "Name Z–A" },
 ];
 
-const COUNT_ITEMS: { type: HistoryItemType, icon: LucideIcon, label: string }[] = [
-  { type: "image", icon: Image, label: "image" },
-  { type: "video", icon: Video, label: "video" },
-  { type: "file", icon: File, label: "file" },
+export const DATE_PRESET_ITEMS: SelectItem<DatePreset>[] = [
+  { id: "any", value: "any", label: "Any time" },
+  { id: "today", value: "today", label: "Today" },
+  { id: "week", value: "week", label: "Last 7 days" },
+  { id: "month", value: "month", label: "Last 30 days" },
+  { id: "year", value: "year", label: "This year" },
 ];
 
-function plural(count: number, label: string): string {
-  return `${count} ${label}${count === 1 ? "" : "s"}`;
-}
+export const TYPE_ITEMS: { type: HistoryItemType, label: string }[] = [
+  { type: "image", label: "Images" },
+  { type: "video", label: "Videos" },
+  { type: "file", label: "Files" },
+];
+
+const SEARCH_KEYS = ["Ctrl", "F"];
 
 function FilterToolbar(props: { sort: HistorySort, onSortChange: (sort: HistorySort) => void, counts: HistoryTypeCounts }) {
-  const { ruleCount, activeFilterName, filtersOpen, setFiltersOpen } = useTagFilterState;
+  const { quick, setSearch, toggleType, setDatePreset, activeRuleCount, filtersOpen, setFiltersOpen } = useTagFilterState;
+  const sortValue = createMemo(() => `${props.sort.field}-${props.sort.direction}`);
+  let searchBox: HTMLLabelElement | undefined;
+  let searchInput: HTMLInputElement | undefined;
 
-  // The panel is closed by default, so an active filter has to read from the
-  // collapsed row alone.
-  const hint = createMemo(() => {
-    const name = activeFilterName();
-    if (ruleCount() === 0) return "Show filters";
-    return name ? `Filters, ${name}` : "Filters";
+  makeEventListener(window, "keydown", event => {
+    if (!(event.ctrlKey || event.metaKey) || event.code !== "KeyF") return;
+    event.preventDefault();
+    searchInput?.focus();
+    searchInput?.select();
   });
 
-  const total = createMemo(() => props.counts.image + props.counts.video + props.counts.file);
-  const presentCounts = createMemo(() => COUNT_ITEMS.filter(item => props.counts[item.type] > 0));
+  function clearSearch() {
+    setSearch("");
+    searchInput?.focus();
+  }
 
   return (
     <div class={styles.Toolbar}>
-      <Select
-        borderless
-        value={`${props.sort.field}-${props.sort.direction}`}
-        items={SORT_ITEMS}
-        onItemClick={item => props.onSortChange(item.value)}
-      />
-      <div class={styles.Counts}>
-        <Show when={total() > 0}>
-          <span class={styles.Total} title={plural(total(), "item")}>{plural(total(), "item")}</span>
-          <span class={styles.Separator} />
+      <label ref={searchBox} class={styles.Search}>
+        <Search size={15} />
+        <input
+          ref={searchInput}
+          placeholder="Search"
+          value={quick.search}
+          spellcheck={false}
+          onInput={event => setSearch(event.currentTarget.value)}
+          onKeyDown={event => {
+            if (event.key === "Escape" && quick.search) {
+              event.stopPropagation();
+              setSearch("");
+            }
+          }}
+        />
+        <Show when={quick.search}>
+          <button type="button" class={styles.ClearSearch} aria-label="Clear search" onClick={event => { event.preventDefault(); clearSearch(); }}>
+            <X size={13} />
+          </button>
         </Show>
-        <For each={presentCounts()}>
+      </label>
+      <Tooltip anchor={() => searchBox} text="Search file names, window titles and apps" keys={SEARCH_KEYS} />
+
+      <div class={styles.Types} role="group" aria-label="File types">
+        <For each={TYPE_ITEMS}>
           {item => {
-            const count = createMemo(() => props.counts[item.type]);
-            return <span class={styles.Count} title={plural(count(), item.label)}>
-              <Dynamic component={item.icon} size={14} />
-              {count()}
-            </span>;
+            const on = createMemo(() => quick.types.includes(item.type));
+            return (
+              <button
+                type="button"
+                class={styles.Type}
+                classList={{ [styles.On]: on() }}
+                aria-pressed={on()}
+                onMouseDown={event => event.preventDefault()}
+                onClick={() => toggleType(item.type)}
+              >
+                {item.label}
+                <span class={styles.Count}>{props.counts[item.type]}</span>
+              </button>
+            );
           }}
         </For>
       </div>
-      <button
-        class={styles.Toggle}
-        classList={{ [styles.Active]: ruleCount() > 0 }}
-        title={hint()}
-        onClick={() => setFiltersOpen(open => !open)}
-      >
-        <ListFilter size={16} />
-        <Show when={ruleCount() > 0}>
-          <span class={styles.Badge}>{ruleCount()}</span>
-        </Show>
-        {filtersOpen() ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
+
+      <div class={styles.End}>
+        <Select variant="bare" value={quick.date} items={DATE_PRESET_ITEMS} onItemClick={item => setDatePreset(item.value)} />
+        <Select variant="bare" value={sortValue()} items={SORT_ITEMS} onItemClick={item => props.onSortChange(item.value)} />
+        <span class={styles.Divider} />
+        <button
+          type="button"
+          class={styles.Advanced}
+          classList={{ [styles.Active]: activeRuleCount() > 0, [styles.Open]: filtersOpen() }}
+          aria-expanded={filtersOpen()}
+          onClick={() => setFiltersOpen(open => !open)}
+        >
+          <SlidersHorizontal size={15} />
+          Advanced
+          <Show when={activeRuleCount() > 0}>
+            <span class={styles.Badge}>{activeRuleCount()}</span>
+          </Show>
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,39 +1,49 @@
 import styles from "./ContextMenu.module.scss";
-import { Position, Size, ShowContextMenuParams } from "../../types";
+import { Position, ShowContextMenuParams } from "../../types";
 import { JSX, Show, createSignal, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { contextMenuEventHandler } from "./eventHandler";
-import { Transition } from "solid-transition-group";
 import { clickOutside } from "../../directives";
 clickOutside;
 
+const CLOSE_DURATION = 110;
+
+type Placement = Position & { origin: string };
+
 function ContextMenu(props: { id: string | number, children: JSX.Element, styles?: JSX.CSSProperties }) {
   const [isOpen, setIsOpen] = createSignal(false);
-  const [position, setPosition] = createSignal<Position>({ x: 0, y: 0 });
-  let containerRef!: HTMLDivElement;
+  const [mounted, setMounted] = createSignal(false);
+  const [placement, setPlacement] = createSignal<Placement>({ x: 0, y: 0, origin: "top left" });
+  let containerRef: HTMLDivElement | undefined;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   const onShow = (params: ShowContextMenuParams) => {
     if (params.id !== props.id) return;
 
     params.event.preventDefault();
+    clearTimeout(closeTimer);
+    const anchor = params.position ?? { x: params.event.clientX, y: params.event.clientY };
+    setPlacement({ ...anchor, origin: "top left" });
+    setMounted(true);
     setIsOpen(true);
-    setPosition(
-      params.position ??
-      calculateContextMenuPosition(
-        { x: params.event.clientX, y: params.event.clientY },
-        { width: containerRef?.offsetWidth, height: containerRef?.offsetHeight }
-      )
-    );
+
+    if (!params.position && containerRef) {
+      setPlacement(placeAtCursor(anchor, containerRef.offsetWidth, containerRef.offsetHeight));
+    }
   };
   const onHideAll = () => contextMenuEventHandler.emit("hide", props.id);
   const onHide = (id: string | number) => {
-    if (id === props.id) setIsOpen(false);
+    if (id !== props.id || !isOpen()) return;
+    setIsOpen(false);
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => setMounted(false), CLOSE_DURATION);
   };
 
   contextMenuEventHandler.on("show", onShow);
   contextMenuEventHandler.on("hideAll", onHideAll);
   contextMenuEventHandler.on("hide", onHide);
   onCleanup(() => {
+    clearTimeout(closeTimer);
     contextMenuEventHandler.off("show", onShow);
     contextMenuEventHandler.off("hideAll", onHideAll);
     contextMenuEventHandler.off("hide", onHide);
@@ -41,40 +51,44 @@ function ContextMenu(props: { id: string | number, children: JSX.Element, styles
 
   return (
     <Portal>
-      <Transition
-        onBeforeEnter={(el) => el.classList.add(styles.StartState, styles.EnterAnimation)}
-        onEnter={async (el, done) => el.addEventListener("animationend", done)}
-        onAfterEnter={(el) => el.classList.remove(styles.StartState, styles.EnterAnimation)}
-        onBeforeExit={(el) => el.classList.add(styles.EndAnimation)}
-        onExit={(el, done) => el.addEventListener("animationend", done)}
-      >
-        <Show when={isOpen()}>
-          <div
-            ref={containerRef}
-            class={styles.Container}
-            use:clickOutside={() => contextMenuEventHandler.emit("hide", props.id)}
-            style={{ ...(props.styles ?? {}), left: position().x + "px", top: position().y + "px" }}
-          >
-            {props.children}
-          </div>
-        </Show>
-      </Transition>
+      <Show when={mounted()}>
+        <div
+          ref={containerRef}
+          class={styles.Container}
+          classList={{ [styles.Closing]: !isOpen() }}
+          use:clickOutside={() => contextMenuEventHandler.emit("hide", props.id)}
+          style={{
+            ...(props.styles ?? {}),
+            left: placement().x + "px",
+            top: placement().y + "px",
+            "transform-origin": placement().origin,
+          }}
+        >
+          {props.children}
+        </div>
+      </Show>
     </Portal>
   );
 }
 
-export default ContextMenu;
-
-
-function calculateAxisValue(clickPosition: number, elementSize: number, boxSize: number) {
-  if (clickPosition + elementSize <= boxSize) return clickPosition;
-  if (clickPosition < elementSize) return boxSize - elementSize;
-  return clickPosition - elementSize;
+export function ContextMenuSeparator() {
+  return <div class={styles.Separator} />;
 }
 
-function calculateContextMenuPosition(clickPosition: Position, elementSize: Size): Position {
+export default ContextMenu;
+
+function placeAxis(click: number, size: number, viewport: number): { value: number, flipped: boolean } {
+  if (click + size <= viewport) return { value: click, flipped: false };
+  if (click < size) return { value: Math.max(0, viewport - size), flipped: false };
+  return { value: click - size, flipped: true };
+}
+
+function placeAtCursor(click: Position, width: number, height: number): Placement {
+  const x = placeAxis(click.x, width, window.innerWidth);
+  const y = placeAxis(click.y, height, window.innerHeight);
   return {
-    x: calculateAxisValue(clickPosition.x, elementSize.width, window.innerWidth),
-    y: calculateAxisValue(clickPosition.y, elementSize.height, window.innerHeight),
-  }
+    x: x.value,
+    y: y.value,
+    origin: `${y.flipped ? "bottom" : "top"} ${x.flipped ? "right" : "left"}`,
+  };
 }

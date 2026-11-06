@@ -1,0 +1,179 @@
+.Part {
+  width: 2.3ch;
+  padding: 0 1px;
+  border: 0;
+  border-radius: 4px;
+  outline: none;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  caret-color: transparent;
+  transition: background-color var(--t-fast);
+
+  &.Year {
+    width: 4.4ch;
+  }
+
+  &::placeholder {
+    color: var(--text-3);
+  }
+
+  &:focus {
+    background: var(--accent-soft-2);
+    color: var(--accent-text);
+  }
+}
+
+.Separator {
+  margin: 0 2px;
+  color: var(--text-3);
+  user-select: none;
+
+  &.TimeGap {
+    margin: 0 4px;
+  }
+}
+
+.CalendarButton {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  margin-left: auto;
+  margin-right: -7px;
+  padding: 0 9px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color var(--t-fast);
+
+  &:hover,
+  &.Open {
+    color: var(--text-1);
+  }
+}
+
+// Portaled to document.body.
+.Calendar {
+  position: fixed;
+  z-index: var(--z-menu);
+  width: 264px;
+  padding: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  transform-origin: top left;
+  animation: calendar-in var(--t-base) var(--e-out);
+
+  &.Upwards {
+    transform-origin: bottom left;
+  }
+
+  &.Closing {
+    pointer-events: none;
+    animation: calendar-out 110ms var(--e-in) forwards;
+  }
+}
+
+.CalendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+
+  b {
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+.Grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+
+  &.FromRight {
+    animation: slide-from-right var(--t-base) var(--e-out);
+  }
+
+  &.FromLeft {
+    animation: slide-from-left var(--t-base) var(--e-out);
+  }
+}
+
+.Weekday {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.Day {
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 80ms;
+
+  &:hover {
+    background: var(--bg-5);
+  }
+
+  &.Outside {
+    color: var(--text-3);
+  }
+
+  &.Today {
+    box-shadow: inset 0 0 0 1px var(--accent-ring);
+  }
+
+  &.Selected {
+    background: var(--accent);
+    color: #fff;
+  }
+}
+
+.CalendarFooter {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-2);
+}
+
+@keyframes calendar-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes calendar-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}

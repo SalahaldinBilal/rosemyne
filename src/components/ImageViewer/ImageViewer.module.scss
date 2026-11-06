@@ -12,8 +12,8 @@
     overflow: hidden;
     min-width: 0;
     min-height: 0;
-    background-color: rgba(0, 0, 0, 0.25);
-    border-radius: var(--radius-md);
+    background: var(--bg-0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='8' height='8' fill='%23131318'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23131318'/%3E%3C/svg%3E");
+    border-radius: var(--r-lg);
     touch-action: none;
     user-select: none;
 
@@ -66,44 +66,35 @@
   .Toolbar {
     position: absolute;
     left: 50%;
-    bottom: 12px;
+    bottom: 14px;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
     gap: 2px;
     padding: 4px;
-    border-radius: var(--radius-md);
-    background-color: rgba(20, 20, 20, 0.85);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+    border-radius: var(--r-lg);
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-line);
+    box-shadow: var(--sh-2);
     // Above the highest z-index any `overlay` content uses (AnnotationToolBar's brush cursor tops out at 40000).
     z-index: 41000;
   }
 
-  // Top-center, mirroring the screenshotter's own ToolBox.tsx anchoring, so it
-  // never collides with the bottom-center pan/zoom .Toolbar above.
-  .AnnotationToolbar {
-    position: absolute;
-    left: 50%;
-    top: 12px;
-    transform: translateX(-50%);
-    z-index: 41000;
-  }
-
   .ZoomLabel {
-    min-width: 48px;
+    min-width: 52px;
     text-align: center;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
+    color: var(--text-2);
     user-select: none;
   }
 
   .Divider {
     width: 1px;
-    height: 20px;
-    margin: 0 4px;
-    background-color: var(--border-color);
+    height: 18px;
+    margin: 0 3px;
+    background: var(--line-3);
   }
 
   .ActualSize {
@@ -111,4 +102,14 @@
     font-weight: 700;
     letter-spacing: 0.02em;
   }
+}
+
+// Top-center, mirroring the screenshotter's toolbar, so it never collides with the bottom-center zoom bar.
+// Top level, not under .ImageViewer, since a caller can portal it out of the viewer.
+.AnnotationToolbar {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  z-index: 41000;
+  transform: translateX(-50%);
 }

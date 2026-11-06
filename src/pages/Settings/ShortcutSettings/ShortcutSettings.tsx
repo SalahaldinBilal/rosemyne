@@ -6,14 +6,17 @@ import KeyRenderer from "@core/components/KeyRenderer/KeyRenderer";
 import ShortcutPicker from "@core/components/ShortcutPicker/ShortcutPicker";
 import Button from "@core/components/Button/Button";
 import Select from "@core/components/Select/Select";
-import Input from "@core/components/Input/Input";
+import NumberField from "@core/components/NumberField/NumberField";
+import Segmented from "@core/components/Segmented/Segmented";
 import Modal from "@core/components/Modal/Modal";
+import { InlineControls, SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 import { CaptureTarget, MonitorInfo, ShortcutBinding, ShortcutKeys } from "@core/types";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { findMonitor } from "@core/helpers/monitors";
 import useSettingsState from "@core/states/settingsState";
 import useToastState from "@core/states/toastState";
-import { Crop, Monitor, Plus, X } from "lucide-solid";
+import useSettingsSavedState from "@core/states/settingsSavedState";
+import { Crop, Monitor, Plus, Trash2, X } from "lucide-solid";
 
 const SCREENSHOT_ID = "screenshot";
 const RECORD_ID = "record";
@@ -37,6 +40,7 @@ function cloneTarget(target: CaptureTarget): CaptureTarget {
 function ShortcutSettings() {
   const { shortcuts, addShortcut, removeShortcut } = useSettingsState;
   const { pushToast } = useToastState;
+  const { markSettingsSaved } = useSettingsSavedState;
 
   const [monitors, setMonitors] = createSignal<MonitorInfo[]>([]);
   const [picker, setPicker] = createSignal<PickerTarget | null>(null);
@@ -68,9 +72,9 @@ function ShortcutSettings() {
   );
 
   function run(action: () => Promise<any>) {
-    return action().catch(err =>
-      pushToast(`Could not update the shortcut: ${typeof err === "string" ? err : JSON.stringify(err)}`, "error", 6000)
-    );
+    return action()
+      .then(markSettingsSaved)
+      .catch(err => pushToast(`Could not update the shortcut: ${typeof err === "string" ? err : JSON.stringify(err)}`, "error", 6000));
   }
 
   function defaultTarget(): CaptureTarget {
@@ -116,12 +120,14 @@ function ShortcutSettings() {
     return { type: binding.method.type };
   }
 
-  function targetSummary(target: CaptureTarget): string {
+  function targetSummary(target: CaptureTarget): { title: string, detail: string } {
     if (target.type === "monitor") {
       const m = findMonitor(monitors(), target.data.id);
-      return m ? `Monitor: ${m.name}` : `Monitor: ${target.data.id || "unset"}`;
+      return m
+        ? { title: m.name, detail: `${m.width}×${m.height}, whole monitor` }
+        : { title: target.data.id || "No monitor chosen", detail: "Monitor not connected" };
     }
-    return `Region ${target.data.width}×${target.data.height} @ (${target.data.x}, ${target.data.y})`;
+    return { title: "Region", detail: `${target.data.width}×${target.data.height} at (${target.data.x}, ${target.data.y})` };
   }
 
   function openTargetEditor(binding: ShortcutBinding) {
@@ -183,89 +189,85 @@ function ShortcutSettings() {
     targetDraft.target.type === "region" ? targetDraft.target.data : { x: 0, y: 0, width: 0, height: 0 }
   );
 
-  return <div class={styles.ShortcutsContainer}>
-    <div class={styles.Section}>
-      <div class={styles.SectionTitle}>Screenshot</div>
-      <div class={styles.ShortcutItem}>
-        <span>Take screenshot</span>
-        <div class={styles.KeyContainer} onClick={() => setPicker({ kind: "screenshot" })}>
-          <KeyRenderer keys={screenshotKeys() ?? { keys: [] }} size={20} placeholder="No key assigned" />
-        </div>
-        <Show when={hasScreenshot()}>
-          <Button isIcon tooltip="Clear shortcut" onClick={() => screenshotBinding() && run(() => removeShortcut(screenshotBinding()!.id))}>
-            <X size={18} />
-          </Button>
+  function KeyButton(props: { keys: ShortcutKeys | undefined, onClick: () => void }) {
+    const hasKeys = createMemo(() => (props.keys?.keys.length ?? 0) > 0);
+    return (
+      <button type="button" class={styles.KeyButton} onClick={() => props.onClick()}>
+        <Show when={hasKeys()} fallback={<span class={styles.Placeholder}>Click to set</span>}>
+          <KeyRenderer keys={props.keys!} />
         </Show>
-      </div>
-    </div>
+      </button>
+    );
+  }
 
-    <div class={styles.Section}>
-      <div class={styles.SectionTitle}>Screen recording</div>
-      <div class={styles.ShortcutItem}>
-        <span>Start / stop recording</span>
-        <div class={styles.KeyContainer} onClick={() => setPicker({ kind: "record" })}>
-          <KeyRenderer keys={recordKeys() ?? { keys: [] }} size={20} placeholder="No key assigned" />
-        </div>
-        <Show when={hasRecord()}>
-          <Button isIcon tooltip="Clear shortcut" onClick={() => recordBinding() && run(() => removeShortcut(recordBinding()!.id))}>
-            <X size={18} />
+  function FixedShortcut(props: { label: string, hint?: string, keys: ShortcutKeys | undefined, has: boolean, onPick: () => void, onClear: () => void }) {
+    return (
+      <SettingRow label={props.label} hint={props.hint}>
+        <InlineControls>
+          <KeyButton keys={props.keys} onClick={props.onPick} />
+          <Button isIcon size="sm" tooltip="Clear" disabled={!props.has} onClick={props.onClear}>
+            <X size={15} />
           </Button>
-        </Show>
-      </div>
-      <div class={styles.SectionDescription}>
-        Opens the region selector when idle; stops and saves when a recording is running.
-      </div>
-    </div>
+        </InlineControls>
+      </SettingRow>
+    );
+  }
 
-    <div class={styles.Section}>
-      <div class={styles.SectionTitle}>Scrolling capture</div>
-      <div class={styles.ShortcutItem}>
-        <span>Scrolling capture</span>
-        <div class={styles.KeyContainer} onClick={() => setPicker({ kind: "scrollingCapture" })}>
-          <KeyRenderer keys={scrollingCaptureKeys() ?? { keys: [] }} size={20} placeholder="No key assigned" />
-        </div>
-        <Show when={hasScrollingCapture()}>
-          <Button isIcon tooltip="Clear shortcut" onClick={() => scrollingCaptureBinding() && run(() => removeShortcut(scrollingCaptureBinding()!.id))}>
-            <X size={18} />
-          </Button>
-        </Show>
-      </div>
-      <div class={styles.SectionDescription}>
-        Opens the region selector; scrolls and captures the selection, then opens the result in the editor.
-      </div>
-    </div>
+  return <SettingsPage title="Shortcuts" description="Global keys that work from any app.">
+    <SettingsGroup title="Capture">
+      <FixedShortcut
+        label="Take screenshot"
+        keys={screenshotKeys()}
+        has={hasScreenshot()}
+        onPick={() => setPicker({ kind: "screenshot" })}
+        onClear={() => screenshotBinding() && run(() => removeShortcut(screenshotBinding()!.id))}
+      />
+      <FixedShortcut
+        label="Start or stop recording"
+        hint="Opens the region picker when idle, stops and saves while recording."
+        keys={recordKeys()}
+        has={hasRecord()}
+        onPick={() => setPicker({ kind: "record" })}
+        onClear={() => recordBinding() && run(() => removeShortcut(recordBinding()!.id))}
+      />
+      <FixedShortcut
+        label="Scrolling capture"
+        hint="Scrolls and captures the selection, then opens the result."
+        keys={scrollingCaptureKeys()}
+        has={hasScrollingCapture()}
+        onPick={() => setPicker({ kind: "scrollingCapture" })}
+        onClear={() => scrollingCaptureBinding() && run(() => removeShortcut(scrollingCaptureBinding()!.id))}
+      />
+    </SettingsGroup>
 
-    <div class={styles.Section}>
-      <div class={styles.SectionHeader}>
-        <div class={styles.SectionTitle}>Instant captures</div>
-        <Button onClick={() => setPicker({ kind: "newInstant" })}>
-          <span class={styles.ButtonWithIcon}><Plus size={16} /> Add instant capture</span>
-        </Button>
-      </div>
-      <div class={styles.SectionDescription}>
-        Capture a whole monitor or a fixed region instantly, no editor window opens.
-      </div>
-
-      <For each={instantBindings()} fallback={<div class={styles.Empty}>No instant capture shortcuts yet.</div>}>
+    <SettingsGroup
+      title="Instant captures"
+      right={<Button size="sm" onClick={() => setPicker({ kind: "newInstant" })}><Plus size={14} />Add instant capture</Button>}
+    >
+      <For each={instantBindings()} fallback={
+        <SettingRow label="No instant captures yet" hint="Capture a whole monitor or a fixed region with one key, no editor opens." />
+      }>
         {binding => {
           const summary = createMemo(() =>
-            binding.method.type === "instantCapture" ? targetSummary(binding.method.data) : ""
+            binding.method.type === "instantCapture" ? targetSummary(binding.method.data) : { title: "", detail: "" }
           );
-          return <div class={styles.ShortcutItem}>
-            <div class={styles.KeyContainer} onClick={() => setPicker({ kind: "rebind", id: binding.id })}>
-              <KeyRenderer keys={binding.keys} size={20} placeholder="No key assigned" />
+          const isMonitor = createMemo(() => binding.method.type === "instantCapture" && binding.method.data.type === "monitor");
+          return <div class={styles.ListRow}>
+            <KeyButton keys={binding.keys} onClick={() => setPicker({ kind: "rebind", id: binding.id })} />
+            <div class={styles.Info}>
+              <b>{isMonitor() ? <Monitor size={14} /> : <Crop size={14} />} {summary().title}</b>
+              <span>{summary().detail}</span>
             </div>
-            <div class={styles.TargetSummary} onClick={() => openTargetEditor(binding)}>
-              {summary()}
+            <div class={styles.Actions}>
+              <Button size="sm" variant="ghost" onClick={() => openTargetEditor(binding)}>Edit target</Button>
+              <Button isIcon size="sm" variant="danger" tooltip="Delete" onClick={() => run(() => removeShortcut(binding.id))}>
+                <Trash2 size={14} />
+              </Button>
             </div>
-            <Button onClick={() => openTargetEditor(binding)}>Edit target</Button>
-            <Button isIcon tooltip="Delete shortcut" onClick={() => run(() => removeShortcut(binding.id))}>
-              <X size={18} />
-            </Button>
           </div>
         }}
       </For>
-    </div>
+    </SettingsGroup>
 
     <ShortcutPicker
       preRegisteredShortcuts={shortcuts.filter(s => s.id !== pickerExcludeId()).map(s => s.keys)}
@@ -274,22 +276,31 @@ function ShortcutSettings() {
       onConfirm={onPickerConfirm}
     />
 
-    <Modal title="Capture target" show={editingTargetId() !== null} onHide={() => setEditingTargetId(null)}>
+    <Modal
+      title="Capture target"
+      width={480}
+      show={editingTargetId() !== null}
+      onHide={() => setEditingTargetId(null)}
+      footer={<>
+        <Button onClick={() => setEditingTargetId(null)}>Cancel</Button>
+        <Button
+          variant="primary"
+          onClick={saveTarget}
+          disabled={targetDraft.target.type === "monitor" && !targetDraft.target.data.id}
+        >
+          Save
+        </Button>
+      </>}
+    >
       <div class={styles.TargetEditor}>
-        <div class={styles.TargetTypeToggle}>
-          <Button
-            color={targetDraft.target.type === "monitor" ? undefined : "var(--secondary-bg-color)"}
-            onClick={switchToMonitor}
-          >
-            <span class={styles.ButtonWithIcon}><Monitor size={16} /> Monitor</span>
-          </Button>
-          <Button
-            color={targetDraft.target.type === "region" ? undefined : "var(--secondary-bg-color)"}
-            onClick={switchToRegion}
-          >
-            <span class={styles.ButtonWithIcon}><Crop size={16} /> Region</span>
-          </Button>
-        </div>
+        <Segmented
+          items={[
+            { id: "monitor", label: <><Monitor size={14} />Monitor</> },
+            { id: "region", label: <><Crop size={14} />Region</> },
+          ]}
+          value={targetDraft.target.type}
+          onChange={type => type === "monitor" ? switchToMonitor() : switchToRegion()}
+        />
 
         <Show when={targetDraft.target.type === "monitor"}>
           <Select
@@ -302,28 +313,18 @@ function ShortcutSettings() {
 
         <Show when={targetDraft.target.type === "region"}>
           <div class={styles.RegionFields}>
-            <label>X<Input type="number" value={region().x} onChange={e => setRegionField("x", +e.currentTarget.value)} /></label>
-            <label>Y<Input type="number" value={region().y} onChange={e => setRegionField("y", +e.currentTarget.value)} /></label>
-            <label>Width<Input type="number" min={1} value={region().width} onChange={e => setRegionField("width", +e.currentTarget.value)} /></label>
-            <label>Height<Input type="number" min={1} value={region().height} onChange={e => setRegionField("height", +e.currentTarget.value)} /></label>
+            <label>X<NumberField width="100%" min={-100_000} max={100_000} value={region().x} onChange={value => setRegionField("x", value)} /></label>
+            <label>Y<NumberField width="100%" min={-100_000} max={100_000} value={region().y} onChange={value => setRegionField("y", value)} /></label>
+            <label>Width<NumberField width="100%" min={1} max={100_000} value={region().width} onChange={value => setRegionField("width", value)} /></label>
+            <label>Height<NumberField width="100%" min={1} max={100_000} value={region().height} onChange={value => setRegionField("height", value)} /></label>
           </div>
-          <Button onClick={selectRegion}>
-            <span class={styles.ButtonWithIcon}><Crop size={16} /> Select region on screen</span>
+          <Button class={styles.SelectRegion} onClick={selectRegion}>
+            <Crop size={15} />Select region on screen
           </Button>
         </Show>
-
-        <div class={styles.TargetEditorControls}>
-          <Button color="var(--secondary-bg-color)" onClick={() => setEditingTargetId(null)}>Cancel</Button>
-          <Button
-            onClick={saveTarget}
-            disabled={targetDraft.target.type === "monitor" && !targetDraft.target.data.id}
-          >
-            Save
-          </Button>
-        </div>
       </div>
     </Modal>
-  </div>
+  </SettingsPage>
 }
 
 export default ShortcutSettings;

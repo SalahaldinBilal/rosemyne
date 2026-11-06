@@ -1,0 +1,23 @@
+.StatusList {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 18px;
+  font-size: 12.5px;
+}
+
+.Key {
+  color: var(--text-3);
+}
+
+.Value {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.Faint {
+  color: var(--text-3);
+  font-size: 12px;
+}

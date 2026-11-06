@@ -1,15 +1,15 @@
-import settingsStyles from "../../Settings/GeneralSettings/GeneralSettings.module.scss";
 import { createMemo, createSignal, onMount } from "solid-js";
-import Input from "@core/components/Input/Input";
 import Button from "@core/components/Button/Button";
 import Select from "@core/components/Select/Select";
+import NumberField from "@core/components/NumberField/NumberField";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { GeneralSettings as GeneralSettingsData, SelectItem, VideoCodec } from "@core/types";
 import { CODEC_LABELS } from "@core/helpers/settingsLabels";
+import { InlineControls, SettingRow, SettingsGroup, ToggleRow } from "../../Settings/SettingsLayout/SettingsLayout";
 
 function VideoStep(props: { general: GeneralSettingsData, onChange: (update: Partial<GeneralSettingsData>) => void }) {
   const [availableCodecs, setAvailableCodecs] = createSignal<VideoCodec[]>(["h264"]);
-  const [fpsInput, setFpsInput] = createSignal(String(props.general.recordFps));
+  const [fps, setFps] = createSignal(props.general.recordFps);
 
   onMount(async () => {
     try {
@@ -24,56 +24,23 @@ function VideoStep(props: { general: GeneralSettingsData, onChange: (update: Par
     availableCodecs().map(codec => ({ id: codec, value: codec, label: CODEC_LABELS[codec] }))
   );
 
-  function normalizedFps(): number {
-    const parsed = Math.round(Number(fpsInput()));
-    return Number.isFinite(parsed) ? Math.min(240, Math.max(1, parsed)) : props.general.recordFps;
-  }
-
-  return <div class={settingsStyles.GeneralSettings}>
-    <label class={settingsStyles.SettingRow}>
-      <input
-        type="checkbox"
-        checked={props.general.recordAudio}
-        onChange={e => props.onChange({ recordAudio: e.currentTarget.checked })}
-      />
-      <div class={settingsStyles.SettingText}>
-        <span>Record system audio</span>
-        <span class={settingsStyles.Hint}>Screen recordings include what you hear (speaker output).</span>
-      </div>
-    </label>
-    <div class={settingsStyles.SettingRow}>
-      <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-        <span>Recording video codec</span>
-        <span class={settingsStyles.Hint}>Only codecs the current GPU/drivers can actually initialize are listed. Default: H.264.</span>
-        <Select value={props.general.recordCodec} items={codecItems()} onItemClick={item => props.onChange({ recordCodec: item.value })} />
-      </div>
-    </div>
-    <div class={settingsStyles.SettingRow}>
-      <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-        <span>Recording frame rate</span>
-        <span class={settingsStyles.Hint}>Frames per second for screen recordings (1–240). Default: 30.</span>
-        <div class={settingsStyles.DirectoryRow}>
-          <Input
-            type="number"
-            min={1}
-            max={240}
-            value={fpsInput()}
-            style={{ width: '110px' }}
-            onChange={e => setFpsInput(e.currentTarget.value)}
-          />
-          <Button
-            disabled={normalizedFps() === props.general.recordFps}
-            onClick={() => {
-              setFpsInput(String(normalizedFps()));
-              props.onChange({ recordFps: normalizedFps() });
-            }}
-          >
-            Apply
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
+  return <SettingsGroup>
+    <SettingRow label="Codec" hint="Only codecs your GPU can start are listed.">
+      <Select value={props.general.recordCodec} items={codecItems()} onItemClick={item => props.onChange({ recordCodec: item.value })} />
+    </SettingRow>
+    <SettingRow label="Frame rate" hint="1 to 240 fps. Default 30.">
+      <InlineControls>
+        <NumberField value={fps()} min={1} max={240} unit="fps" width={100} onChange={setFps} />
+        <Button disabled={fps() === props.general.recordFps} onClick={() => props.onChange({ recordFps: fps() })}>Apply</Button>
+      </InlineControls>
+    </SettingRow>
+    <ToggleRow
+      label="Record system audio"
+      hint="Recordings include what you hear."
+      checked={props.general.recordAudio}
+      onChange={recordAudio => props.onChange({ recordAudio })}
+    />
+  </SettingsGroup>;
 }
 
 export default VideoStep;

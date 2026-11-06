@@ -1,21 +1,29 @@
 .Panel {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: rgba(20, 20, 24, 0.9);
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-line);
+  border-radius: 14px;
+  background: var(--glass);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: var(--sh-2);
   pointer-events: all;
+  animation: panel-in var(--t-slow) var(--e-pop);
 }
 
 .Field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  gap: 5px;
+  color: var(--text-2);
+  font-size: 11.5px;
   white-space: nowrap;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }

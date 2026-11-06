@@ -1,12 +1,13 @@
-import settingsStyles from "../GeneralSettings/GeneralSettings.module.scss";
 import { onMount } from "solid-js";
 import { createStore, reconcile, unwrap } from "solid-js/store";
-import Input from "@core/components/Input/Input";
+import NumberField from "@core/components/NumberField/NumberField";
 import ScrollDistanceInput from "@core/components/ScrollDistanceInput/ScrollDistanceInput";
+import DurationField from "@core/components/DurationField/DurationField";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { ScrollingCaptureSettings as ScrollingCaptureSettingsData } from "@core/types";
 import useToastState from "@core/states/toastState";
-import DurationField from "@core/pages/Main/TagFilter/controls/DurationField";
+import useSettingsSavedState from "@core/states/settingsSavedState";
+import { SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 
 function ScrollingCaptureSettings() {
   const [settings, setSettings] = createStore<ScrollingCaptureSettingsData>({
@@ -15,6 +16,7 @@ function ScrollingCaptureSettings() {
     scrollDistance: { type: "percent", data: 80 },
   });
   const { pushToast } = useToastState;
+  const { markSettingsSaved } = useSettingsSavedState;
 
   onMount(async () => {
     setSettings(reconcile(await safeInvoke("get_scrolling_capture_settings")));
@@ -26,45 +28,29 @@ function ScrollingCaptureSettings() {
 
     try {
       await safeInvoke("set_scrolling_capture_settings", { scrollingCapture: structuredClone(unwrap(settings)) });
+      markSettingsSaved();
     } catch (error) {
       setSettings(reconcile(previous));
       pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
     }
   }
 
-  return <div class={settingsStyles.GeneralSettings}>
-    <div class={settingsStyles.SettingRow}>
-      <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-        <span>Delay between frames</span>
-        <span class={settingsStyles.Hint}>How long to wait after each scroll for the content to redraw before capturing.</span>
-        <DurationField valueMs={settings.frameDelayMs} onChange={ms => apply({ frameDelayMs: ms })} />
-      </div>
-    </div>
-
-    <div class={settingsStyles.SettingRow}>
-      <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-        <span>Scroll amount</span>
-        <span class={settingsStyles.Hint}>
-          How far one scroll step tries to move the target. A wheel notch has no defined pixel distance (that's up
-          to the app being captured), so this is only ever approximate, percent scales with whatever region you
-          select, which is why it's the default.
-        </span>
+  return <SettingsPage title="Scrolling capture" description="Defaults for scrolling captures. The selection panel can change them for one capture.">
+    <SettingsGroup title="Capture">
+      <SettingRow label="Delay between frames" hint="How long to wait after each scroll for the page to redraw.">
+        <DurationField parts={["s", "ms"]} valueMs={settings.frameDelayMs} onChange={ms => apply({ frameDelayMs: Math.max(50, ms) })} />
+      </SettingRow>
+      <SettingRow
+        label="Scroll amount"
+        hint="How far one step tries to scroll. A wheel notch has no fixed pixel size, so this is approximate. Percent follows the selection's height."
+      >
         <ScrollDistanceInput value={settings.scrollDistance} onChange={value => apply({ scrollDistance: value })} />
-      </div>
-    </div>
-
-    <div class={settingsStyles.SettingRow}>
-      <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-        <span>Maximum frames</span>
-        <span class={settingsStyles.Hint}>Safety cap, the capture normally stops on its own once scrolling stops changing the content.</span>
-        <Input
-          type="number" min={2} value={settings.maxFrames}
-          onChange={e => apply({ maxFrames: Math.max(2, e.currentTarget.valueAsNumber || 2) })}
-          style={{ width: '90px' }}
-        />
-      </div>
-    </div>
-  </div>;
+      </SettingRow>
+      <SettingRow label="Maximum frames" hint="A safety cap. Capturing normally stops once scrolling stops changing the content.">
+        <NumberField value={settings.maxFrames} min={2} max={1000} width={100} unit="frames" onChange={maxFrames => apply({ maxFrames })} />
+      </SettingRow>
+    </SettingsGroup>
+  </SettingsPage>;
 }
 
 export default ScrollingCaptureSettings;

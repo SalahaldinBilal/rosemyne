@@ -1,5 +1,5 @@
 import { CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec, WindowAction } from "@core/types";
-import { SavedUploader, UploaderOptions, UploaderValidation, UploadResult } from "@core/types/request";
+import { SavedUploader, UploaderOptions, UploaderTestResult, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
 export async function safeInvoke<T extends keyof Commands>(cmd: T, ...[args, options]: SafeInvokeArgs<Commands[T]["parameters"]>): Promise<Commands[T]["return"]> {
@@ -40,7 +40,7 @@ type Commands = {
   'query_history': Command<{ filter: FilterGroup, sort: HistorySort, cursor: HistoryCursor | null, limit: number }, HistoryPage>,
   'get_tag_metadata': Command<undefined, TagMetadata>,
   'get_saved_filters': Command<undefined, SavedFilter[]>,
-  'save_filter': Command<{ name: string, filter: FilterGroup }>,
+  'save_filter': Command<{ name: string, filter: SavedFilter["filter"] }>,
   'delete_saved_filter': Command<{ name: string }>,
   'get_drag_icon': Command<{ fileName: string }, string | null>,
   'list_videos_missing_thumbnail': Command<{ minSizeBytes: number }, string[]>,
@@ -65,7 +65,7 @@ type Commands = {
   'update_cmrs': Command<undefined, ContextMenuStatus>,
   'is_uploader_valid': Command<{ uploader: UploaderOptions }, UploaderValidation>,
   'upload_image': Command<{ fileName: string, uploaderId?: string }, UploadResult>,
-  'test_uploader': Command<{ uploader: UploaderOptions }, UploadResult>,
+  'test_uploader': Command<{ uploader: UploaderOptions }, UploaderTestResult>,
   'get_uploaders': Command<undefined, Array<SavedUploader>>,
   'save_uploader': Command<{ uploader: SavedUploader }>,
   'delete_uploader': Command<{ id: string }>,

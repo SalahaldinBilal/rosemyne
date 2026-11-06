@@ -1,22 +1,25 @@
 import styles from "./CapturePreviewSettings.module.scss";
-import settingsStyles from "../GeneralSettings/GeneralSettings.module.scss";
-import { createMemo, createSignal, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 import { createStore, reconcile, unwrap } from "solid-js/store";
-import Input from "@core/components/Input/Input";
 import Select from "@core/components/Select/Select";
+import Checkbox from "@core/components/Checkbox/Checkbox";
+import DimensionField from "@core/components/NumberField/DimensionField";
+import DurationField from "@core/components/DurationField/DurationField";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { findMonitor } from "@core/helpers/monitors";
 import { CapturePreviewSettings as CapturePreviewSettingsData, MonitorInfo, PreviewClickAction, PreviewCorner, SelectItem } from "@core/types";
 import useToastState from "@core/states/toastState";
-import DurationField from "@core/pages/Main/TagFilter/controls/DurationField";
+import useSettingsSavedState from "@core/states/settingsSavedState";
+import { InlineControls, SettingRow, SettingsGroup, SettingsPage, ToggleRow } from "../SettingsLayout/SettingsLayout";
 
 const PRIMARY_MONITOR_ID = "";
+const DEFAULT_DISMISS_MS = 5000;
 
-const CORNER_ITEMS: SelectItem<PreviewCorner>[] = [
-  { id: "topLeft", value: "topLeft", label: "Top left" },
-  { id: "topRight", value: "topRight", label: "Top right" },
-  { id: "bottomLeft", value: "bottomLeft", label: "Bottom left" },
-  { id: "bottomRight", value: "bottomRight", label: "Bottom right" },
+const CORNERS: { corner: PreviewCorner, label: string }[] = [
+  { corner: "topLeft", label: "Top left" },
+  { corner: "topRight", label: "Top right" },
+  { corner: "bottomLeft", label: "Bottom left" },
+  { corner: "bottomRight", label: "Bottom right" },
 ];
 
 const CLICK_ACTION_ITEMS: SelectItem<PreviewClickAction>[] = [
@@ -28,6 +31,27 @@ const CLICK_ACTION_ITEMS: SelectItem<PreviewClickAction>[] = [
   { id: "copyLink", value: "copyLink", label: "Copy link" },
 ];
 
+function CornerPicker(props: { value: PreviewCorner, onChange: (corner: PreviewCorner) => void }) {
+  return (
+    <div class={styles.Monitor} role="radiogroup" aria-label="Corner">
+      <For each={CORNERS}>
+        {entry => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={props.value === entry.corner}
+            aria-label={entry.label}
+            title={entry.label}
+            class={styles[entry.corner]}
+            classList={{ [styles.On]: props.value === entry.corner }}
+            onClick={() => props.onChange(entry.corner)}
+          />
+        )}
+      </For>
+    </div>
+  );
+}
+
 function CapturePreviewSettings() {
   const [settings, setSettings] = createStore<CapturePreviewSettingsData>({
     enabled: true,
@@ -37,15 +61,20 @@ function CapturePreviewSettings() {
     marginY: 25,
     maxWidth: 320,
     maxHeight: 240,
-    autoDismissMs: 5000,
+    autoDismissMs: DEFAULT_DISMISS_MS,
+    showCountdown: true,
     leftClickAction: "close",
     rightClickAction: "nothing",
   });
   const [monitors, setMonitors] = createSignal<MonitorInfo[]>([]);
+  const [lastDismissMs, setLastDismissMs] = createSignal(DEFAULT_DISMISS_MS);
   const { pushToast } = useToastState;
+  const { markSettingsSaved } = useSettingsSavedState;
 
   onMount(async () => {
-    setSettings(reconcile(await safeInvoke("get_capture_preview_settings")));
+    const saved = await safeInvoke("get_capture_preview_settings");
+    setSettings(reconcile(saved));
+    if (saved.autoDismissMs > 0) setLastDismissMs(saved.autoDismissMs);
 
     try {
       setMonitors(await safeInvoke("list_monitors"));
@@ -60,6 +89,7 @@ function CapturePreviewSettings() {
 
     try {
       await safeInvoke("set_capture_preview_settings", { capturePreview: structuredClone(unwrap(settings)) });
+      markSettingsSaved();
     } catch (error) {
       setSettings(reconcile(previous));
       pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
@@ -77,112 +107,69 @@ function CapturePreviewSettings() {
     ...monitors().map(m => ({ id: m.id, value: m.id as string | null, label: `${m.name}, ${m.width}×${m.height}` })),
   ]);
 
-  return <div class={settingsStyles.GeneralSettings}>
-    <label class={settingsStyles.SettingRow}>
-      <input
-        type="checkbox"
-        checked={settings.enabled}
-        onChange={e => apply({ enabled: e.currentTarget.checked })}
-      />
-      <div class={settingsStyles.SettingText}>
-        <span>Show a capture preview</span>
-        <span class={settingsStyles.Hint}>A small popup showing the screenshot/recording after it's saved (or uploaded, if auto-upload is on).</span>
-      </div>
-    </label>
+  const never = createMemo(() => settings.autoDismissMs === 0);
+
+  function setDismiss(ms: number) {
+    if (ms > 0) setLastDismissMs(ms);
+    apply({ autoDismissMs: ms });
+  }
+
+  return <SettingsPage title="Capture preview" description="A small popup with the capture after it's saved, or after the upload if auto upload is on.">
+    <SettingsGroup title="Popup">
+      <ToggleRow label="Show a capture preview" checked={settings.enabled} onChange={enabled => apply({ enabled })} />
+    </SettingsGroup>
 
     <Show when={settings.enabled}>
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Monitor</span>
-          <span class={settingsStyles.Hint}>Which screen the preview appears on.</span>
-          <Select
-            value={selectedMonitorId()}
-            items={monitorItems()}
-            onItemClick={item => apply({ monitorId: item.value })}
+      <SettingsGroup title="Position">
+        <SettingRow label="Monitor">
+          <Select class={styles.WideSelect} value={selectedMonitorId()} items={monitorItems()} onItemClick={item => apply({ monitorId: item.value })} />
+        </SettingRow>
+        <SettingRow label="Corner" hint="Click a corner of the screen.">
+          <CornerPicker value={settings.corner} onChange={corner => apply({ corner })} />
+        </SettingRow>
+        <SettingRow label="Margin from the edge" hint="Horizontal and vertical.">
+          <DimensionField
+            value={{ width: settings.marginX, height: settings.marginY }}
+            onChange={value => apply({ marginX: value.width, marginY: value.height })}
           />
-        </div>
-      </div>
+        </SettingRow>
+        <SettingRow label="Maximum size" hint="Shrinks to fit and keeps the aspect ratio.">
+          <DimensionField
+            min={1}
+            value={{ width: settings.maxWidth, height: settings.maxHeight }}
+            onChange={value => apply({ maxWidth: value.width, maxHeight: value.height })}
+          />
+        </SettingRow>
+      </SettingsGroup>
 
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Corner</span>
-          <span class={settingsStyles.Hint}>Which corner of the monitor it's anchored to.</span>
-          <Select value={settings.corner} items={CORNER_ITEMS} onItemClick={item => apply({ corner: item.value })} />
-        </div>
-      </div>
-
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Margin from the edge</span>
-          <span class={settingsStyles.Hint}>Distance (px) from the chosen corner.</span>
-          <div class={styles.MarginRow}>
-            <Input
-              type="number" min={0} value={settings.marginX}
-              onChange={e => apply({ marginX: Math.max(0, e.currentTarget.valueAsNumber || 0) })}
-              style={{ width: '90px' }}
+      <SettingsGroup title="Behavior">
+        <SettingRow label="Close after">
+          <InlineControls>
+            <DurationField
+              parts={["m", "s"]}
+              disabled={never()}
+              valueMs={never() ? lastDismissMs() : settings.autoDismissMs}
+              onChange={ms => setDismiss(Math.max(1000, ms))}
             />
-            <span class={styles.MarginSep}>×</span>
-            <Input
-              type="number" min={0} value={settings.marginY}
-              onChange={e => apply({ marginY: Math.max(0, e.currentTarget.valueAsNumber || 0) })}
-              style={{ width: '90px' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Maximum size</span>
-          <span class={settingsStyles.Hint}>The preview never exceeds this (px); it shrinks to fit, keeping its aspect ratio.</span>
-          <div class={styles.MarginRow}>
-            <Input
-              type="number" min={1} value={settings.maxWidth}
-              onChange={e => apply({ maxWidth: Math.max(1, e.currentTarget.valueAsNumber || 1) })}
-              style={{ width: '90px' }}
-            />
-            <span class={styles.MarginSep}>×</span>
-            <Input
-              type="number" min={1} value={settings.maxHeight}
-              onChange={e => apply({ maxHeight: Math.max(1, e.currentTarget.valueAsNumber || 1) })}
-              style={{ width: '90px' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class={settingsStyles.SettingRow}>
-        <input
-          type="checkbox"
-          checked={settings.autoDismissMs > 0}
-          onChange={e => apply({ autoDismissMs: e.currentTarget.checked ? 5000 : 0 })}
+            <Checkbox checked={never()} onChange={checked => setDismiss(checked ? 0 : lastDismissMs())}>Never</Checkbox>
+          </InlineControls>
+        </SettingRow>
+        <ToggleRow
+          label="Show the countdown"
+          hint="A thin line along the bottom shrinks until it closes."
+          checked={settings.showCountdown}
+          disabled={never()}
+          onChange={showCountdown => apply({ showCountdown })}
         />
-        <div class={settingsStyles.SettingText}>
-          <span>Auto-dismiss</span>
-          <span class={settingsStyles.Hint}>Closes the preview on its own after a delay, instead of leaving it until clicked.</span>
-          <Show when={settings.autoDismissMs > 0}>
-            <div class={styles.MarginRow}>
-              <DurationField valueMs={settings.autoDismissMs} onChange={ms => apply({ autoDismissMs: ms })} />
-            </div>
-          </Show>
-        </div>
-      </div>
-
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Left click</span>
-          <Select value={settings.leftClickAction} items={CLICK_ACTION_ITEMS} onItemClick={item => apply({ leftClickAction: item.value })} />
-        </div>
-      </div>
-
-      <div class={settingsStyles.SettingRow}>
-        <div class={settingsStyles.SettingText} style={{ width: '100%' }}>
-          <span>Right click</span>
-          <Select value={settings.rightClickAction} items={CLICK_ACTION_ITEMS} onItemClick={item => apply({ rightClickAction: item.value })} />
-        </div>
-      </div>
+        <SettingRow label="Left click">
+          <Select class={styles.WideSelect} value={settings.leftClickAction} items={CLICK_ACTION_ITEMS} onItemClick={item => apply({ leftClickAction: item.value })} />
+        </SettingRow>
+        <SettingRow label="Right click">
+          <Select class={styles.WideSelect} value={settings.rightClickAction} items={CLICK_ACTION_ITEMS} onItemClick={item => apply({ rightClickAction: item.value })} />
+        </SettingRow>
+      </SettingsGroup>
     </Show>
-  </div>;
+  </SettingsPage>;
 }
 
 export default CapturePreviewSettings;

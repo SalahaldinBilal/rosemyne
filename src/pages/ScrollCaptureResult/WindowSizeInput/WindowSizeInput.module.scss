@@ -1,60 +1,54 @@
-.Field {
-  position: relative;
-  display: inline-flex;
-}
-
-.Input {
-  all: unset;
-  box-sizing: border-box;
-  height: 32px;
-  width: 100%;
-  padding: 0 10px;
-  background-color: var(--control-bg);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  color: var(--base-font-color);
-  font-size: 13px;
-  font-family: inherit;
-  transition: border-color .15s ease;
-
-  &:hover:not(:focus) {
-    border-color: var(--control-border-hover);
-  }
-
-  &:focus {
-    border-color: var(--input-accent);
-  }
-
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-}
-
-// Portaled to document.body (so it isn't clipped by the panel's own
-// overflow) and positioned from the field's own rect (WindowSizeInput.tsx).
+// Portaled to document.body and positioned from the field's rect, so the panel's overflow can't clip it.
 .Suggestions {
   position: fixed;
-  background-color: var(--secondary-bg-color);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, .6);
-  padding: 4px;
   z-index: var(--z-menu);
   max-height: 210px;
   overflow-y: auto;
+  padding: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  animation: suggestions-in var(--t-base) var(--e-out);
+
+  &.Closing {
+    pointer-events: none;
+    animation: suggestions-out 110ms var(--e-in) forwards;
+  }
 }
 
 .Item {
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--text-1);
   font-size: 13px;
-  color: var(--base-font-color);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
+  transition: background-color 80ms;
+
+  &.Active {
+    background: var(--accent-soft-2);
+  }
+
+  &.Selected {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
 }
 
-.Item.Active {
-  background-color: rgb(from var(--base-blue) r g b / .20);
-  color: #fff;
+@keyframes suggestions-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes suggestions-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
 }

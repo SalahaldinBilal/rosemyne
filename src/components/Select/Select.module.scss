@@ -2,76 +2,112 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
-  padding: 0 10px;
-  background-color: var(--control-bg);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  color: var(--base-font-color);
+  min-width: 0;
+  height: var(--ctl-h);
+  padding: 0 8px 0 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--text-1);
   font-size: 13px;
-  cursor: pointer;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
   user-select: none;
-  transition: background-color .15s ease, border-color .15s ease;
+  outline: none;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
 
   &:hover {
-    background-color: var(--control-bg-hover);
-    border-color: var(--control-border-hover);
+    background: var(--bg-4);
+    border-color: var(--line-3);
   }
 
   &:focus-visible,
   &.Open {
-    outline: none;
-    border-color: var(--base-blue);
-  }
-
-  &:focus {
-    outline: none;
-  }
-
-  &.Accent {
-    color: var(--secondary-blue);
-  }
-
-  &.Borderless {
-    border-color: transparent;
-    background-color: transparent;
-
-    &:hover {
-      background-color: var(--control-bg);
-      border-color: transparent;
-    }
-
-    &:focus-visible,
-    &.Open {
-      background-color: var(--control-bg);
-      border-color: var(--base-blue);
-    }
-  }
-
-  &.NoRadius {
-    border-radius: 0;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .Label {
     flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .Placeholder {
     flex: 1 1 auto;
-    color: var(--text-faint);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-3);
   }
 
   .Chevron {
-    color: var(--text-faint);
     flex-shrink: 0;
-    transition: transform .15s ease;
+    color: var(--text-3);
+    transition: transform var(--t-base) var(--e-out), color var(--t-fast);
   }
 
   &.Open .Chevron {
     transform: rotate(180deg);
+    color: var(--accent-text);
+  }
+
+  &.Accent .Label {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+}
+
+.Bare {
+  background: transparent;
+  border-color: transparent;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.05);
+    border-color: transparent;
+  }
+}
+
+.Pill {
+  height: 28px;
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+}
+
+// Reads as the faint unit text inside a NumberField, brightening only on hover or while open.
+.Unit {
+  flex-shrink: 0;
+  gap: 1px;
+  height: 100%;
+  margin-right: -4px;
+  padding: 0 3px 0 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-3);
+  font-size: 12px;
+
+  &:hover,
+  &.Open {
+    background: transparent;
+    color: var(--text-1);
+  }
+
+  &:focus-visible,
+  &.Open {
+    box-shadow: none;
+  }
+
+  .Chevron,
+  &.Open .Chevron {
+    color: inherit;
+    opacity: 0.7;
+    transform: none;
   }
 }
 
@@ -79,39 +115,64 @@
 .Menu {
   position: fixed;
   z-index: var(--z-menu);
-  background-color: var(--secondary-bg-color);
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, .6);
-  padding: 4px;
   max-height: 300px;
   overflow-y: auto;
-  animation: select-menu-in .12s ease-out;
+  padding: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+  transform-origin: top left;
+  animation: menu-in var(--t-base) var(--e-out);
+
+  &.Upwards {
+    transform-origin: bottom left;
+  }
+
+  &.Closing {
+    pointer-events: none;
+    animation: menu-out 110ms var(--e-in) forwards;
+  }
 
   .Item {
-    padding: 7px 10px;
-    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: var(--r-sm);
+    color: var(--text-1);
     font-size: 13px;
-    color: var(--base-font-color);
-    cursor: pointer;
     white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 80ms;
 
     &.Active {
-      background-color: rgb(from var(--base-blue) r g b / .20);
+      background: var(--accent-soft-2);
     }
+  }
 
-    &.Selected {
-      font-weight: 600;
-    }
+  .ItemLabel {
+    flex: 1;
+  }
+
+  .Check {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--accent-text);
   }
 }
 
-@keyframes select-menu-in {
+@keyframes menu-in {
   from {
     opacity: 0;
+    transform: scale(0.96);
   }
+}
 
+@keyframes menu-out {
   to {
-    opacity: 1;
+    opacity: 0;
+    transform: scale(0.98);
   }
 }

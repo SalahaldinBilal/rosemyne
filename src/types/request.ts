@@ -58,6 +58,14 @@ export type UploadResult = {
   copied: boolean,
 }
 
+export type UploaderTestResult = {
+  status: number,
+  elapsedMs: number,
+  body: string,
+  url: string | null,
+  linkError: UploaderCreationError | null,
+}
+
 export type UploaderBodyHandler =
   BaseUploaderType<"formData", { fileName: string, extraFields?: Array<KeyValue> }> |
   BaseUploaderType<"binary", never> | BaseUploaderType<"none", never> | BaseUploaderType<"json", unknown> |

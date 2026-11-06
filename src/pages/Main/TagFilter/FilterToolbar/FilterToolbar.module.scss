@@ -1,85 +1,214 @@
 .Toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 4px 6px;
-
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--border-color);
-  }
-}
-
-.Counts {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  min-width: 0;
+  gap: 8px;
+  padding: 8px;
   overflow: hidden;
 }
 
-.Count, .Total {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-
-  svg {
-    flex-shrink: 0;
+// The container is Main's FilterPanel. The default 1040px window gives it about 805px.
+@container (max-width: 760px) {
+  .Toolbar {
+    flex-wrap: wrap;
   }
 }
 
-.Total {
-  color: var(--base-font-color);
-  font-weight: 500;
+.Search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 1 340px;
+  min-width: 120px;
+  height: var(--ctl-h);
+  padding: 0 4px 0 10px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  cursor: text;
+  transition:
+    flex var(--t-slow) var(--e-out),
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+
+  &:hover {
+    border-color: var(--line-3);
+  }
+
+  &:focus-within {
+    flex: 0 0 min(480px, 100%);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    color: var(--text-2);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-1);
+    font: inherit;
+    font-size: 13px;
+
+    &::placeholder {
+      color: var(--text-3);
+    }
+  }
 }
 
-.Separator {
-  width: 1px;
-  height: 14px;
-  background-color: var(--border-color);
+.ClearSearch {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.06);
+    color: var(--text-1);
+  }
 }
 
-.Toggle {
+.Types {
+  display: flex;
+  flex-shrink: 0;
+  height: var(--ctl-h);
+  padding: 2px;
+  gap: 2px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.Type {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 10px;
-  background: transparent;
+  height: 100%;
+  padding: 0 9px;
   border: 0;
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-family: inherit;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background-color .15s ease, color .15s ease;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
 
   &:hover {
-    background-color: var(--control-bg);
-    color: var(--base-font-color);
+    background: var(--bg-3);
+    color: var(--text-1);
+  }
+
+  &.On {
+    background: var(--accent-soft-2);
+    color: var(--accent-text);
+
+    .Count {
+      color: var(--accent-text);
+    }
+  }
+}
+
+.Count {
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--t-fast);
+}
+
+.End {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-left: auto;
+  transition:
+    opacity var(--t-base) var(--e-out),
+    visibility 0s;
+
+  .Toolbar:has(.Search:focus-within) & {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity var(--t-fast) var(--e-in),
+      visibility 0s var(--t-fast);
+  }
+}
+
+.Divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--line-2);
+}
+
+.Advanced {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--ctl-h);
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast);
+
+  &:hover {
+    background: rgb(255 255 255 / 0.05);
+    color: var(--text-1);
+  }
+
+  &.Open {
+    background: var(--bg-3);
+    border-color: var(--line-2);
+    color: var(--text-1);
   }
 
   &.Active {
-    color: var(--secondary-blue);
-  }
-
-  svg {
-    flex-shrink: 0;
+    color: var(--accent-text);
   }
 }
 
 .Badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 18px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background-color: var(--base-blue);
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
-  text-align: center;
+  animation: badge-pop var(--t-base) var(--e-pop);
+}
+
+@keyframes badge-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
 }

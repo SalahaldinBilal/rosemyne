@@ -1,22 +1,27 @@
 import styles from "./WindowSizeInput.module.scss";
 import { createEffect, createSignal, For, JSX, onCleanup, Show } from "solid-js";
 import { Portal } from "solid-js/web";
+import NumberField from "@core/components/NumberField/NumberField";
 
-const MENU_MARGIN = 8;
+const MENU_MARGIN = 6;
 const MENU_MAX_HEIGHT = 210;
+const CLOSE_DURATION = 110;
 
 const SUGGESTIONS: number[] = [];
 for (let value = 1; value <= 1024; value *= 2) SUGGESTIONS.push(value);
 
 function WindowSizeInput(props: { value: number, onChange: (value: number) => void }) {
   const [open, setOpen] = createSignal(false);
+  const [mounted, setMounted] = createSignal(false);
   const [highlight, setHighlight] = createSignal(0);
   const [menuStyle, setMenuStyle] = createSignal<JSX.CSSProperties>({});
 
-  let fieldRef!: HTMLDivElement;
+  let fieldRef: HTMLDivElement | undefined;
   let menuRef: HTMLDivElement | undefined;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function positionMenu() {
+    if (!fieldRef) return;
     const rect = fieldRef.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom - MENU_MARGIN;
     const openUpwards = spaceBelow < MENU_MAX_HEIGHT && rect.top > spaceBelow;
@@ -30,14 +35,29 @@ function WindowSizeInput(props: { value: number, onChange: (value: number) => vo
     });
   }
 
-  createEffect(() => {
-    if (!open()) return;
+  function show() {
+    clearTimeout(closeTimer);
     positionMenu();
     setHighlight(Math.max(0, SUGGESTIONS.indexOf(props.value)));
+    setMounted(true);
+    setOpen(true);
+  }
+
+  function hide() {
+    if (!open()) return;
+    setOpen(false);
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => setMounted(false), CLOSE_DURATION);
+  }
+
+  onCleanup(() => clearTimeout(closeTimer));
+
+  createEffect(() => {
+    if (!open()) return;
 
     const close = (event: Event) => {
       if (menuRef && event.target instanceof Node && menuRef.contains(event.target)) return;
-      setOpen(false);
+      hide();
     };
     window.addEventListener("scroll", close, { capture: true });
     window.addEventListener("resize", close);
@@ -49,48 +69,57 @@ function WindowSizeInput(props: { value: number, onChange: (value: number) => vo
 
   function choose(value: number) {
     props.onChange(value);
-    setOpen(false);
+    hide();
   }
 
+  // While the list is open the arrows move through it. Once it's closed they step the number.
   function onKeyDown(event: KeyboardEvent) {
+    if (!open()) return;
+
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
-        if (!open()) return setOpen(true);
         return setHighlight(index => Math.min(index + 1, SUGGESTIONS.length - 1));
       case "ArrowUp":
         event.preventDefault();
         return setHighlight(index => Math.max(index - 1, 0));
       case "Enter":
-        if (open()) {
-          event.preventDefault();
-          choose(SUGGESTIONS[highlight()]);
-        }
-        return;
+        event.preventDefault();
+        return choose(SUGGESTIONS[highlight()]);
       case "Escape":
-        return setOpen(false);
+        event.preventDefault();
+        event.stopPropagation();
+        return hide();
     }
   }
 
   return (
-    <div class={styles.Field} ref={fieldRef}>
-      <input
-        class={styles.Input}
-        type="number"
-        min={1}
+    <>
+      <NumberField
+        ref={element => fieldRef = element}
         value={props.value}
-        onInput={e => props.onChange(Math.max(1, e.currentTarget.valueAsNumber || 1))}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        min={1}
+        max={100_000}
+        unit="rows"
+        width="100%"
+        onChange={props.onChange}
         onKeyDown={onKeyDown}
+        onFocus={show}
+        onBlur={hide}
       />
-      <Show when={open()}>
+      <Show when={mounted()}>
         <Portal>
-          <div ref={menuRef} class={styles.Suggestions} style={menuStyle()} onMouseDown={event => event.preventDefault()}>
+          <div
+            ref={menuRef}
+            class={styles.Suggestions}
+            classList={{ [styles.Closing]: !open() }}
+            style={menuStyle()}
+            onMouseDown={event => event.preventDefault()}
+          >
             <For each={SUGGESTIONS}>{(value, index) =>
               <div
                 class={styles.Item}
-                classList={{ [styles.Active]: index() === highlight() }}
+                classList={{ [styles.Active]: index() === highlight(), [styles.Selected]: value === props.value }}
                 onMouseEnter={() => setHighlight(index())}
                 onClick={() => choose(value)}
               >
@@ -100,7 +129,7 @@ function WindowSizeInput(props: { value: number, onChange: (value: number) => vo
           </div>
         </Portal>
       </Show>
-    </div>
+    </>
   );
 }
 
