@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 pub mod commands;
+#[cfg(target_os = "windows")]
+mod keep_on_top;
 
 pub const CAPTURE_PREVIEW_LABEL: &str = "capture-preview";
 

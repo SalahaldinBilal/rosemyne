@@ -131,6 +131,8 @@ pub async fn show_capture_preview_window(
         let _ = window.set_size(PhysicalSize::new(width, height));
         let _ = window.show();
         raise_topmost(&window, x, y, width, height);
+        #[cfg(target_os = "windows")]
+        super::keep_on_top::start(&window);
     });
 
     result.map_err(|err| err.to_string())
@@ -159,8 +161,17 @@ fn raise_topmost(window: &WebviewWindow, _x: i32, _y: i32, _width: u32, _height:
 
 #[tauri::command]
 pub fn hide_capture_preview_window(app_handle: AppHandle) {
-    if let Some(window) = app_handle.get_webview_window(CAPTURE_PREVIEW_LABEL) {
-        let _ = window.hide();
+    let handle = app_handle.clone();
+    let result = app_handle.run_on_main_thread(move || {
+        #[cfg(target_os = "windows")]
+        super::keep_on_top::stop();
+        if let Some(window) = handle.get_webview_window(CAPTURE_PREVIEW_LABEL) {
+            let _ = window.hide();
+        }
+    });
+
+    if let Err(err) = result {
+        eprintln!("Failed to schedule the capture preview hide: {}", err);
     }
 }
 
