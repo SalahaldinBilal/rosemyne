@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-07
+
+### Changed
+
+- The capture preview margins count from the screen edge again, not the taskbar.
+- The window snap box no longer has a tinted fill.
+
+### Fixed
+
+- The capture preview stays above the taskbar and other always-on-top windows while it's open.
+- History cards without a source app no longer leave an empty line above the link.
 ## [0.3.0] - 2026-11-06
 
 ### Added
