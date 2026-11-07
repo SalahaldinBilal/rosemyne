@@ -14,6 +14,7 @@ use crate::{
     MouseHandler, ScreenshotManagerHandler, ScreenshotWindowHandler,
     capture::{CapManager, capture_trait::CaptureManager},
     capture_overlay,
+    capture_profile::{CaptureProfile, live_overlay_profile},
     dimensions::impls::Dimensions,
     emit_on_main_thread,
     screen_manager::{
@@ -66,6 +67,7 @@ pub struct PendingScrollCapture {
     default_params: StitchParams,
     /// Resolved once from the captured screen region, so a restitch keeps them.
     window_tags: Vec<HashMap<String, TagValue>>,
+    profile: CaptureProfile,
 }
 
 /// Single-slot, keyed by a random session id the frontend must present back
@@ -153,6 +155,7 @@ pub async fn start_scrolling_capture(
         handle
     };
 
+    let profile = live_overlay_profile(&app_handle).await;
     let result = run_capture(
         window_handler.inner(),
         screenshot_manager.inner(),
@@ -162,6 +165,7 @@ pub async fn start_scrolling_capture(
         region,
         id,
         overrides,
+        profile,
         &handle,
     )
     .await;
@@ -213,6 +217,7 @@ async fn run_capture(
     region: Dimensions,
     id: Option<u16>,
     overrides: ScrollCaptureOverrides,
+    profile: CaptureProfile,
     handle: &ScrollCaptureHandle,
 ) -> Result<(), ScrollCaptureError> {
     // Hide the overlay before capturing so it's neither tagged nor captured,
@@ -287,7 +292,7 @@ async fn run_capture(
     let image_id = {
         let mut manager = screenshot_manager.write().await;
         manager
-            .add_screenshot_with_window_tags(preview_image, window_tags.clone())
+            .add_screenshot_with_window_tags(preview_image, window_tags.clone(), profile.clone())
             .map_err(|err| ScrollCaptureError::Failed(err.to_string()))?
     };
 
@@ -302,6 +307,7 @@ async fn run_capture(
             frame_count,
             default_params,
             window_tags,
+            profile,
         },
     ));
 
@@ -458,6 +464,10 @@ pub async fn get_scroll_capture_session(
     }))
 }
 
+pub async fn pending_review_profile(pending: &PendingScrollCaptureHandler) -> Option<CaptureProfile> {
+    pending.read().await.as_ref().map(|(_, session)| session.profile.clone())
+}
+
 /// Re-stitches an in-review session's frames with new parameters, swaps the
 /// result window's preview to the new image, and drops the old one.
 #[tauri::command]
@@ -508,7 +518,7 @@ pub async fn restitch_scroll_capture(
     let new_image_id = {
         let mut manager = screenshot_manager.write().await;
         let new_id = manager
-            .add_screenshot_with_window_tags(new_image, session.window_tags.clone())
+            .add_screenshot_with_window_tags(new_image, session.window_tags.clone(), session.profile.clone())
             .map_err(|err| ScrollCaptureError::Failed(err.to_string()))?;
         manager.remove_image(&old_image_id);
         new_id

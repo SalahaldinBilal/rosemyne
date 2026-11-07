@@ -27,6 +27,7 @@ function useSettingsStateInner() {
       if (existing) {
         existing.keys = newShortcut.keys;
         existing.method = newShortcut.method;
+        existing.overrides = newShortcut.overrides;
       }
       else shortcuts.push(newShortcut)
     }));

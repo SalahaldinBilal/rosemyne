@@ -1,5 +1,6 @@
 use capture_overlay::{OVERLAY_BORDER_LABEL, OVERLAY_HUD_LABEL, create_overlay_windows};
 use capture_preview::CAPTURE_PREVIEW_LABEL;
+use capture_profile::CaptureProfile;
 use capture_preview::commands::{
     create_capture_preview_window, hide_capture_preview_window, show_capture_preview_window,
 };
@@ -75,6 +76,7 @@ use tauri::{
 use tauri::{Emitter, State};
 pub mod capture;
 pub mod capture_overlay;
+pub mod capture_profile;
 pub mod capture_preview;
 pub mod context_menu;
 pub mod cursor_image;
@@ -111,17 +113,17 @@ macro_rules! emit_on_main_thread {
 pub fn notify_history_saved(
     app_handle: &AppHandle,
     entry: &ImageHistoryData,
-    is_instant_capture: bool,
+    profile: CaptureProfile,
 ) {
     emit_on_main_thread!(app_handle, "screenshot://new-saved-image", entry.clone());
 
     let app_handle = app_handle.clone();
     let file_name = entry.file_name.clone();
     tauri::async_runtime::spawn(async move {
-        maybe_auto_upload(app_handle.clone(), file_name.clone(), is_instant_capture).await;
+        maybe_auto_upload(app_handle.clone(), file_name.clone(), &profile).await;
 
         let history_store = app_handle.state::<HistoryStoreHandler>().inner().clone();
-        capture_preview::commands::trigger(&app_handle, &history_store, &file_name).await;
+        capture_preview::commands::trigger(&app_handle, &history_store, &file_name, profile.show_capture_preview).await;
     });
 }
 
@@ -149,7 +151,6 @@ fn default_true() -> bool {
 fn hide_and_save_screenshot(
     screenshot_manager: State<'_, ScreenshotManagerHandler>,
     history_store: State<'_, HistoryStoreHandler>,
-    settings_handle: State<'_, SettingsHandler>,
     app_handle: AppHandle,
     request: tauri::ipc::Request<'_>,
 ) -> Result<(), String> {
@@ -178,13 +179,11 @@ fn hide_and_save_screenshot(
 
     let screenshot_manager = screenshot_manager.inner().clone();
     let history_store = history_store.inner().clone();
-    let settings_handle = settings_handle.inner().clone();
 
     tauri::async_runtime::spawn(async move {
         save_rendered_screenshot(
             screenshot_manager,
             history_store,
-            settings_handle,
             app_handle,
             args,
             image,
@@ -198,7 +197,6 @@ fn hide_and_save_screenshot(
 async fn save_rendered_screenshot(
     screenshot_manager: ScreenshotManagerHandler,
     history_store: HistoryStoreHandler,
-    settings_handle: SettingsHandler,
     app_handle: AppHandle,
     args: SaveScreenshotArgs,
     image: RgbaImage,
@@ -217,20 +215,19 @@ async fn save_rendered_screenshot(
     };
 
     // Consume the temp capture; if it's already gone the save was cancelled.
-    if manager.remove_image(&args.id).is_none() {
+    let Some(capture) = manager.remove_image(&args.id) else {
         eprintln!("Screenshot {} no longer exists, cannot save it", args.id);
         return;
-    }
+    };
     drop(manager);
 
     persist_capture(
         &app_handle,
         &history_store,
-        &settings_handle,
         &image,
         window_tags,
         args.play_sound,
-        false,
+        capture.profile,
     )
     .await;
 }
@@ -241,13 +238,8 @@ async fn import_path(
     app_handle: &AppHandle,
     path: PathBuf,
 ) -> Result<Option<ImageHistoryData>, String> {
-    let template = app_handle
-        .state::<SettingsHandler>()
-        .read()
-        .await
-        .get_general()
-        .upload_path
-        .clone();
+    let profile = CaptureProfile::defaults(app_handle).await;
+    let template = profile.save_path_template.clone();
     let store = app_handle.state::<HistoryStoreHandler>().inner().clone();
 
     let entry = tauri::async_runtime::spawn_blocking(move || {
@@ -258,7 +250,7 @@ async fn import_path(
     .map_err(|err| err.to_string())?;
 
     if let Some(entry) = &entry {
-        notify_history_saved(app_handle, entry, false);
+        notify_history_saved(app_handle, entry, profile);
     }
     Ok(entry)
 }

@@ -137,24 +137,31 @@ impl Settings {
         }
     }
 
+    /// Replaces a binding with the same id in place, so the list keeps its order.
     pub fn add_shortcut(&mut self, shortcut: ShortcutBinding) -> Result<(), SettingsError> {
-        if let Some(index) = self
+        match self
             .user_settings
             .shortcuts
             .iter()
             .position(|s| s.id == shortcut.id)
         {
-            let old_shortcut = self.user_settings.shortcuts.swap_remove(index);
+            Some(index) => {
+                self.user_settings.shortcuts[index].unregister(&self.app_handle)?;
 
-            old_shortcut.unregister(&self.app_handle)?;
+                if let Err(err) = shortcut.register(&self.app_handle) {
+                    let _ = self.user_settings.shortcuts[index].register(&self.app_handle);
+                    return Err(err.into());
+                }
+
+                self.user_settings.shortcuts[index] = shortcut;
+            }
+            None => {
+                shortcut.register(&self.app_handle)?;
+                self.user_settings.shortcuts.push(shortcut);
+            }
         }
 
-        shortcut.register(&self.app_handle)?;
-
-        self.user_settings.shortcuts.push(shortcut);
-        self.save_settings()?;
-
-        Ok(())
+        self.save_settings()
     }
 
     pub fn remove_shortcut(&mut self, id: &str) -> Result<(), SettingsError> {

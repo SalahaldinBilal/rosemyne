@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Shortcuts can override settings for their own captures, like the uploader, clipboard, sounds, file names and recording options.
+- Any number of shortcuts per action, all in one list in Settings → Shortcuts.
+
 ## [0.3.1] - 2026-11-07
 
 ### Changed

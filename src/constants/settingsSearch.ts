@@ -30,11 +30,8 @@ export const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { page: "general", group: "Context menu", label: "Upload from the right-click menu", hint: "Adds Upload image, Upload video and Upload file to your file manager.", keywords: "explorer context menu" },
   { page: "general", group: "Context menu", label: "Show in the Windows 11 menu", hint: "Adds it to Explorer's main right-click menu. Needs Developer Mode and uses windows11-context-rs." },
 
-  { page: "shortcuts", isPage: true, label: "Shortcuts", hint: "Global keys that work from any app.", keywords: "hotkeys keybinds" },
-  { page: "shortcuts", group: "Capture", label: "Take screenshot", keywords: "hotkey keybind" },
-  { page: "shortcuts", group: "Capture", label: "Start or stop recording", hint: "Opens the region picker when idle, stops and saves while recording.", keywords: "hotkey keybind video" },
-  { page: "shortcuts", group: "Capture", label: "Scrolling capture", hint: "Scrolls and captures the selection, then opens the result.", keywords: "hotkey keybind" },
-  { page: "shortcuts", label: "Instant captures", hint: "Capture a whole monitor or a fixed region with one key, no editor opens.", keywords: "hotkey monitor region" },
+  { page: "shortcuts", isPage: true, label: "Shortcuts", hint: "Global keys that work from any app. Each one can override settings for its own captures.", keywords: "hotkeys keybinds" },
+  { page: "shortcuts", label: "All shortcuts", hint: "Take a screenshot, record, scroll capture or capture a fixed area, each with its own overrides.", keywords: "hotkey keybind screenshot recording video scrolling instant capture monitor region override task" },
 
   { page: "uploaders", isPage: true, label: "Uploaders", hint: "Where captures go when you upload them." },
   { page: "uploaders", label: "Saved uploaders", hint: "Add, edit and test uploaders, pick the default one and turn on auto upload.", keywords: "sharex sxcu host link default auto upload" },

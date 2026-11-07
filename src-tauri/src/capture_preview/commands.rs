@@ -69,13 +69,14 @@ fn create_window(app_handle: &AppHandle) -> Option<WebviewWindow> {
     Some(window)
 }
 
-/// Called after save and again after auto-upload; each call re-reads history so it reflects the latest state.
-pub async fn trigger(app_handle: &AppHandle, history_store: &HistoryStoreHandler, file_name: &str) {
-    let settings_handle = app_handle.state::<SettingsHandler>();
-    let settings = settings_handle.read().await.get_capture_preview().clone();
-    if !settings.enabled {
+/// Re-reads history so it reflects the latest state, including an upload that just finished.
+pub async fn trigger(app_handle: &AppHandle, history_store: &HistoryStoreHandler, file_name: &str, enabled: bool) {
+    if !enabled {
         return;
     }
+
+    let settings_handle = app_handle.state::<SettingsHandler>();
+    let settings = settings_handle.read().await.get_capture_preview().clone();
 
     let Ok(Some(entry)) = history_store.get_by_file_name(file_name) else {
         return;

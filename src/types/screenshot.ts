@@ -1,4 +1,4 @@
-import { Position } from "."
+import { Position, ScrollingCaptureSettings } from "."
 import { UploaderCreationError } from "./request"
 
 export type Data = {
@@ -9,6 +9,7 @@ export type Data = {
   pickRegion?: boolean,
   record?: boolean,
   scrollCapture?: boolean,
+  scrollCaptureParams: ScrollingCaptureSettings | null,
   cursor: CursorImageInfo | null,
   cursorImageName: string,
   autoPlaceCursor: boolean,

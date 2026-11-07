@@ -8,9 +8,10 @@ use tauri::async_runtime::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
-    HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWindowHandler, SettingsHandler,
+    HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWindowHandler,
     capture::{CapManager, capture_trait::CaptureManager},
     capture_overlay,
+    capture_profile::{CaptureProfile, live_overlay_profile},
     dimensions::impls::Dimensions,
     emit_on_main_thread,
     screen_manager::{
@@ -30,6 +31,7 @@ pub struct ActiveRecording {
     started_at_ms: u64,
     fps: u32,
     window_tags: Vec<HashMap<String, TagValue>>,
+    profile: CaptureProfile,
 }
 
 pub type RecordingManagerHandler = Arc<Mutex<Option<ActiveRecording>>>;
@@ -50,7 +52,6 @@ pub async fn start_recording(
     window_handler: State<'_, ScreenshotWindowHandler>,
     screenshot_manager: State<'_, ScreenshotManagerHandler>,
     history_store: State<'_, HistoryStoreHandler>,
-    settings_handle: State<'_, SettingsHandler>,
     app_handle: AppHandle,
     region: Dimensions,
     id: Option<u16>,
@@ -78,15 +79,10 @@ pub async fn start_recording(
         screenshot_manager.write().await.remove_image(&id);
     }
 
-    let (fps, capture_audio, codec) = {
-        let settings = settings_handle.read().await;
-        let general = settings.get_general();
-        (
-            general.record_fps.clamp(1, 240),
-            with_audio.unwrap_or(general.record_audio),
-            general.record_codec,
-        )
-    };
+    let profile = live_overlay_profile(&app_handle).await;
+    let fps = profile.record_fps.clamp(1, 240);
+    let capture_audio = with_audio.unwrap_or(profile.record_audio);
+    let codec = profile.record_codec;
 
     let region_virtual = WindowBounds {
         left: base.left + region.x as i32,
@@ -139,6 +135,7 @@ pub async fn start_recording(
         started_at_ms: status.started_at_ms,
         fps,
         window_tags,
+        profile,
     });
 
     Ok(status)
@@ -168,21 +165,11 @@ pub async fn finish_recording(app_handle: &AppHandle) -> Result<(), RecordingErr
 
     hide_recording_windows(app_handle);
 
-    let (copy_to_clipboard, upload_template, file_name_template) = {
-        let settings_handle = app_handle.state::<SettingsHandler>();
-        let settings = settings_handle.read().await;
-        let general = settings.get_general();
-        (
-            general.copy_to_clipboard_on_capture,
-            general.upload_path.clone(),
-            general.file_name_template.clone(),
-        )
-    };
-
+    let profile = active.profile.clone();
     let history_store = app_handle.state::<HistoryStoreHandler>().inner().clone();
 
     let entry = tauri::async_runtime::spawn_blocking(move || {
-        let ActiveRecording { session, temp_path, started_at_ms, fps, window_tags } = active;
+        let ActiveRecording { session, temp_path, started_at_ms, fps, window_tags, profile } = active;
 
         let with_audio = session.with_audio();
         let (width, height) = session.dimensions();
@@ -202,8 +189,8 @@ pub async fn finish_recording(app_handle: &AppHandle) -> Result<(), RecordingErr
                 &temp_path,
                 result.thumbnail.as_ref(),
                 Some(tags),
-                upload_template.as_deref(),
-                file_name_template.as_deref(),
+                profile.save_path_template.as_deref(),
+                profile.file_name_template.as_deref(),
                 width,
                 height,
             )
@@ -211,7 +198,7 @@ pub async fn finish_recording(app_handle: &AppHandle) -> Result<(), RecordingErr
                 RecordingError::Failed(format!("Failed to save the recording: {}", err))
             })?;
 
-        if copy_to_clipboard {
+        if profile.copy_to_clipboard {
             if let Err(err) = crate::file_clipboard::copy_file(&entry.file_path) {
                 eprintln!("Failed to copy the recording to the clipboard: {}", err);
             }
@@ -222,7 +209,7 @@ pub async fn finish_recording(app_handle: &AppHandle) -> Result<(), RecordingErr
     .await
     .map_err(|err| RecordingError::Failed(err.to_string()))??;
 
-    crate::notify_history_saved(app_handle, &entry, false);
+    crate::notify_history_saved(app_handle, &entry, profile);
 
     Ok(())
 }

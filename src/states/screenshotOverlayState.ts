@@ -42,17 +42,15 @@ function useScreenshotOverlayStateInner() {
   });
 
   createEffect(() => {
-    if (imageData()?.scrollCapture !== true) return;
+    const data = imageData();
+    if (data?.scrollCapture !== true || !data.scrollCaptureParams) return;
 
-    safeInvoke("get_scrolling_capture_settings")
-      .then(settings => setScrollCaptureParams({
-        maxFrames: settings.maxFrames,
-        frameDelayMs: settings.frameDelayMs,
-        scrollDistance: settings.scrollDistance,
-      }))
-      .catch(() => {
-        // Best-effort; the panel just keeps whatever it already had.
-      });
+    const params = data.scrollCaptureParams;
+    setScrollCaptureParams({
+      maxFrames: params.maxFrames,
+      frameDelayMs: params.frameDelayMs,
+      scrollDistance: { ...params.scrollDistance },
+    });
   });
   const previewUrl = createMemo(() => {
     const data = imageData();

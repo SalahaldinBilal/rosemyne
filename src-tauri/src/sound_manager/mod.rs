@@ -42,6 +42,12 @@ pub struct SoundSetting {
     pub volume: u8,
 }
 
+impl SoundSetting {
+    pub fn plays_for(&self, is_instant_capture: bool) -> bool {
+        self.enabled && (!is_instant_capture || self.instant_capture_enabled)
+    }
+}
+
 impl Default for SoundSetting {
     fn default() -> Self {
         Self {
@@ -109,10 +115,13 @@ pub fn sounds_dir() -> PathBuf {
     crate::default_app_path().join("sounds")
 }
 
-/// Plays `kind` if enabled for the supplied capture context, using its custom
-/// file when set, falling back to the bundled default if that file is missing,
-/// unreadable, or fails to decode.
-pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind, is_instant_capture: bool) {
+/// Plays `kind` when `enabled`, using its custom file when set, falling back to
+/// the bundled default if that file is missing, unreadable, or fails to decode.
+pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind, enabled: bool) {
+    if !enabled {
+        return;
+    }
+
     let settings_handle = app_handle.state::<SettingsHandler>();
     let setting = settings_handle
         .read()
@@ -121,9 +130,7 @@ pub async fn play_sound(app_handle: &AppHandle, kind: SoundKind, is_instant_capt
         .get(kind)
         .clone();
 
-    if setting.enabled && (!is_instant_capture || setting.instant_capture_enabled) {
-        play_now(kind, setting.custom_file, setting.volume);
-    }
+    play_now(kind, setting.custom_file, setting.volume);
 }
 
 /// Plays `kind` immediately regardless of its enabled setting, used by the

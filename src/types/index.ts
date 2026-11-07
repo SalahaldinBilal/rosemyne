@@ -59,6 +59,30 @@ export type ShortcutBinding = {
   id: string,
   method: ShortcutMethod,
   keys: ShortcutKeys,
+  overrides: CaptureOverrides,
+}
+
+export type UploadOverride =
+  | { type: "skip" }
+  | { type: "uploader", data: string };
+
+// Per-shortcut replacements for the global settings. null uses the setting.
+export type CaptureOverrides = {
+  copyToClipboard: boolean | null,
+  showCapturePreview: boolean | null,
+  captureSound: boolean | null,
+  uploadSound: boolean | null,
+  upload: UploadOverride | null,
+  fileNameTemplate: string | null,
+  savePathTemplate: string | null,
+  screenshotFormat: ScreenshotImageFormat | null,
+  includeCursor: boolean | null,
+  recordAudio: boolean | null,
+  recordFps: number | null,
+  recordCodec: VideoCodec | null,
+  scrollMaxFrames: number | null,
+  scrollFrameDelayMs: number | null,
+  scrollDistance: ScrollDistance | null,
 }
 
 export type CaptureTarget =

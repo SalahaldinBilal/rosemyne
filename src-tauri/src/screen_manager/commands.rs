@@ -12,6 +12,11 @@ use crate::{
     HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWebview, ScreenshotWindowHandler,
     SettingsHandler,
     capture::{CapManager, capture_trait::CaptureManager},
+    capture_profile::{CaptureProfile, set_live_overlay_profile},
+    scrolling_capture::{
+        ScrollingCaptureSettings,
+        commands::{PendingScrollCaptureHandler, pending_review_profile},
+    },
     cursor_image::{CursorImageHandler, CursorImageInfo, CursorSource, SystemCursorsHandler},
     dimensions::impls::{Dimensions, Position},
     overlay_images::CURSOR_IMAGE_NAME,
@@ -34,6 +39,7 @@ pub async fn full_screenshot(
     settings_handle: State<'_, SettingsHandler>,
     app_handle: AppHandle,
 ) -> Result<(), EncodeError> {
+    let profile = CaptureProfile::defaults(&app_handle).await;
     take_screenshot(
         window_handler.inner(),
         screenshot_manager.inner(),
@@ -41,6 +47,7 @@ pub async fn full_screenshot(
         settings_handle.inner(),
         &app_handle,
         None,
+        profile,
     )
     .await
 }
@@ -54,7 +61,7 @@ pub async fn start_region_pick(
     window_handler: State<'_, ScreenshotWindowHandler>,
     app_handle: AppHandle,
 ) -> Result<(), ()> {
-    show_live_overlay(window_handler.inner(), &app_handle, OverlayMode::PickRegion).await
+    show_live_overlay(window_handler.inner(), &app_handle, OverlayMode::PickRegion, None).await
 }
 
 /// Shows the overlay in record mode: the same live region selection as a
@@ -64,31 +71,40 @@ pub async fn record_screen(
     window_handler: State<'_, ScreenshotWindowHandler>,
     app_handle: AppHandle,
 ) -> Result<(), ()> {
-    open_record_overlay(window_handler.inner(), &app_handle).await
+    let profile = CaptureProfile::defaults(&app_handle).await;
+    open_record_overlay(window_handler.inner(), &app_handle, profile).await
 }
 
 pub async fn open_record_overlay(
     window_handler: &ScreenshotWindowHandler,
     app_handle: &AppHandle,
+    profile: CaptureProfile,
 ) -> Result<(), ()> {
-    show_live_overlay(window_handler, app_handle, OverlayMode::Record).await
+    show_live_overlay(window_handler, app_handle, OverlayMode::Record, Some(profile)).await
 }
 
 /// Shows the overlay in scroll-capture mode: the same live region selection as
 /// a region pick, but completing it starts a scrolling capture of the rectangle.
+/// A retake from the result window keeps the reviewed capture's profile.
 #[tauri::command]
 pub async fn scrolling_capture_screen(
     window_handler: State<'_, ScreenshotWindowHandler>,
+    pending: State<'_, PendingScrollCaptureHandler>,
     app_handle: AppHandle,
 ) -> Result<(), ()> {
-    open_scroll_capture_overlay(window_handler.inner(), &app_handle).await
+    let profile = match pending_review_profile(pending.inner()).await {
+        Some(profile) => profile,
+        None => CaptureProfile::defaults(&app_handle).await,
+    };
+    open_scroll_capture_overlay(window_handler.inner(), &app_handle, profile).await
 }
 
 pub async fn open_scroll_capture_overlay(
     window_handler: &ScreenshotWindowHandler,
     app_handle: &AppHandle,
+    profile: CaptureProfile,
 ) -> Result<(), ()> {
-    show_live_overlay(window_handler, app_handle, OverlayMode::ScrollCapture).await
+    show_live_overlay(window_handler, app_handle, OverlayMode::ScrollCapture, Some(profile)).await
 }
 
 enum OverlayMode {
@@ -103,11 +119,20 @@ async fn show_live_overlay(
     window_handler: &ScreenshotWindowHandler,
     app_handle: &AppHandle,
     mode: OverlayMode,
+    profile: Option<CaptureProfile>,
 ) -> Result<(), ()> {
     let window_handler = window_handler.read().await;
     let Some(webview) = window_handler.deref() else {
         return Ok(());
     };
+
+    let scroll_capture_params = match mode {
+        OverlayMode::ScrollCapture => profile.as_ref().map(|profile| profile.scrolling_capture.clone()),
+        _ => None,
+    };
+    if let Some(profile) = profile {
+        set_live_overlay_profile(profile);
+    }
 
     // Enumerating windows (no pixel capture) keeps right-click snap-to-window
     // working while picking a region.
@@ -130,6 +155,7 @@ async fn show_live_overlay(
         pick_region: matches!(mode, OverlayMode::PickRegion),
         record: matches!(mode, OverlayMode::Record),
         scroll_capture: matches!(mode, OverlayMode::ScrollCapture),
+        scroll_capture_params,
         cursor: None,
         cursor_image_name: CURSOR_IMAGE_NAME.to_string(),
         auto_place_cursor: false,
@@ -229,6 +255,7 @@ pub struct ImageEditSession {
 pub async fn begin_image_edit(
     history_store: State<'_, HistoryStoreHandler>,
     screenshot_manager: State<'_, ScreenshotManagerHandler>,
+    app_handle: AppHandle,
     file_name: String,
 ) -> Result<ImageEditSession, String> {
     let entry = history_store
@@ -247,11 +274,12 @@ pub async fn begin_image_edit(
         .map_err(|err| err.to_string())?
         .into_rgba8();
     let (width, height) = (image.width(), image.height());
+    let profile = CaptureProfile::defaults(&app_handle).await;
 
     let image_id = screenshot_manager
         .write()
         .await
-        .add_screenshot_with_window_tags(image, window_tags)
+        .add_screenshot_with_window_tags(image, window_tags, profile)
         .map_err(|err| err.to_string())?;
 
     Ok(ImageEditSession { image_id, width, height })
@@ -363,6 +391,8 @@ pub(crate) struct Data {
     /// When true the overlay picks a region live (like `pick_region`) and
     /// starts a scrolling capture of it on selection.
     pub scroll_capture: bool,
+    /// What the scrolling capture panel starts with, the settings plus the shortcut's overrides.
+    pub scroll_capture_params: Option<ScrollingCaptureSettings>,
     /// The cursor cached when the capture ran; a fresher one follows over `cursor://updated`.
     pub cursor: Option<CursorImageInfo>,
     /// Overlay-image library entry the placed cursor references.
@@ -393,9 +423,10 @@ pub async fn take_screenshot(
     settings_handle: &SettingsHandler,
     app_handle: &AppHandle,
     capture_target: Option<CaptureTarget>,
+    profile: CaptureProfile,
 ) -> Result<(), EncodeError> {
     let now = now_ms();
-    let allowed = LAST_CAPTURE_START_MS.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |last| {
+    let allowed = LAST_CAPTURE_START_MS.try_update(Ordering::SeqCst, Ordering::SeqCst, |last| {
         (now.saturating_sub(last) >= CAPTURE_DEAD_ZONE_MS).then_some(now)
     });
     if allowed.is_err() {
@@ -403,7 +434,7 @@ pub async fn take_screenshot(
     }
 
     if let Some(target) = capture_target {
-        return instant_capture(target, history_store, settings_handle, app_handle).await;
+        return instant_capture(target, history_store, app_handle, profile).await;
     }
 
     // Runs alongside the capture below, not before it: the pointer and its shape are
@@ -416,7 +447,7 @@ pub async fn take_screenshot(
     crate::cursor_image::refresh_system_cursors(app_handle);
 
     let general = settings_handle.read().await.get_general().clone();
-    let auto_place_cursor = general.include_cursor;
+    let auto_place_cursor = profile.include_cursor;
 
     let window_handler = window_handler.read().await;
     let mut screenshot_manager = screenshot_manager.write().await;
@@ -450,7 +481,7 @@ pub async fn take_screenshot(
 
         let windows = calculate_visible_bounds(windows);
 
-        let id = screenshot_manager.add_screenshot(image, Some(windows.clone()))?;
+        let id = screenshot_manager.add_screenshot(image, Some(windows.clone()), profile)?;
         drop(screenshot_manager);
 
         // Read last, giving this capture's own render the longest chance to land.
@@ -494,6 +525,7 @@ fn emit_editor_data<R: tauri::Runtime>(
         pick_region: false,
         record: false,
         scroll_capture: false,
+        scroll_capture_params: None,
         cursor,
         cursor_image_name,
         auto_place_cursor,
@@ -550,8 +582,8 @@ async fn resolve_cursor(
 async fn instant_capture(
     target: CaptureTarget,
     history_store: &HistoryStoreHandler,
-    settings_handle: &SettingsHandler,
     app_handle: &AppHandle,
+    profile: CaptureProfile,
 ) -> Result<(), EncodeError> {
     let Some(bounds) = resolve_capture_bounds(&target, app_handle) else {
         return Ok(());
@@ -576,11 +608,10 @@ async fn instant_capture(
     persist_capture(
         app_handle,
         history_store,
-        settings_handle,
         &image,
         window_coverage_tags(&windows, &region),
         true,
-        true,
+        profile,
     )
     .await;
 
@@ -628,23 +659,11 @@ fn resolve_capture_bounds(target: &CaptureTarget, app_handle: &AppHandle) -> Opt
 pub(crate) async fn persist_capture(
     app_handle: &AppHandle,
     history_store: &HistoryStoreHandler,
-    settings_handle: &SettingsHandler,
     image: &RgbaImage,
     window_tags: Vec<HashMap<String, TagValue>>,
     should_play_capture_sound: bool,
-    is_instant_capture: bool,
+    profile: CaptureProfile,
 ) {
-    let (copy_to_clipboard, upload_template, file_name_template, screenshot_format) = {
-        let settings = settings_handle.read().await;
-        let general = settings.get_general();
-        (
-            general.copy_to_clipboard_on_capture,
-            general.upload_path.clone(),
-            general.file_name_template.clone(),
-            general.screenshot_format,
-        )
-    };
-
     let tags = HashMap::from([
         ("Windows".to_owned(), TagValue::MapArray(window_tags)),
         ("Timestamp".to_owned(), TagValue::date_time_millis(now_ms())),
@@ -653,9 +672,9 @@ pub(crate) async fn persist_capture(
     let saved_image = match history_store.save_rendered(
         image,
         Some(tags),
-        upload_template.as_deref(),
-        file_name_template.as_deref(),
-        screenshot_format,
+        profile.save_path_template.as_deref(),
+        profile.file_name_template.as_deref(),
+        profile.screenshot_format,
     ) {
         Ok(saved_image) => saved_image,
         Err(err) => {
@@ -664,19 +683,17 @@ pub(crate) async fn persist_capture(
         }
     };
 
-    if copy_to_clipboard {
+    if profile.copy_to_clipboard {
         if let Err(err) = crate::file_clipboard::copy_file(&saved_image.file_path) {
             eprintln!("Failed to copy screenshot to clipboard: {}", err);
         }
     }
 
-    if should_play_capture_sound {
-        crate::sound_manager::play_sound(
-            app_handle,
-            crate::sound_manager::SoundKind::Capture,
-            is_instant_capture,
-        )
-        .await;
-    }
-    crate::notify_history_saved(app_handle, &saved_image, is_instant_capture);
+    crate::sound_manager::play_sound(
+        app_handle,
+        crate::sound_manager::SoundKind::Capture,
+        should_play_capture_sound && profile.capture_sound,
+    )
+    .await;
+    crate::notify_history_saved(app_handle, &saved_image, profile);
 }

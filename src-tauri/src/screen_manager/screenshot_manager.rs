@@ -12,6 +12,7 @@ use image::{DynamicImage, ImageError, ImageFormat, RgbaImage};
 use serde::{Deserialize, Serialize, Serializer};
 
 use super::window::{WindowInfo, window_coverage_tags};
+use crate::capture_profile::CaptureProfile;
 use crate::dimensions::impls::Dimensions;
 
 /// Holds the in-memory captures being edited in the overlay. Saved history now
@@ -30,8 +31,9 @@ impl ScreenshotManager {
         &mut self,
         image: RgbaImage,
         windows: Option<Vec<WindowInfo>>,
+        profile: CaptureProfile,
     ) -> Result<u16, EncodeError> {
-        self.insert(image, windows, None)
+        self.insert(image, windows, None, profile)
     }
 
     /// For captures whose output has its own coordinate space (a stitched
@@ -42,8 +44,9 @@ impl ScreenshotManager {
         &mut self,
         image: RgbaImage,
         window_tags: Vec<HashMap<String, TagValue>>,
+        profile: CaptureProfile,
     ) -> Result<u16, EncodeError> {
-        self.insert(image, Some(Vec::new()), Some(window_tags))
+        self.insert(image, Some(Vec::new()), Some(window_tags), profile)
     }
 
     fn insert(
@@ -51,6 +54,7 @@ impl ScreenshotManager {
         image: RgbaImage,
         windows: Option<Vec<WindowInfo>>,
         fixed_window_tags: Option<Vec<HashMap<String, TagValue>>>,
+        profile: CaptureProfile,
     ) -> Result<u16, EncodeError> {
         let webp_review = encode_image_as(&image, ImageFormat::WebP)?;
 
@@ -69,6 +73,7 @@ impl ScreenshotManager {
                 rgba_data: image,
                 image_windows: windows,
                 fixed_window_tags,
+                profile,
             },
         );
 
@@ -215,6 +220,7 @@ pub struct TemporaryImage {
     /// Set when the capture's window tags were resolved up front instead of
     /// being derived from the save crop, see `add_screenshot_with_window_tags`.
     pub fixed_window_tags: Option<Vec<HashMap<String, TagValue>>>,
+    pub profile: CaptureProfile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

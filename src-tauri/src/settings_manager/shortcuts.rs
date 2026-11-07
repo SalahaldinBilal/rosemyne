@@ -12,6 +12,7 @@ use tauri_plugin_global_shortcut::{
 
 use crate::{
     HistoryStoreHandler, ScreenshotManagerHandler, ScreenshotWindowHandler, SettingsHandler,
+    capture_profile::{CaptureOverrides, CaptureProfile},
     screen_manager::commands::{open_record_overlay, open_scroll_capture_overlay, take_screenshot},
 };
 
@@ -27,10 +28,13 @@ pub struct ShortcutKeys {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShortcutBinding {
     pub id: String,
     pub method: ShortcutMethod,
     pub keys: ShortcutKeys,
+    #[serde(default)]
+    pub overrides: CaptureOverrides,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -165,15 +169,19 @@ pub fn shortcut_handler(app_handle: &AppHandle, shortcut: &Shortcut, event: Shor
     tauri::async_runtime::spawn(async move {
         let settings = app_handle.state::<SettingsHandler>();
         let settings = settings.read().await;
-        let matching_method = settings
+        let matching = settings
             .get_shortcuts()
             .iter()
             .find(|existing| existing.matches(&shortcut).unwrap_or(false))
-            .map(|existing| existing.method.clone());
+            .map(|existing| {
+                let is_instant = matches!(existing.method, ShortcutMethod::InstantCapture(_));
+                let profile = CaptureProfile::resolve(&settings, &existing.overrides, is_instant);
+                (existing.method.clone(), profile)
+            });
         drop(settings);
 
-        let method = match matching_method {
-            Some(method) => method,
+        let (method, profile) = match matching {
+            Some(matching) => matching,
             None => {
                 println!("Unknown shortcut {:#?}", shortcut);
                 return;
@@ -192,13 +200,13 @@ pub fn shortcut_handler(app_handle: &AppHandle, shortcut: &Shortcut, event: Shor
                     }
                 } else {
                     let window_handler = app_handle.state::<ScreenshotWindowHandler>();
-                    let _ = open_record_overlay(window_handler.inner(), &app_handle).await;
+                    let _ = open_record_overlay(window_handler.inner(), &app_handle, profile).await;
                 }
                 return;
             }
             ShortcutMethod::ScrollingCapture => {
                 let window_handler = app_handle.state::<ScreenshotWindowHandler>();
-                let _ = open_scroll_capture_overlay(window_handler.inner(), &app_handle).await;
+                let _ = open_scroll_capture_overlay(window_handler.inner(), &app_handle, profile).await;
                 return;
             }
         };
@@ -214,6 +222,7 @@ pub fn shortcut_handler(app_handle: &AppHandle, shortcut: &Shortcut, event: Shor
             settings_handler.inner(),
             &app_handle,
             capture_target,
+            profile,
         )
         .await;
     });

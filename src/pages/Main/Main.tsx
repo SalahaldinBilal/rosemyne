@@ -6,6 +6,7 @@ import { createStore, produce, reconcile } from "solid-js/store";
 import { HistoryCursor, HistorySort, HistoryTypeCounts, ImageEditSession, ImageHistoryData, ImportFailedEvent, TagMetadata, UploadFailedEvent, UploadFinishedEvent, UploadProgressEvent, UploadStartedEvent } from "../../types/screenshot";
 import { ImageViewerApi, ShortcutBinding } from "../../types";
 import { saveScreenshot } from "@core/helpers/saveScreenshot";
+import { overrideCount } from "@core/helpers/captureOverrides";
 import TagFilters from "./TagFilter/TagFilters";
 import FilterToolbar from "./TagFilter/FilterToolbar/FilterToolbar";
 import FilterPills from "./TagFilter/FilterPills/FilterPills";
@@ -62,6 +63,12 @@ function CaptureButton(props: { icon: LucideIcon, label: string, tooltip: string
       <Tooltip anchor={() => button} text={props.tooltip} keys={props.keys} />
     </button>
   );
+}
+
+// The buttons run with the plain settings, so they show a shortcut without overrides when there is one.
+function plainBinding(bindings: ShortcutBinding[], type: ShortcutBinding["method"]["type"]): ShortcutBinding | undefined {
+  const matching = bindings.filter(binding => binding.method.type === type);
+  return matching.find(binding => overrideCount(binding.overrides) === 0) ?? matching[0];
 }
 
 function shortcutChars(binding: ShortcutBinding | undefined): string[] | undefined {
@@ -123,9 +130,9 @@ function Main() {
   const offsetY = createMemo(() => startRow() * ROW_HEIGHT);
   const gridColumns = createMemo(() => `repeat(${columns()}, minmax(0, 1fr))`);
 
-  const screenshotKeys = createMemo(() => shortcutChars(shortcuts.find(binding => binding.method.type === "screenshot")));
-  const recordKeys = createMemo(() => shortcutChars(shortcuts.find(binding => binding.method.type === "record")));
-  const scrollingKeys = createMemo(() => shortcutChars(shortcuts.find(binding => binding.method.type === "scrollingCapture")));
+  const screenshotKeys = createMemo(() => shortcutChars(plainBinding(shortcuts, "screenshot")));
+  const recordKeys = createMemo(() => shortcutChars(plainBinding(shortcuts, "record")));
+  const scrollingKeys = createMemo(() => shortcutChars(plainBinding(shortcuts, "scrollingCapture")));
   const emptyKeys = createMemo(() => ({ keys: (screenshotKeys() ?? []).map(char => ({ key: char, char })) }));
   const updateTooltip = createMemo(() => {
     const status = updateStatus();

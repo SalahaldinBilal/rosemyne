@@ -8,6 +8,7 @@ use std::time::Instant;
 use super::{SavedUploader, UploadFile, UploaderError, UploaderOptions, execute_and_capture, execute_and_capture_with_status};
 use crate::{
     HistoryStoreHandler, HttpClientHandler, SettingsHandler,
+    capture_profile::CaptureProfile,
     emit_on_main_thread,
     screen_manager::screenshot_manager::encode_image_as,
 };
@@ -95,9 +96,13 @@ pub async fn upload_image(
             .ok_or(UploaderError::NoDefaultUploader)?,
     }
     .clone();
+    let success_sound = settings
+        .get_sound_settings()
+        .get(crate::sound_manager::SoundKind::TaskSuccess)
+        .plays_for(false);
     drop(settings);
 
-    run_upload(&app_handle, history_store.inner(), http_client.inner(), &uploader, &file_name, false).await
+    run_upload(&app_handle, history_store.inner(), http_client.inner(), &uploader, &file_name, success_sound).await
 }
 
 /// Uploads with the given uploader if there's an image to upload, emitting
@@ -111,7 +116,7 @@ pub async fn run_upload(
     http_client: &HttpClientHandler,
     uploader: &SavedUploader,
     file_name: &str,
-    is_instant_capture: bool,
+    success_sound: bool,
 ) -> Result<UploadResult, UploaderError> {
     let result = try_upload(app_handle, history_store, http_client, uploader, file_name).await;
 
@@ -123,7 +128,7 @@ pub async fn run_upload(
             crate::sound_manager::play_sound(
                 app_handle,
                 crate::sound_manager::SoundKind::TaskSuccess,
-                is_instant_capture,
+                success_sound,
             )
             .await;
             emit_on_main_thread!(
@@ -200,15 +205,16 @@ async fn try_upload(
     Ok(UploadResult { url, copied })
 }
 
-/// Uploads a freshly-saved file with the default uploader, if one is set and has auto-upload enabled.
-pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String, is_instant_capture: bool) {
-    let settings_handle = app_handle.state::<SettingsHandler>();
-    let uploader = {
-        let settings = settings_handle.read().await;
-        settings.get_default_uploader().filter(|u| u.auto_upload).cloned()
+/// Uploads a freshly-saved file with the capture's uploader, if it has one.
+pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String, profile: &CaptureProfile) {
+    let Some(uploader_id) = &profile.uploader_id else {
+        return;
     };
 
+    let settings_handle = app_handle.state::<SettingsHandler>();
+    let uploader = settings_handle.read().await.get_uploader(uploader_id).cloned();
     let Some(uploader) = uploader else {
+        eprintln!("Uploader {} no longer exists, skipping the upload of {}", uploader_id, file_name);
         return;
     };
 
@@ -221,7 +227,7 @@ pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String, is_inst
         &http_client,
         &uploader,
         &file_name,
-        is_instant_capture,
+        profile.upload_sound,
     )
     .await;
 }
