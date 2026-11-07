@@ -183,6 +183,7 @@ function HistoryCard(props: {
 }) {
   const source = createMemo(() => mainWindow(props.screenshot.tags));
   const color = createMemo(() => source() ? sourceColor(source()!.process) : undefined);
+  const hasSourceLine = createMemo(() => !!source() || props.screenshot.type === "file");
   const dateText = createMemo(() => formatSystemDateTime(new Date(props.screenshot.dateTime)));
   const sizeText = createMemo(() => props.screenshot.fileSize !== undefined ? formatBytes(props.screenshot.fileSize) : null);
   const duration = createMemo(() => tagNumber(props.screenshot.tags?.["Duration"]));
@@ -285,17 +286,16 @@ function HistoryCard(props: {
       <div class={styles.Meta}>
         <div class={styles.Name} title={props.screenshot.fileName}>{props.screenshot.fileName}</div>
         <div class={styles.Sub}>{dateText()}<Show when={sizeText()}> · {sizeText()}</Show></div>
-        <div class={styles.Line}>
-          <Show
-            when={source()}
-            fallback={<Show when={props.screenshot.type === "file"}><span class={styles.Faint}>Imported file</span></Show>}
-          >
-            {window => <>
-              <span class={styles.SourceDot} style={{ "background-color": color() }} />
-              <span class={styles.Text} title={`${window().process} · ${window().name}`}>{window().name}</span>
-            </>}
-          </Show>
-        </div>
+        <Show when={hasSourceLine()}>
+          <div class={styles.Line}>
+            <Show when={source()} fallback={<span class={styles.Faint}>Imported file</span>}>
+              {window => <>
+                <span class={styles.SourceDot} style={{ "background-color": color() }} />
+                <span class={styles.Text} title={`${window().process} · ${window().name}`}>{window().name}</span>
+              </>}
+            </Show>
+          </div>
+        </Show>
         <div class={styles.Line} classList={{ [styles.Error]: !!error() }}>
           <Show
             when={props.screenshot.url}
