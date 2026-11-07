@@ -193,15 +193,6 @@ fn resolve_monitor(app_handle: &AppHandle, monitor_id: &Option<String>) -> Optio
         .map(monitor_to_bounds)
 }
 
-/// The work area, so a bottom corner sits above the taskbar instead of under it.
 fn monitor_to_bounds(monitor: &tauri::Monitor) -> (WindowBounds, f64) {
-    let area = monitor.work_area();
-    let bounds = WindowBounds {
-        left: area.position.x,
-        top: area.position.y,
-        right: area.position.x + area.size.width as i32,
-        bottom: area.position.y + area.size.height as i32,
-        z_order: 0,
-    };
-    (bounds, monitor.scale_factor())
+    (monitors::bounds(monitor), monitor.scale_factor())
 }
