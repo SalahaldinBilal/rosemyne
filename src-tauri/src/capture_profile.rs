@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     SettingsHandler,
-    recording::recorder_trait::VideoCodec,
+    recording::recorder_trait::{BitrateMode, VideoCodec},
     screen_manager::screenshot_manager::ScreenshotImageFormat,
     scrolling_capture::{ScrollDistance, ScrollingCaptureSettings},
     settings_manager::settings::Settings,
@@ -28,6 +28,8 @@ pub struct CaptureOverrides {
     pub record_audio: Option<bool>,
     pub record_fps: Option<u32>,
     pub record_codec: Option<VideoCodec>,
+    pub record_bitrate_mbps: Option<u32>,
+    pub record_bitrate_mode: Option<BitrateMode>,
     pub scroll_max_frames: Option<u32>,
     pub scroll_frame_delay_ms: Option<u32>,
     pub scroll_distance: Option<ScrollDistance>,
@@ -56,6 +58,8 @@ pub struct CaptureProfile {
     pub record_audio: bool,
     pub record_fps: u32,
     pub record_codec: VideoCodec,
+    pub record_bitrate_mbps: u32,
+    pub record_bitrate_mode: BitrateMode,
     pub scrolling_capture: ScrollingCaptureSettings,
 }
 
@@ -92,6 +96,8 @@ impl CaptureProfile {
             record_audio: overrides.record_audio.unwrap_or(general.record_audio),
             record_fps: overrides.record_fps.unwrap_or(general.record_fps),
             record_codec: overrides.record_codec.unwrap_or(general.record_codec),
+            record_bitrate_mbps: overrides.record_bitrate_mbps.unwrap_or(general.record_bitrate_mbps),
+            record_bitrate_mode: overrides.record_bitrate_mode.unwrap_or(general.record_bitrate_mode),
             scrolling_capture: ScrollingCaptureSettings {
                 max_frames: overrides.scroll_max_frames.unwrap_or(scrolling.max_frames),
                 frame_delay_ms: overrides.scroll_frame_delay_ms.unwrap_or(scrolling.frame_delay_ms),

@@ -80,6 +80,8 @@ export type CaptureOverrides = {
   recordAudio: boolean | null,
   recordFps: number | null,
   recordCodec: VideoCodec | null,
+  recordBitrateMbps: number | null,
+  recordBitrateMode: BitrateMode | null,
   scrollMaxFrames: number | null,
   scrollFrameDelayMs: number | null,
   scrollDistance: ScrollDistance | null,
@@ -109,6 +111,8 @@ export type WindowAction = "minimize" | "toggleMaximize" | "close" | "startDragg
 
 export type VideoCodec = "h264" | "h265";
 
+export type BitrateMode = "variable" | "constant";
+
 export type ScreenshotImageFormat =
   | "png" | "webp" | "jpeg" | "gif" | "bmp" | "ico" | "tiff" | "tga"
   | "pnm" | "avif" | "qoi" | "hdr" | "openExr" | "farbfeld";
@@ -122,6 +126,8 @@ export type GeneralSettings = {
   recordAudio: boolean,
   recordFps: number,
   recordCodec: VideoCodec,
+  recordBitrateMbps: number,
+  recordBitrateMode: BitrateMode,
   screenshotFormat: ScreenshotImageFormat,
   hasCompletedOnboarding: boolean,
   checkForUpdatesOnStartup: boolean,

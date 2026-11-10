@@ -25,7 +25,7 @@ import { SavedUploader } from "@core/types/request";
 import { safeInvoke } from "@core/helpers/safeInvoke";
 import { errorMessage } from "@core/helpers/errorMessage";
 import { findMonitor } from "@core/helpers/monitors";
-import { CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
+import { BITRATE_MODE_ITEMS, BITRATE_MODE_LABELS, CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
 import { emptyOverrides, keepOverrides, OVERRIDE_KEYS, OverrideKey, overrideCount } from "@core/helpers/captureOverrides";
 import { FILE_NAME_VARIABLES, SAVE_PATH_VARIABLES } from "@core/constants/templateVariables";
 import useSettingsState from "@core/states/settingsState";
@@ -106,6 +106,8 @@ function describeDefaults(values: DefaultValues, uploaders: SavedUploader[]): Re
     recordAudio: onOff(values.recordAudio),
     recordFps: `${values.recordFps} fps`,
     recordCodec: CODEC_LABELS[values.recordCodec],
+    recordBitrateMbps: `${values.recordBitrateMbps} Mbit/s`,
+    recordBitrateMode: BITRATE_MODE_LABELS[values.recordBitrateMode],
     scrollMaxFrames: `${values.scrollMaxFrames} frames`,
     scrollFrameDelayMs: `${values.scrollFrameDelayMs} ms`,
     scrollDistance: describeDistance(values.scrollDistance),
@@ -334,6 +336,8 @@ function ShortcutSettings() {
       recordAudio: generalSettings.recordAudio,
       recordFps: generalSettings.recordFps,
       recordCodec: generalSettings.recordCodec,
+      recordBitrateMbps: generalSettings.recordBitrateMbps,
+      recordBitrateMode: generalSettings.recordBitrateMode,
       scrollMaxFrames: scrollingSettings.maxFrames,
       scrollFrameDelayMs: scrollingSettings.frameDelayMs,
       scrollDistance: scrollingSettings.scrollDistance,
@@ -598,6 +602,12 @@ function ShortcutSettings() {
             </OverrideRow>
             <OverrideRow field="recordCodec" label="Video codec">
               <Select value={draft.overrides.recordCodec!} items={codecItems()} onItemClick={item => setOverride("recordCodec", item.value)} />
+            </OverrideRow>
+            <OverrideRow field="recordBitrateMode" label="Bitrate mode">
+              <Select value={draft.overrides.recordBitrateMode!} items={BITRATE_MODE_ITEMS} onItemClick={item => setOverride("recordBitrateMode", item.value)} />
+            </OverrideRow>
+            <OverrideRow field="recordBitrateMbps" label="Bitrate">
+              <NumberField value={draft.overrides.recordBitrateMbps!} min={1} max={200} unit="Mbit/s" width={120} onChange={value => setOverride("recordBitrateMbps", value)} />
             </OverrideRow>
           </SettingsGroup>
         </Show>

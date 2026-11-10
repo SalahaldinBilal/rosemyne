@@ -83,6 +83,7 @@ pub async fn start_recording(
     let fps = profile.record_fps.clamp(1, 240);
     let capture_audio = with_audio.unwrap_or(profile.record_audio);
     let codec = profile.record_codec;
+    let bitrate = profile.record_bitrate_mbps.clamp(MIN_BITRATE_MBPS, MAX_BITRATE_MBPS) * 1_000_000;
 
     let region_virtual = WindowBounds {
         left: base.left + region.x as i32,
@@ -104,6 +105,8 @@ pub async fn start_recording(
         fps,
         capture_audio,
         codec,
+        bitrate,
+        bitrate_mode: profile.record_bitrate_mode,
         output_path: temp_path.clone(),
     };
 
@@ -140,6 +143,10 @@ pub async fn start_recording(
 
     Ok(status)
 }
+
+// The UI's NumberField range for the setting matches these.
+const MIN_BITRATE_MBPS: u32 = 1;
+const MAX_BITRATE_MBPS: u32 = 200;
 
 // Probing opens real hardware encoders, so it runs once per session and off the main thread.
 static AVAILABLE_CODECS: OnceLock<Vec<VideoCodec>> = OnceLock::new();

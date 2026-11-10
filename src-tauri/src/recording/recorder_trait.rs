@@ -17,6 +17,16 @@ pub enum VideoCodec {
     H265,
 }
 
+/// Variable treats the bitrate as an average and spends less on calm content.
+/// Constant always spends the full bitrate, for encoders that refuse variable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum BitrateMode {
+    #[default]
+    Variable,
+    Constant,
+}
+
 #[derive(Debug, Clone)]
 pub struct RecordingOptions {
     /// Requested capture rect in virtual-desktop physical pixels. The platform
@@ -26,6 +36,9 @@ pub struct RecordingOptions {
     pub fps: u32,
     pub capture_audio: bool,
     pub codec: VideoCodec,
+    /// Bits per second, an average or a constant rate depending on `bitrate_mode`.
+    pub bitrate: u32,
+    pub bitrate_mode: BitrateMode,
     pub output_path: PathBuf,
 }
 

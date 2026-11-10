@@ -16,6 +16,8 @@ export function emptyOverrides(): CaptureOverrides {
     recordAudio: null,
     recordFps: null,
     recordCodec: null,
+    recordBitrateMbps: null,
+    recordBitrateMode: null,
     scrollMaxFrames: null,
     scrollFrameDelayMs: null,
     scrollDistance: null,
@@ -28,7 +30,7 @@ const SAVED_FILE_KEYS: readonly OverrideKey[] = ["copyToClipboard", "showCapture
 export const OVERRIDE_KEYS: Record<ShortcutMethod["type"], readonly OverrideKey[]> = {
   screenshot: [...SAVED_FILE_KEYS, "captureSound", "screenshotFormat", "includeCursor"],
   instantCapture: [...SAVED_FILE_KEYS, "captureSound", "screenshotFormat"],
-  record: [...SAVED_FILE_KEYS, "recordAudio", "recordFps", "recordCodec"],
+  record: [...SAVED_FILE_KEYS, "recordAudio", "recordFps", "recordCodec", "recordBitrateMode", "recordBitrateMbps"],
   scrollingCapture: [...SAVED_FILE_KEYS, "screenshotFormat", "scrollFrameDelayMs", "scrollDistance", "scrollMaxFrames"],
 };
 

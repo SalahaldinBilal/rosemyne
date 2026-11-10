@@ -29,6 +29,8 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   recordAudio: true,
   recordFps: 30,
   recordCodec: "h264",
+  recordBitrateMbps: 60,
+  recordBitrateMode: "variable",
   screenshotFormat: "webp",
   hasCompletedOnboarding: false,
   checkForUpdatesOnStartup: true,

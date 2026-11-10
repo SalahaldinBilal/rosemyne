@@ -16,7 +16,7 @@ import useToastState from "@core/states/toastState";
 import useSettingsSavedState from "@core/states/settingsSavedState";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-solid";
-import { CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
+import { BITRATE_MODE_ITEMS, CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
 import { InlineControls, SettingRow, SettingsGroup, SettingsPage, ToggleRow } from "../SettingsLayout/SettingsLayout";
 import ContextMenuSettings from "./ContextMenuSettings";
 
@@ -55,6 +55,8 @@ function GeneralSettings() {
     recordAudio: true,
     recordFps: 30,
     recordCodec: "h264",
+    recordBitrateMbps: 60,
+    recordBitrateMode: "variable",
     screenshotFormat: "webp",
     hasCompletedOnboarding: false,
     checkForUpdatesOnStartup: true,
@@ -72,6 +74,7 @@ function GeneralSettings() {
   const [uploadPathInput, setUploadPathInput] = createSignal("");
   const [fileNameInput, setFileNameInput] = createSignal("");
   const [fps, setFps] = createSignal(30);
+  const [bitrate, setBitrate] = createSignal(60);
   const [minSelection, setMinSelection] = createSignal({ width: 15, height: 15 });
   const { pushToast } = useToastState;
   const { markSettingsSaved } = useSettingsSavedState;
@@ -81,6 +84,7 @@ function GeneralSettings() {
     setUploadPathInput(from.uploadPath ?? "");
     setFileNameInput(from.fileNameTemplate ?? "");
     setFps(from.recordFps);
+    setBitrate(from.recordBitrateMbps);
     setMinSelection({ width: from.minSelectionWidth, height: from.minSelectionHeight });
   }
 
@@ -116,6 +120,10 @@ function GeneralSettings() {
     minSelection().width !== general.minSelectionWidth || minSelection().height !== general.minSelectionHeight,
   );
   const directoryChanged = createMemo(() => (directoryInput().trim() || null) !== general.saveDirectory);
+
+  const bitrateHint = createMemo(() => general.recordBitrateMode === "constant"
+    ? "Every recording uses this much, so files grow with length. 1 to 200 Mbit/s. Default 60."
+    : "Busy recordings use about this much, calm ones far less. Higher looks better on busy content and makes bigger files. 1 to 200 Mbit/s. Default 60.");
 
   const codecItems = createMemo<SelectItem<VideoCodec>[]>(() =>
     availableCodecs().map(codec => ({ id: codec, value: codec, label: CODEC_LABELS[codec] }))
@@ -178,6 +186,15 @@ function GeneralSettings() {
         <InlineControls>
           <NumberField value={fps()} min={1} max={240} unit="fps" width={100} onChange={setFps} />
           <Button disabled={fps() === general.recordFps} onClick={() => apply({ recordFps: fps() })}>Apply</Button>
+        </InlineControls>
+      </SettingRow>
+      <SettingRow label="Bitrate mode" hint="Variable spends less on calm recordings. Constant always uses the full bitrate, for GPUs that can't record with Variable. Default Variable.">
+        <Select value={general.recordBitrateMode} items={BITRATE_MODE_ITEMS} onItemClick={item => apply({ recordBitrateMode: item.value })} />
+      </SettingRow>
+      <SettingRow label="Bitrate" hint={bitrateHint()}>
+        <InlineControls>
+          <NumberField value={bitrate()} min={1} max={200} unit="Mbit/s" width={120} onChange={setBitrate} />
+          <Button disabled={bitrate() === general.recordBitrateMbps} onClick={() => apply({ recordBitrateMbps: bitrate() })}>Apply</Button>
         </InlineControls>
       </SettingRow>
     </SettingsGroup>

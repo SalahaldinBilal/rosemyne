@@ -20,6 +20,8 @@ export const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { page: "general", group: "Recording", label: "Record system audio", hint: "Recordings include what you hear. Applies when a recording starts.", keywords: "sound microphone" },
   { page: "general", group: "Recording", label: "Video codec", hint: "Only codecs your GPU can start are listed.", keywords: "h264 hevc av1 encoder" },
   { page: "general", group: "Recording", label: "Frame rate", hint: "1 to 240 fps.", keywords: "fps" },
+  { page: "general", group: "Recording", label: "Bitrate mode", hint: "Variable spends less on calm recordings. Constant always uses the full bitrate.", keywords: "vbr cbr variable constant size" },
+  { page: "general", group: "Recording", label: "Bitrate", hint: "Busy recordings use about this much, calm ones far less.", keywords: "quality size mbps average video file" },
   { page: "general", group: "Files", label: "Screenshot format", hint: "Default WebP.", keywords: "png jpg jpeg webp" },
   { page: "general", group: "Files", label: "Save directory", hint: "Where captures, history and settings live. Existing files are not moved.", keywords: "folder location path" },
   { page: "general", group: "Files", label: "Save path template", hint: "Sub-folder under files/. Type $ for variables.", keywords: "folder" },

@@ -79,7 +79,8 @@ features = [
 version = "0.62.2"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows-capture]
-version = "2.0.0"
+git = "https://github.com/SalahaldinBilal/windows-capture"
+branch = "rate-control"
 
 [target.'cfg(target_os = "windows")'.dependencies.sha2]
 version = "0.10"

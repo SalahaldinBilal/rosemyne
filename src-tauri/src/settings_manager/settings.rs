@@ -12,7 +12,7 @@ use crate::capture_preview::CapturePreviewSettings;
 use crate::cursor_image::CursorSource;
 use crate::image_uploader::SavedUploader;
 use crate::overlay_images::OverlayImage;
-use crate::recording::recorder_trait::VideoCodec;
+use crate::recording::recorder_trait::{BitrateMode, VideoCodec};
 use crate::screen_manager::screenshot_manager::ScreenshotImageFormat;
 use crate::scrolling_capture::ScrollingCaptureSettings;
 use crate::sound_manager::{SoundKind, SoundSettings};
@@ -44,6 +44,8 @@ pub struct GeneralSettings {
     pub record_audio: bool,
     pub record_fps: u32,
     pub record_codec: VideoCodec,
+    pub record_bitrate_mbps: u32,
+    pub record_bitrate_mode: BitrateMode,
     pub screenshot_format: ScreenshotImageFormat,
     pub has_completed_onboarding: bool,
     pub check_for_updates_on_startup: bool,
@@ -75,6 +77,8 @@ impl Default for GeneralSettings {
             record_audio: true,
             record_fps: 30,
             record_codec: VideoCodec::default(),
+            record_bitrate_mbps: 60,
+            record_bitrate_mode: BitrateMode::default(),
             screenshot_format: ScreenshotImageFormat::default(),
             has_completed_onboarding: false,
             check_for_updates_on_startup: true,

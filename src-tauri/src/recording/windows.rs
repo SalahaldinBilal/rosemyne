@@ -9,8 +9,8 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows_capture::capture::{CaptureControl, Context, GraphicsCaptureApiHandler};
 use windows_capture::encoder::{
-    AudioSettingsBuilder, ContainerSettingsBuilder, VideoEncoder, VideoSettingsBuilder,
-    VideoSettingsSubType,
+    AudioSettingsBuilder, ContainerSettingsBuilder, VideoEncoder, VideoRateControl,
+    VideoSettingsBuilder, VideoSettingsSubType,
 };
 use windows_capture::frame::Frame;
 use windows_capture::graphics_capture_api::{GraphicsCaptureApi, InternalCaptureControl};
@@ -24,7 +24,7 @@ use crate::screen_manager::window::WindowBounds;
 
 use super::audio::{LoopbackCapture, begin, probe_format};
 use super::error::RecordingError;
-use super::recorder_trait::{RecordingOptions, RecordingResult, ScreenRecorder, VideoCodec};
+use super::recorder_trait::{BitrateMode, RecordingOptions, RecordingResult, ScreenRecorder, VideoCodec};
 
 type SharedEncoder = Arc<Mutex<Option<VideoEncoder>>>;
 type HandlerError = Box<dyn std::error::Error + Send + Sync>;
@@ -35,6 +35,7 @@ const TICKS_PER_SECOND: i64 = 10_000_000;
 // selection failure threshold observed for both H.264 and HEVC on this
 // machine, so a probe failure reflects the codec itself, not the frame size.
 const CODEC_PROBE_DIM: u32 = 512;
+const CODEC_PROBE_BITRATE: u32 = 4_000_000;
 
 fn sub_type_for(codec: VideoCodec) -> VideoSettingsSubType {
     match codec {
@@ -102,7 +103,11 @@ impl ScreenRecorder for WindowsRecorder {
             VideoSettingsBuilder::new(width, height)
                 .sub_type(sub_type_for(options.codec))
                 .frame_rate(options.fps)
-                .bitrate(bitrate_for(width, height, options.fps))
+                .bitrate(options.bitrate)
+                .rate_control(match options.bitrate_mode {
+                    BitrateMode::Variable => VideoRateControl::VariableBitrate,
+                    BitrateMode::Constant => VideoRateControl::ConstantBitrate,
+                })
         };
         let audio_settings = match &audio_pending {
             Some(pending) => AudioSettingsBuilder::new()
@@ -245,7 +250,7 @@ impl ScreenRecorder for WindowsRecorder {
                     VideoSettingsBuilder::new(CODEC_PROBE_DIM, CODEC_PROBE_DIM)
                         .sub_type(sub_type_for(*codec))
                         .frame_rate(30)
-                        .bitrate(bitrate_for(CODEC_PROBE_DIM, CODEC_PROBE_DIM, 30)),
+                        .bitrate(CODEC_PROBE_BITRATE),
                     AudioSettingsBuilder::new().disabled(true),
                     ContainerSettingsBuilder::new(),
                     &probe_path,
@@ -472,11 +477,6 @@ fn crop_within_monitor(
     let start_y = start_y.min(monitor_height.saturating_sub(height));
 
     Ok((start_x, start_y, start_x + width, start_y + height))
-}
-
-fn bitrate_for(width: u32, height: u32, fps: u32) -> u32 {
-    let bits = f64::from(width) * f64::from(height) * f64::from(fps.max(1)) * 0.13;
-    (bits as u32).clamp(1_000_000, 40_000_000)
 }
 
 fn cursor_settings() -> CursorCaptureSettings {

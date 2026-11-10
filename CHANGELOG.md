@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The color picker matches the rest of the app.
 - Card thumbnails show a loading placeholder and fade in once ready.
+- Recordings are much smaller, since calm screens no longer use the full bitrate.
+
+### Added
+
+- Bitrate and bitrate mode (variable or constant) settings for recordings, also overridable per shortcut.
 
 ### Fixed
 
