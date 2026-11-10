@@ -1,4 +1,4 @@
-// Portaled into document.body.
+// Portaled into document.body. Placed in Tooltip.tsx from its measured size, so it never leaves the window.
 .Tooltip {
   --rise: 3px;
 
@@ -7,6 +7,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: calc(100vw - 16px);
   padding: 5px 9px;
   border-radius: var(--r-sm);
   background: #2a2a33;
@@ -18,12 +19,15 @@
   line-height: 1.35;
   white-space: nowrap;
   pointer-events: none;
-  transform: translate(-50%, 0);
   animation: tooltip-in var(--t-fast) var(--e-out);
 
   &.Above {
     --rise: -3px;
-    transform: translate(-50%, -100%);
+  }
+
+  // Wraps only when the tooltip would be wider than the window.
+  > span:first-child {
+    white-space: normal;
   }
 }
 
