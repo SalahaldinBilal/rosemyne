@@ -1,10 +1,13 @@
-// The window is sized in capture_overlay (Rust). The pill keeps a few px of room for its entrance drop.
+// The window is sized in capture_overlay (Rust). The pill keeps a few px of room for its entrance drop,
+// and grows into the empty space under it while a control is hovered, to show that control's hint.
 .CaptureHud {
   position: fixed;
-  inset: 5px 2px;
+  top: 5px;
+  right: 2px;
+  left: 2px;
+  height: 46px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
   padding: 0 6px 0 14px;
   overflow: hidden;
   border: 1px solid var(--glass-line);
@@ -16,9 +19,63 @@
   white-space: nowrap;
   user-select: none;
   animation: hud-in var(--t-slow) var(--e-pop);
+  transition: height var(--t-fast) var(--e-in);
+
+  &.Expanded {
+    height: 64px;
+    transition-duration: var(--t-base);
+    transition-timing-function: var(--e-out);
+  }
 
   &.Leaving {
     animation: hud-out var(--t-base) var(--e-in) forwards;
+  }
+}
+
+// The collapsed pill's inner height, so the controls don't move when the hint row appears.
+.Row {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+}
+
+// Pulled up into the controls row's empty space under the buttons. A fixed height (the expanded pill's
+// leftover space) keeps the text still while the pill grows over it, instead of re-centering every frame.
+.Hint {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  height: 23px;
+  align-items: center;
+  justify-content: center;
+  margin-top: -5px;
+  padding: 4px 0;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 14px;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--e-in);
+
+  &.Shown {
+    opacity: 1;
+    transition-duration: var(--t-base);
+    transition-timing-function: var(--e-out);
+  }
+
+  // The controls' vertical divider, lying flat.
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 50%;
+    height: 1px;
+    background: var(--line-3);
+    transform: translateX(-50%);
   }
 }
 
@@ -73,11 +130,15 @@
 }
 
 .CaptureHud .FrameProgress {
-  width: 70px;
+  width: 50px;
 }
 
 .Spacer {
   flex: 1;
+}
+
+.Hinted {
+  display: flex;
 }
 
 .Divider {

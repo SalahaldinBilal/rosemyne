@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Going back from Settings to the history list is faster and no longer stutters while thumbnails load.
 - Dropping a file after visiting Settings no longer imports it more than once.
 - The update notice no longer shows again every time you leave Settings.
+- The recording bar is narrower and shows control labels under its buttons on hover instead of cut-off tooltips.
 
 ## [0.3.2] - 2026-11-07
 

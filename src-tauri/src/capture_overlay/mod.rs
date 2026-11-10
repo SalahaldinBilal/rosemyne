@@ -8,8 +8,9 @@ use crate::screen_manager::window::WindowBounds;
 pub const OVERLAY_HUD_LABEL: &str = "capture-hud";
 pub const OVERLAY_BORDER_LABEL: &str = "capture-border";
 
-const HUD_LOGICAL_WIDTH: f64 = 320.0;
-const HUD_LOGICAL_HEIGHT: f64 = 56.0;
+const HUD_LOGICAL_WIDTH: f64 = 260.0;
+/// The pill plus room under it for the hover hint, which the pill grows into.
+const HUD_LOGICAL_HEIGHT: f64 = 72.0;
 const HUD_MARGIN: i32 = 12;
 /// Stroke width (physical px) of the border ring drawn *outside* the region ,
 /// it never covers or appears in the captured/recorded pixels.
