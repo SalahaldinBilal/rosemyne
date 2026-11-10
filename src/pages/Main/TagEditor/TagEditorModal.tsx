@@ -8,7 +8,7 @@ import Button from "../../../components/Button/Button";
 import Segmented from "../../../components/Segmented/Segmented";
 import EmptyState from "../../../components/EmptyState/EmptyState";
 import { safeInvoke } from "../../../helpers/safeInvoke";
-import { describeUploaderError } from "../../../components/UploaderCreator/UploaderCreator";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { ImageHistoryData, TagValue, TagValueTypeMap } from "../../../types";
 import {
   cloneEntries, collectKeyErrors, defaultScalarFor, entriesSignature, entriesToObject, entryLabel, findEntry, findParentList, isContainer,
@@ -268,7 +268,7 @@ function TagEditorModal(props: {
       props.onSaved(screenshot.fileName, updated.tags);
       props.onHide();
     } catch (err) {
-      setSaveError(typeof err === "string" ? err : describeUploaderError(err));
+      setSaveError(errorMessage(err));
     } finally {
       setSaving(false);
     }

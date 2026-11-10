@@ -15,6 +15,7 @@ import { UPLOADER_VARIABLES } from "@core/constants/templateVariables";
 import { KeyValue, SavedUploader, UploaderBodyHandler, UploaderCreationError, UploaderOptions, UploaderResponseHandler, UploaderTestResult, UploaderValidation } from "@core/types/request";
 import { trackDeep } from "@solid-primitives/deep";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import useTitleBarState from "@core/states/titleBarState";
 import KeyValueList from "./KeyValueList/KeyValueList";
 import { previewLink, urlWithQuery } from "./linkPreview";
@@ -51,29 +52,6 @@ function emptyOptions(): UploaderOptions {
   };
 }
 
-export function describeUploaderError(error: UploaderCreationError | unknown): string {
-  if (typeof error === "string") return error;
-
-  const typed = error as UploaderCreationError;
-
-  switch (typed?.type) {
-    case "invalidUrl": return `Invalid URL "${typed.data.url}": ${typed.data.error}`;
-    case "invalidMethod": return `Invalid method "${typed.data}"`;
-    case "invalidHeaderName": return `Invalid header name "${typed.data}"`;
-    case "invalidHeaderValue": return `Invalid header value "${typed.data}"`;
-    case "invalidMime": return `Invalid mime type "${typed.data}"`;
-    case "requestFailed": return `Request failed: ${typed.data.error}`;
-    case "httpError": return `Server responded with status ${typed.data.status}: ${typed.data.body}`;
-    case "responseNotJson": return `Response was not valid JSON: ${typed.data}`;
-    case "jsonPathNotFound": return `Path "${typed.data.path}" was not found in the JSON response`;
-    case "imageNotFound": return `Image "${typed.data}" was not found in history`;
-    case "uploaderNotFound": return `Uploader "${typed.data}" no longer exists`;
-    case "noDefaultUploader": return "No default uploader is configured, create one in Settings › Uploaders";
-    case "fileReadFailed": return `Could not read the image file: ${typed.data}`;
-    default: return JSON.stringify(error);
-  }
-}
-
 function hostOf(url: string): string {
   try {
     return new URL(url).host;
@@ -86,7 +64,7 @@ function failureHeadline(error: UploaderCreationError | unknown): string {
   const typed = error as UploaderCreationError;
   if (typed?.type === "requestFailed") return `Couldn't connect · ${hostOf(typed.data.request.url)}: ${typed.data.error}`;
   if (typed?.type === "httpError") return `${typed.data.status} · the server refused the upload`;
-  return describeUploaderError(error);
+  return errorMessage(error);
 }
 
 function failureBody(error: UploaderCreationError | unknown): string | null {
@@ -156,7 +134,7 @@ function UploaderCreator(props: {
       invalidHeaderName: "headers",
       invalidHeaderValue: "headers",
     };
-    return (sectionByType[result.error.type] ?? "general") === section ? describeUploaderError(result.error) : null;
+    return (sectionByType[result.error.type] ?? "general") === section ? errorMessage(result.error) : null;
   }
 
   const requestError = createMemo(() => urlTouched() ? errorFor("request") : null);

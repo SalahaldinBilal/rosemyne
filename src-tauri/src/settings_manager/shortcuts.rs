@@ -71,39 +71,15 @@ pub enum ShortcutError {
 impl Display for ShortcutError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::HotKeyParseError(error) => {
-                f.write_str(&format!("ShortcutError::IoError: {}", error))
-            }
-            Self::PluginError(error) => {
-                f.write_str(&format!("ShortcutError::SerdeError: {}", error))
-            }
+            Self::HotKeyParseError(error) => write!(f, "Invalid shortcut: {error}"),
+            Self::PluginError(error) => write!(f, "Couldn't register the shortcut: {error}"),
         }
     }
 }
 
 impl Error for ShortcutError {}
 
-impl Serialize for ShortcutError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            ShortcutError::HotKeyParseError(error) => serializer.serialize_newtype_variant(
-                "ShortcutError",
-                0,
-                "hotKeyParseError",
-                &error.to_string(),
-            ),
-            ShortcutError::PluginError(error) => serializer.serialize_newtype_variant(
-                "ShortcutError",
-                0,
-                "pluginError",
-                &error.to_string(),
-            ),
-        }
-    }
-}
+crate::serialize_as_message!(ShortcutError);
 
 impl From<HotKeyParseError> for ShortcutError {
     fn from(value: HotKeyParseError) -> Self {

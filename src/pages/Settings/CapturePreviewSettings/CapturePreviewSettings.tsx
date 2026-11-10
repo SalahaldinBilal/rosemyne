@@ -6,6 +6,7 @@ import Checkbox from "@core/components/Checkbox/Checkbox";
 import DimensionField from "@core/components/NumberField/DimensionField";
 import DurationField from "@core/components/DurationField/DurationField";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { findMonitor } from "@core/helpers/monitors";
 import { CapturePreviewSettings as CapturePreviewSettingsData, MonitorInfo, PreviewClickAction, PreviewCorner, SelectItem } from "@core/types";
 import useToastState from "@core/states/toastState";
@@ -92,7 +93,7 @@ function CapturePreviewSettings() {
       markSettingsSaved();
     } catch (error) {
       setSettings(reconcile(previous));
-      pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
+      pushToast(errorMessage(error), "error", 6000);
     }
   }
 

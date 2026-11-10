@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 import styles from "./ScrollCaptureResult.module.scss";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import useToastState from "@core/states/toastState";
 import ImageViewer from "@core/components/ImageViewer/ImageViewer";
 import NumberField from "@core/components/NumberField/NumberField";
@@ -22,10 +23,6 @@ const MATCH_MODE_ITEMS: { id: StitchMatchMode, label: string }[] = [
 const PREVIEW_MARGIN = 8;
 
 type Step = "config" | "annotate";
-
-function errorText(error: unknown): string {
-  return typeof error === "string" ? error : JSON.stringify(error);
-}
 
 function ScrollCaptureResult() {
   const { pushToast } = useToastState;
@@ -113,7 +110,7 @@ function ScrollCaptureResult() {
       setParams(data.defaultParams);
       setStep("config");
     } catch (error) {
-      pushToast(`Failed to load the scrolling capture session: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to load the scrolling capture session: ${errorMessage(error)}`, "error", 6000);
     }
   });
 
@@ -136,7 +133,7 @@ function ScrollCaptureResult() {
         setImageId(result.imageId);
         setDimensions({ width: result.width, height: result.height });
       } catch (error) {
-        pushToast(`Failed to restitch: ${errorText(error)}`, "error", 6000);
+        pushToast(`Failed to restitch: ${errorMessage(error)}`, "error", 6000);
       } finally {
         setRestitching(false);
       }
@@ -158,7 +155,7 @@ function ScrollCaptureResult() {
     withSession(async current => {
       // cancel_scroll_capture_review closes this window and its JS stops there, so the overlay is requested first.
       await safeInvoke("scrolling_capture_screen").catch(error =>
-        pushToast(`Failed to start scrolling capture: ${errorText(error)}`, "error", 6000)
+        pushToast(`Failed to start scrolling capture: ${errorMessage(error)}`, "error", 6000)
       );
       try {
         await safeInvoke("cancel_scroll_capture_review", { sessionId: current.sessionId });
@@ -182,7 +179,7 @@ function ScrollCaptureResult() {
         await saveScreenshot(id, { x: final.x, y: final.y, width: final.width, height: final.height }, final.image, false);
         await safeInvoke("finish_scroll_capture_review", { sessionId: current.sessionId });
       } catch (error) {
-        pushToast(`Failed to save: ${errorText(error)}`, "error", 6000);
+        pushToast(`Failed to save: ${errorMessage(error)}`, "error", 6000);
       }
     });
   }

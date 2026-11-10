@@ -10,6 +10,7 @@ import TemplateInput from "@core/components/TemplateInput/TemplateInput";
 import { hasBadTokens } from "@core/components/TemplateInput/templateTokens";
 import { FILE_NAME_VARIABLES, SAVE_PATH_VARIABLES, TemplateVariable } from "@core/constants/templateVariables";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { GeneralSettings as GeneralSettingsData, ScreenshotImageFormat, SelectItem, VideoCodec } from "@core/types";
 import useToastState from "@core/states/toastState";
 import useSettingsSavedState from "@core/states/settingsSavedState";
@@ -107,7 +108,7 @@ function GeneralSettings() {
     } catch (error) {
       setGeneral(reconcile(previous));
       syncDrafts(previous);
-      pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
+      pushToast(errorMessage(error), "error", 6000);
     }
   }
 

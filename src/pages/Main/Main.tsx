@@ -24,7 +24,7 @@ import KeyRenderer from "@core/components/KeyRenderer/KeyRenderer";
 import { Spinner } from "@core/components/Progress/Progress";
 import { useNavigate } from "@solidjs/router";
 import { safeInvoke } from "@core/helpers/safeInvoke";
-import { describeUploaderError } from "@core/components/UploaderCreator/UploaderCreator";
+import { errorMessage } from "@core/helpers/errorMessage";
 import UploadErrorDetailsModal from "@core/components/UploadErrorDetailsModal/UploadErrorDetailsModal";
 import { UploaderCreationError } from "@core/types/request";
 import { Camera, CloudUpload, Copy, ExternalLink, File, FileSymlink, FolderOpen, FolderSymlink, Import, Link, LucideIcon, Pencil, ScrollText, SearchX, Settings2, Tag, Trash2, Video } from "lucide-solid";
@@ -173,7 +173,7 @@ function Main() {
       setAnimateEntrance(true);
       entranceTimer = window.setTimeout(() => setAnimateEntrance(false), ENTRANCE_MS);
     } catch (error) {
-      if (token === requestToken) pushToast(`Failed to load captures: ${errorText(error)}`, "error", 6000);
+      if (token === requestToken) pushToast(`Failed to load captures: ${errorMessage(error)}`, "error", 6000);
     } finally {
       if (token === requestToken) setLoading(false);
     }
@@ -189,7 +189,7 @@ function Main() {
       nextCursor = page.nextCursor;
       setItems(produce(list => list.push(...page.items)));
     } catch (error) {
-      if (token === requestToken) pushToast(`Failed to load captures: ${errorText(error)}`, "error", 6000);
+      if (token === requestToken) pushToast(`Failed to load captures: ${errorMessage(error)}`, "error", 6000);
     } finally {
       if (token === requestToken) setLoading(false);
     }
@@ -331,7 +331,7 @@ function Main() {
       try {
         await safeInvoke("import_file", { path });
       } catch (error) {
-        pushToast(`Failed to import ${path}: ${errorText(error)}`, "error", 6000);
+        pushToast(`Failed to import ${path}: ${errorMessage(error)}`, "error", 6000);
       }
     }
   }
@@ -351,17 +351,13 @@ function Main() {
     flashTimers[fileName] = window.setTimeout(() => setCardFlash(fileName, undefined), FLASH_MS);
   }
 
-  function errorText(error: unknown): string {
-    return typeof error === "string" ? error : describeUploaderError(error);
-  }
-
   // A failed action is something the user might miss, so it's a toast. A success is a chip on the card.
   async function runCardAction(screenshot: ImageHistoryData, action: () => Promise<unknown>, success?: string, failure = "That didn't work") {
     try {
       await action();
       if (success) flash(screenshot.fileName, success);
     } catch (error) {
-      pushToast(`${failure}: ${errorText(error)}`, "error", 6000);
+      pushToast(`${failure}: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -414,7 +410,7 @@ function Main() {
       setPreview(screenshot);
       setEditSession(session);
     } catch (error) {
-      pushToast(`Failed to open the editor: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to open the editor: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -448,7 +444,7 @@ function Main() {
       setEditSession(null);
       setPreview(null);
     } catch (error) {
-      pushToast(`Failed to save the edited image: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to save the edited image: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -469,7 +465,7 @@ function Main() {
     try {
       await safeInvoke("delete_screenshot", { fileName: screenshot.fileName });
     } catch (error) {
-      pushToast(`Couldn't delete "${screenshot.fileName}": ${errorText(error)}`, "error", 6000);
+      pushToast(`Couldn't delete "${screenshot.fileName}": ${errorMessage(error)}`, "error", 6000);
       return;
     }
 
@@ -486,7 +482,7 @@ function Main() {
     try {
       await safeInvoke(command);
     } catch (error) {
-      pushToast(`${failure}: ${errorText(error)}`, "error", 6000);
+      pushToast(`${failure}: ${errorMessage(error)}`, "error", 6000);
     }
   }
 

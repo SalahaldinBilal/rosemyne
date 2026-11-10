@@ -1,18 +1,12 @@
 use std::{error::Error, fmt::Display, io::Error as IoError};
 
-use serde::Serialize;
 use serde_json::Error as SerdeError;
-
-use crate::error_serializers::error_serialize;
 
 use super::ShortcutError;
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum SettingsError {
-    #[serde(serialize_with = "error_serialize")]
     IoError(IoError),
-    #[serde(serialize_with = "error_serialize")]
     SerdeError(SerdeError),
     ShortcutError(ShortcutError),
     AutostartError(String),
@@ -21,21 +15,17 @@ pub enum SettingsError {
 impl Display for SettingsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::IoError(error) => f.write_str(&format!("SettingsError::IoError: {}", error)),
-            Self::SerdeError(error) => {
-                f.write_str(&format!("SettingsError::SerdeError: {}", error))
-            }
-            Self::ShortcutError(error) => {
-                f.write_str(&format!("SettingsError::ShortcutError: {}", error))
-            }
-            Self::AutostartError(error) => {
-                f.write_str(&format!("SettingsError::AutostartError: {}", error))
-            }
+            Self::IoError(error) => write!(f, "Couldn't access the settings file: {error}"),
+            Self::SerdeError(error) => write!(f, "The settings file is invalid: {error}"),
+            Self::ShortcutError(error) => write!(f, "{error}"),
+            Self::AutostartError(error) => write!(f, "Couldn't change start with system: {error}"),
         }
     }
 }
 
 impl Error for SettingsError {}
+
+crate::serialize_as_message!(SettingsError);
 
 impl From<IoError> for SettingsError {
     fn from(value: IoError) -> Self {

@@ -3,6 +3,7 @@ import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import Input from "@core/components/Input/Input";
 import Button from "@core/components/Button/Button";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { MigrationProgress, MigrationSummary } from "@core/types";
 import { documentDir, join } from "@tauri-apps/api/path";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -51,7 +52,7 @@ function ShareXImport() {
       setSummary({ data, dryRun });
       if (!dryRun) backfillLargeVideoThumbnails();
     } catch (err) {
-      pushToast(typeof err === "string" ? err : JSON.stringify(err), "error", 8000);
+      pushToast(errorMessage(err), "error", 8000);
     } finally {
       setRunning(false);
       setProgress(null);

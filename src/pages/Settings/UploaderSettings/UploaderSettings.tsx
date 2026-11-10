@@ -4,6 +4,7 @@ import Button from "@core/components/Button/Button";
 import Badge, { MethodBadge } from "@core/components/Badge/Badge";
 import Modal from "@core/components/Modal/Modal";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { SavedUploader } from "@core/types/request";
 import { createSignal, For, onMount, Show } from "solid-js";
 import { Copy, Pencil, Plus, Star, Trash2 } from "lucide-solid";
@@ -32,7 +33,7 @@ function UploaderSettings() {
       await refresh();
       markSettingsSaved();
     } catch (err) {
-      pushToast(typeof err === "string" ? err : JSON.stringify(err), "error", 6000);
+      pushToast(errorMessage(err), "error", 6000);
     }
   }
 

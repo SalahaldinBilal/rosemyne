@@ -57,48 +57,23 @@ pub enum UploaderError {
 impl Display for UploaderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidUrl { url, error } => f.write_str(&format!(
-                "UploaderError::InvalidUrl: {{ url: {:?}, error: {:?} }}",
-                url, error
-            )),
-            Self::InvalidMethod(method) => {
-                f.write_str(&format!("UploaderError::InvalidMethod: {:?}", method))
+            Self::InvalidUrl { url, error } => write!(f, "Invalid URL \"{url}\": {error}"),
+            Self::InvalidMethod(method) => write!(f, "Invalid method \"{method}\""),
+            Self::InvalidHeaderName(name) => write!(f, "Invalid header name \"{name}\""),
+            Self::InvalidHeaderValue(value) => write!(f, "Invalid header value \"{value}\""),
+            Self::InvalidMime(mime) => write!(f, "Invalid mime type \"{mime}\""),
+            Self::RequestFailed { error, .. } => write!(f, "Request failed: {error}"),
+            Self::HttpError { status, body, .. } => {
+                write!(f, "Server responded with status {status}: {body}")
             }
-            Self::InvalidHeaderName(name) => {
-                f.write_str(&format!("UploaderError::InvalidHeaderName: {:?}", name))
-            }
-            Self::InvalidHeaderValue(value) => {
-                f.write_str(&format!("UploaderError::InvalidHeaderValue: {:?}", value))
-            }
-            Self::InvalidMime(mime) => {
-                f.write_str(&format!("UploaderError::InvalidMime: {:?}", mime))
-            }
-            Self::RequestFailed { request, error } => f.write_str(&format!(
-                "UploaderError::RequestFailed: {{ request: {:?}, error: {} }}",
-                request, error
-            )),
-            Self::HttpError { status, body, .. } => f.write_str(&format!(
-                "UploaderError::HttpError: {{ status: {}, body: {:?} }}",
-                status, body
-            )),
-            Self::ResponseNotJson(body) => {
-                f.write_str(&format!("UploaderError::ResponseNotJson: {:?}", body))
-            }
+            Self::ResponseNotJson(body) => write!(f, "Response was not valid JSON: {body}"),
             Self::JsonPathNotFound { path } => {
-                f.write_str(&format!("UploaderError::JsonPathNotFound: {:?}", path))
+                write!(f, "Path \"{path}\" was not found in the JSON response")
             }
-            Self::ImageNotFound(file_name) => {
-                f.write_str(&format!("UploaderError::ImageNotFound: {:?}", file_name))
-            }
-            Self::UploaderNotFound(id) => {
-                f.write_str(&format!("UploaderError::UploaderNotFound: {:?}", id))
-            }
-            Self::NoDefaultUploader => {
-                f.write_str("UploaderError::NoDefaultUploader: no default uploader is configured")
-            }
-            Self::FileReadFailed(error) => {
-                f.write_str(&format!("UploaderError::FileReadFailed: {}", error))
-            }
+            Self::ImageNotFound(file_name) => write!(f, "Image \"{file_name}\" was not found in history"),
+            Self::UploaderNotFound(id) => write!(f, "Uploader \"{id}\" no longer exists"),
+            Self::NoDefaultUploader => f.write_str("No default uploader is configured"),
+            Self::FileReadFailed(error) => write!(f, "Could not read the image file: {error}"),
         }
     }
 }

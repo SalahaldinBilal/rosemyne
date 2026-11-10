@@ -2,6 +2,7 @@ import styles from "./OverlayDefaultsSettings.module.scss";
 import { createMemo, createSignal, For, JSX, Match, onMount, Show, Switch } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { CursorSource, GeneralSettings, SelectItem } from "@core/types";
 import Select from "@core/components/Select/Select";
 import Segmented from "@core/components/Segmented/Segmented";
@@ -160,7 +161,7 @@ function OverlayDefaultsSettings() {
   });
 
   function report(error: unknown) {
-    pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
+    pushToast(errorMessage(error), "error", 6000);
   }
 
   async function addImage() {

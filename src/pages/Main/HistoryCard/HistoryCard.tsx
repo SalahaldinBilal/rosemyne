@@ -3,7 +3,7 @@ import { createEffect, createMemo, createSignal, JSX, Match, onCleanup, onMount,
 import { CircleCheck, Copy, CloudUpload, Ellipsis, File, FileSearch, FolderOpen, Link, Play, RefreshCw, TriangleAlert, Video } from "lucide-solid";
 import { ImageHistoryData, TagValue } from "../../../types";
 import { UploaderCreationError } from "../../../types/request";
-import { describeUploaderError } from "../../../components/UploaderCreator/UploaderCreator";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { errorHasRequestDetails } from "../../../components/UploadErrorDetailsModal/UploadErrorDetailsModal";
 import { tagNumber } from "../../../states/tagFilterState";
 import { formatSystemDateTime } from "../../../helpers/systemDateFormat";
@@ -194,7 +194,7 @@ function HistoryCard(props: {
   });
   const uploading = createMemo(() => props.upload.progress !== undefined);
   const error = createMemo(() => !uploading() ? props.screenshot.uploadError : undefined);
-  const errorText = createMemo(() => error() ? describeUploaderError(error()) : "");
+  const errorText = createMemo(() => error() ? errorMessage(error()) : "");
   const linkText = createMemo(() => props.screenshot.url?.replace(/^https?:\/\//, ""));
   const hasErrorDetails = createMemo(() => errorHasRequestDetails(error()));
   const imageUrl = createMemo(() => savedUrl(props.screenshot.fileName));

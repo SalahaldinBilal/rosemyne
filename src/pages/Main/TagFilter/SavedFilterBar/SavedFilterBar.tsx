@@ -3,7 +3,7 @@ import { createMemo, createSignal, onMount, Show } from "solid-js";
 import { SelectItem } from "../../../../types";
 import useTagFilterState from "../../../../states/tagFilterState";
 import useToastState from "../../../../states/toastState";
-import { describeUploaderError } from "../../../../components/UploaderCreator/UploaderCreator";
+import { errorMessage } from "@core/helpers/errorMessage";
 import Button from "../../../../components/Button/Button";
 import Select from "../../../../components/Select/Select";
 import Input from "../../../../components/Input/Input";
@@ -19,7 +19,7 @@ function SavedFilterBar() {
   const [draftName, setDraftName] = createSignal("");
 
   onMount(() => refreshSavedFilters().catch(error =>
-    pushToast(`Failed to load saved filters: ${describeUploaderError(error)}`, "error", 6000),
+    pushToast(`Failed to load saved filters: ${errorMessage(error)}`, "error", 6000),
   ));
 
   const items = createMemo<SelectItem<string>[]>(() => [
@@ -44,7 +44,7 @@ function SavedFilterBar() {
     try {
       await saveFilterAs(name);
     } catch (error) {
-      pushToast(`Failed to save filter: ${describeUploaderError(error)}`, "error", 6000);
+      pushToast(`Failed to save filter: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -54,7 +54,7 @@ function SavedFilterBar() {
       await saveFilterAs(trimmedName());
       setNaming(false);
     } catch (error) {
-      pushToast(`Failed to save filter: ${describeUploaderError(error)}`, "error", 6000);
+      pushToast(`Failed to save filter: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -64,7 +64,7 @@ function SavedFilterBar() {
     try {
       await deleteFilter(name);
     } catch (error) {
-      pushToast(`Failed to delete filter: ${describeUploaderError(error)}`, "error", 6000);
+      pushToast(`Failed to delete filter: ${errorMessage(error)}`, "error", 6000);
     }
   }
 

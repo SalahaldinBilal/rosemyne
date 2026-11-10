@@ -9,7 +9,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use image::{DynamicImage, ImageError, ImageFormat, RgbaImage};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use super::window::{WindowInfo, window_coverage_tags};
 use crate::capture_profile::CaptureProfile;
@@ -299,12 +299,10 @@ pub struct ImageHistoryData {
     pub upload_error: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum EncodeError {
     NotExists,
-    #[serde(serialize_with = "deserialize_image_error_string")]
     EncodeError(ImageError),
-    #[serde(serialize_with = "serialize_io_error_string")]
     IoError(std::io::Error),
 }
 
@@ -317,8 +315,8 @@ impl From<ImageError> for EncodeError {
 impl Display for EncodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotExists => f.write_str("EncodeError::NotExists Image did not exist in map"),
-            Self::EncodeError(err) => err.fmt(f),
+            Self::NotExists => f.write_str("This capture is no longer available"),
+            Self::EncodeError(err) => write!(f, "Couldn't encode the image: {err}"),
             Self::IoError(err) => err.fmt(f),
         }
     }
@@ -326,19 +324,7 @@ impl Display for EncodeError {
 
 impl Error for EncodeError {}
 
-fn deserialize_image_error_string<S>(v: &ImageError, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&v.to_string())
-}
-
-fn serialize_io_error_string<S>(v: &std::io::Error, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&v.to_string())
-}
+crate::serialize_as_message!(EncodeError);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(untagged)]

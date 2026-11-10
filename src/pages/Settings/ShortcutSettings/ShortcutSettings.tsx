@@ -23,6 +23,7 @@ import {
 } from "@core/types";
 import { SavedUploader } from "@core/types/request";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { findMonitor } from "@core/helpers/monitors";
 import { CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
 import { emptyOverrides, keepOverrides, OVERRIDE_KEYS, OverrideKey, overrideCount } from "@core/helpers/captureOverrides";
@@ -172,7 +173,7 @@ function ShortcutSettings() {
   function run(action: () => Promise<any>) {
     return action()
       .then(markSettingsSaved)
-      .catch(err => pushToast(`Could not update the shortcut: ${typeof err === "string" ? err : JSON.stringify(err)}`, "error", 6000));
+      .catch(err => pushToast(`Could not update the shortcut: ${errorMessage(err)}`, "error", 6000));
   }
 
   function defaultTarget(): CaptureTarget {
@@ -304,7 +305,7 @@ function ShortcutSettings() {
       });
       await safeInvoke("start_region_pick");
     } catch (err) {
-      pushToast(`Could not start region selection: ${typeof err === "string" ? err : JSON.stringify(err)}`, "error", 6000);
+      pushToast(`Could not start region selection: ${errorMessage(err)}`, "error", 6000);
     }
   }
 

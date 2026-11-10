@@ -4,6 +4,7 @@ import Button from "@core/components/Button/Button";
 import Badge from "@core/components/Badge/Badge";
 import { Spinner } from "@core/components/Progress/Progress";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { ContextMenuStatus, Windows11MenuStatus } from "@core/types";
 import useToastState from "@core/states/toastState";
 import useSettingsSavedState from "@core/states/settingsSavedState";
@@ -34,7 +35,7 @@ function ContextMenuSettings() {
       setStatus(await action());
       markSettingsSaved();
     } catch (error) {
-      pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
+      pushToast(errorMessage(error), "error", 6000);
       setStatus(await safeInvoke("get_context_menu_status").catch(() => previous));
     } finally {
       setBusy(false);

@@ -8,6 +8,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { checkForUpdate, Update } from "@core/helpers/updater";
 import { DownloadEvent } from "@tauri-apps/plugin-updater";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage as describeError } from "@core/helpers/errorMessage";
 import Button from "@core/components/Button/Button";
 import Modal from "@core/components/Modal/Modal";
 import { CircleCheck, Download, RefreshCw, ScrollText, TriangleAlert } from "lucide-solid";
@@ -42,7 +43,7 @@ function UpdateSettings() {
     try {
       setChangelogText(await safeInvoke("fetch_changelog"));
     } catch (error) {
-      setChangelogError(typeof error === "string" ? error : JSON.stringify(error));
+      setChangelogError(describeError(error));
     } finally {
       setChangelogLoading(false);
     }
@@ -61,7 +62,7 @@ function UpdateSettings() {
         setPhase("upToDate");
       }
     } catch (error) {
-      setErrorMessage(typeof error === "string" ? error : JSON.stringify(error));
+      setErrorMessage(describeError(error));
       setPhase("error");
     }
   }
@@ -88,7 +89,7 @@ function UpdateSettings() {
       });
       setPhase("readyToRestart");
     } catch (error) {
-      setErrorMessage(typeof error === "string" ? error : JSON.stringify(error));
+      setErrorMessage(describeError(error));
       setPhase("error");
     }
   }

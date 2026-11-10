@@ -8,6 +8,7 @@ import { renderFinalImageAsync } from "../helpers/renderFinalImageAsync";
 import { loadImage } from "../helpers";
 import { saveScreenshot } from "../helpers/saveScreenshot";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import useToastState from "./toastState";
 import useOverlayDefaultsState from "./overlayDefaultsState";
 import useOverlayImagesState from "./overlayImagesState";
@@ -176,7 +177,7 @@ function useScreenshotOverlayStateInner() {
       if (imageIdToSave !== undefined && box.width > 5 && box.height > 5) {
         safeInvoke("start_recording", {
           region: { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) },
-        }).catch(error => pushToast(`Failed to start recording: ${typeof error === "string" ? error : JSON.stringify(error)}`, "error", 6000));
+        }).catch(error => pushToast(`Failed to start recording: ${errorMessage(error)}`, "error", 6000));
       } else {
         safeInvoke("hide_screenshot_window");
       }
@@ -193,7 +194,7 @@ function useScreenshotOverlayStateInner() {
           region: { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) },
           id: imageIdToSave,
           overrides: { ...unwrap(scrollCaptureParams) },
-        }).catch(error => pushToast(`Failed to start scrolling capture: ${typeof error === "string" ? error : JSON.stringify(error)}`, "error", 6000));
+        }).catch(error => pushToast(`Failed to start scrolling capture: ${errorMessage(error)}`, "error", 6000));
       } else {
         safeInvoke("hide_screenshot_window");
       }

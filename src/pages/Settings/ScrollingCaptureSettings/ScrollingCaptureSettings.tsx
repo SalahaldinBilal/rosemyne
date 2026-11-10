@@ -4,6 +4,7 @@ import NumberField from "@core/components/NumberField/NumberField";
 import ScrollDistanceInput from "@core/components/ScrollDistanceInput/ScrollDistanceInput";
 import DurationField from "@core/components/DurationField/DurationField";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { ScrollingCaptureSettings as ScrollingCaptureSettingsData } from "@core/types";
 import useToastState from "@core/states/toastState";
 import useSettingsSavedState from "@core/states/settingsSavedState";
@@ -31,7 +32,7 @@ function ScrollingCaptureSettings() {
       markSettingsSaved();
     } catch (error) {
       setSettings(reconcile(previous));
-      pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
+      pushToast(errorMessage(error), "error", 6000);
     }
   }
 

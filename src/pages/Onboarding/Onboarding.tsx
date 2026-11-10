@@ -5,6 +5,7 @@ import { createStore, unwrap } from "solid-js/store";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useNavigate } from "@solidjs/router";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { GeneralSettings as GeneralSettingsData } from "@core/types";
 import Button from "@core/components/Button/Button";
 import useToastState from "@core/states/toastState";
@@ -67,7 +68,7 @@ function Onboarding() {
     try {
       await safeInvoke("set_general_settings", { general: structuredClone(unwrap(general)) });
     } catch (error) {
-      pushToast(typeof error === "string" ? error : JSON.stringify(error), "error", 6000);
+      pushToast(errorMessage(error), "error", 6000);
     }
   }
 

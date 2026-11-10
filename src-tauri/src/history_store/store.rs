@@ -11,7 +11,6 @@ use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::error_serializers::error_serialize;
 use crate::screen_manager::screenshot_manager::{HistoryItemType, ImageHistoryData, TagValue, encode_image_as};
 
 use super::compile::{collect_index_entries, compile};
@@ -1463,12 +1462,9 @@ fn name_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
     Ok(count > 0)
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum HistoryError {
-    #[serde(serialize_with = "error_serialize")]
     Sqlite(rusqlite::Error),
-    #[serde(serialize_with = "error_serialize")]
     Io(std::io::Error),
     Encode(String),
     Task(String),
@@ -1478,16 +1474,18 @@ pub enum HistoryError {
 impl Display for HistoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Sqlite(err) => write!(f, "HistoryError::Sqlite: {err}"),
-            Self::Io(err) => write!(f, "HistoryError::Io: {err}"),
-            Self::Encode(err) => write!(f, "HistoryError::Encode: {err}"),
-            Self::Task(err) => write!(f, "HistoryError::Task: {err}"),
-            Self::InvalidInput(err) => write!(f, "HistoryError::InvalidInput: {err}"),
+            Self::Sqlite(err) => write!(f, "History database error: {err}"),
+            Self::Io(err) => write!(f, "{err}"),
+            Self::Encode(err) => write!(f, "Couldn't process the image: {err}"),
+            Self::Task(err) => write!(f, "{err}"),
+            Self::InvalidInput(err) => write!(f, "{err}"),
         }
     }
 }
 
 impl Error for HistoryError {}
+
+crate::serialize_as_message!(HistoryError);
 
 impl From<rusqlite::Error> for HistoryError {
     fn from(value: rusqlite::Error) -> Self {

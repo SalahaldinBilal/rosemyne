@@ -1,7 +1,5 @@
 use std::{error::Error, fmt::Display};
 
-use serde::{Serialize, Serializer};
-
 #[derive(Debug)]
 pub enum RecordingError {
     Unsupported(&'static str),
@@ -23,14 +21,7 @@ impl Display for RecordingError {
 
 impl Error for RecordingError {}
 
-impl Serialize for RecordingError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
+crate::serialize_as_message!(RecordingError);
 
 impl From<std::io::Error> for RecordingError {
     fn from(value: std::io::Error) -> Self {

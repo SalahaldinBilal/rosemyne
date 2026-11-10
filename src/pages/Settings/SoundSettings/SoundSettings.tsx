@@ -8,6 +8,7 @@ import Checkbox from "@core/components/Checkbox/Checkbox";
 import useSettingsSavedState from "@core/states/settingsSavedState";
 import { SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 import { safeInvoke } from "@core/helpers/safeInvoke";
+import { errorMessage } from "@core/helpers/errorMessage";
 import { SoundKind, SoundSettings as SoundSettingsData } from "@core/types";
 import { FolderOpen, Play, RotateCcw } from "lucide-solid";
 import useToastState from "@core/states/toastState";
@@ -47,17 +48,13 @@ function SoundSettings() {
     for (const timer of Object.values(volumeTimers)) clearTimeout(timer);
   });
 
-  function errorText(error: unknown): string {
-    return typeof error === "string" ? error : JSON.stringify(error);
-  }
-
   async function toggleEnabled(kind: SoundKind, enabled: boolean) {
     setSettings(kind, "enabled", enabled);
     try {
       await safeInvoke("set_sound_enabled", { kind, enabled });
       markSettingsSaved();
     } catch (error) {
-      pushToast(`Failed to update the setting: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to update the setting: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -67,7 +64,7 @@ function SoundSettings() {
       await safeInvoke("set_instant_capture_sound_enabled", { kind, enabled });
       markSettingsSaved();
     } catch (error) {
-      pushToast(`Failed to update the setting: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to update the setting: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -79,7 +76,7 @@ function SoundSettings() {
         await safeInvoke("set_sound_volume", { kind, volume });
         markSettingsSaved();
       } catch (error) {
-        pushToast(`Failed to update the volume: ${errorText(error)}`, "error", 6000);
+        pushToast(`Failed to update the volume: ${errorMessage(error)}`, "error", 6000);
       }
     }, VOLUME_SAVE_DEBOUNCE_MS);
   }
@@ -97,7 +94,7 @@ function SoundSettings() {
       markSettingsSaved();
       await safeInvoke("preview_sound", { kind });
     } catch (error) {
-      pushToast(`Failed to set the custom sound: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to set the custom sound: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -107,7 +104,7 @@ function SoundSettings() {
       setSettings(kind, setting);
       markSettingsSaved();
     } catch (error) {
-      pushToast(`Failed to reset the sound: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to reset the sound: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
@@ -115,7 +112,7 @@ function SoundSettings() {
     try {
       await safeInvoke("preview_sound", { kind });
     } catch (error) {
-      pushToast(`Failed to play the sound: ${errorText(error)}`, "error", 6000);
+      pushToast(`Failed to play the sound: ${errorMessage(error)}`, "error", 6000);
     }
   }
 
