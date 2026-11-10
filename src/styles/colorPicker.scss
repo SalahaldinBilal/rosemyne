@@ -1,0 +1,135 @@
+// Restyles @thednp/solid-color-picker. Sizes stay as shipped: its JS hardcodes them for knob placement.
+.color-picker {
+  --dropdown-bg: var(--bg-2);
+  --dropdown-color: var(--text-2);
+  --dropdown-shadow: var(--sh-3);
+  --dropdown-transition: opacity var(--t-base) var(--e-out), transform var(--t-base) var(--e-out);
+  --visual-shadow: 0 0 0 1px rgb(255 255 255 / 0.08) inset;
+
+  // Its text is hidden, callers draw their own readable label over the swatch.
+  // Bordered and focused like Input. The focus look stays while the popup is open.
+  .color-preview {
+    padding: 0;
+    color: transparent;
+    caret-color: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-md);
+    box-shadow: none;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+
+    &:focus {
+      box-shadow: none;
+    }
+  }
+
+  .picker-toggle:hover + .color-preview {
+    border-color: var(--line-3);
+  }
+
+  &:focus-within .color-preview {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .color-dropdown {
+    padding: 14px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-lg);
+
+    &:not(.show) {
+      transition-duration: var(--t-fast);
+      transition-timing-function: var(--e-in);
+    }
+  }
+
+  .visual-control {
+    border-radius: var(--r-sm);
+  }
+
+  .color-control + .color-control {
+    margin-left: 14px;
+  }
+
+  .visual-control2,
+  .visual-control3 {
+    border-radius: var(--r-xs);
+  }
+
+  // The alpha gradient fades to nothing, so give it a checkerboard to fade over.
+  .color-control:has(.visual-control3) {
+    background: repeating-conic-gradient(var(--bg-5) 0% 25%, var(--bg-3) 0% 50%) 0 0 / 10px 10px;
+    border-radius: var(--r-xs);
+  }
+
+  .color-pointer.knob {
+    width: 8px;
+    height: 8px;
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-full);
+    box-shadow: 0 0 0 3px #fff, 0 0 0 4px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.5);
+    transition: box-shadow var(--t-fast);
+
+    &:hover,
+    &:focus,
+    &:active {
+      box-shadow: 0 0 0 4px #fff, 0 0 0 5px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.55);
+    }
+  }
+
+  .color-slider.knob {
+    left: -2px;
+    width: calc(100% + 4px);
+    height: 8px;
+    background: #fff;
+    border: 0;
+    border-radius: var(--r-full);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 1px 4px rgb(0 0 0 / 0.5);
+    transition: box-shadow var(--t-fast);
+
+    &:hover,
+    &:focus,
+    &:active {
+      box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 0 0 4px rgb(255 255 255 / 0.2), 0 1px 4px rgb(0 0 0 / 0.5);
+    }
+  }
+
+  .color-form {
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+    padding-top: 10px;
+    font: 500 12px var(--font-mono);
+
+    label {
+      width: auto;
+      max-width: none;
+      flex: none;
+      color: var(--text-3);
+    }
+  }
+
+  .color-input.hex {
+    flex: 1;
+    width: auto;
+    max-width: none;
+    height: var(--ctl-h-sm);
+    padding: 0 8px;
+    color: var(--text-1);
+    text-align: left;
+    background: var(--bg-1);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-sm);
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+
+    &:hover {
+      border-color: var(--line-3);
+    }
+
+    &:focus {
+      background: var(--bg-1);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+  }
+}

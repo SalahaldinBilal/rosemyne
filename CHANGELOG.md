@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The color picker matches the rest of the app.
+
 ### Fixed
 
 - Error messages are readable sentences instead of raw error data.

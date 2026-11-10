@@ -1,4 +1,4 @@
-import { createMemo, For, mapArray, Match, Switch } from "solid-js";
+import { createMemo, createSignal, For, mapArray, Match, Switch } from "solid-js";
 import styles from "./OverlayAttributeList.module.scss";
 import { ImageOverlayAttributeMap, ImageOverlayNumberAttribute, ImageOverlaySelectAttribute } from "@core/types/imageOverlay";
 import Select from "@core/components/Select/Select";
@@ -17,7 +17,7 @@ function OverlayAttributeList(props: { attributes: ImageOverlayAttributeMap, onC
       const options = createMemo(() => attribute.type === "select"
         ? (attribute as ImageOverlaySelectAttribute).options.map(option => ({ id: option, value: option, label: option }))
         : []);
-      let lastColor = String(attribute.value).toLowerCase();
+      const [color, setColor] = createSignal(String(attribute.value).toLowerCase());
 
       return <div class={styles.AttributeRow}>
         <span class={styles.AttributeLabel}>{label()}</span>
@@ -29,13 +29,14 @@ function OverlayAttributeList(props: { attributes: ImageOverlayAttributeMap, onC
                   format="hex"
                   theme="dark"
                   value={attribute.value as string}
-                  onChange={color => {
+                  onChange={next => {
                     // The picker reports its current color once on mount, which isn't an edit.
-                    if (color.toLowerCase() === lastColor) return;
-                    lastColor = color.toLowerCase();
-                    props.onChange(attribute.name, color);
+                    if (next.toLowerCase() === color()) return;
+                    setColor(next.toLowerCase());
+                    props.onChange(attribute.name, next);
                   }}
                 />
+                <span class={styles.ColorLabel}>{color()}</span>
               </div>
             </Match>
             <Match when={attribute.type === "number"}>

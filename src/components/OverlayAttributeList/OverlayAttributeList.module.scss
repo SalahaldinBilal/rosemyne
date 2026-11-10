@@ -39,22 +39,34 @@
 }
 
 .ColorPickerWrapper {
+  position: relative;
   display: flex;
   width: 96px;
   height: 28px;
-  // Matches the swatch's own radius. Not overflow: hidden, which would clip the picker popup.
-  border-radius: 0.25rem;
-
-  // The picker picks black text whenever alpha is 0.33 or less, assuming a light backdrop behind a
-  // translucent color. Rosemyne draws none, so a flat mid-tone keeps both text colors legible.
+  // Not overflow: hidden, which would clip the picker popup.
+  border-radius: var(--r-md);
+  // Shows through a translucent color instead of the row behind it.
   background-color: #888;
 
   :global(.color-picker) {
     width: 100%;
     height: 100%;
   }
+}
 
-  :global(.color-preview) {
-    padding: 0 6px !important;
-  }
+.ColorLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  font: 500 11px/1.35 var(--font-mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: rgb(255 255 255 / 0.95);
+  background: rgb(12 12 15 / 0.62);
+  border-radius: var(--r-full);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1) inset, 0 1px 3px rgb(0 0 0 / 0.25);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
 }

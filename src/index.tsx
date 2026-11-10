@@ -10,6 +10,7 @@ import CapturePreview from "./pages/CapturePreview/CapturePreview";
 import Screenshot from "./pages/Screenshot/Screenshot";
 import '@fontsource-variable/inter/index.css';
 import '@thednp/solid-color-picker/style.css';
+import './styles/colorPicker.scss';
 import Settings from "./pages/Settings/Settings";
 import GeneralSettings from "./pages/Settings/GeneralSettings/GeneralSettings";
 import ShortcutSettings from "./pages/Settings/ShortcutSettings/ShortcutSettings";
