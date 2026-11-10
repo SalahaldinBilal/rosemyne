@@ -17,6 +17,7 @@ function OverlayAttributeList(props: { attributes: ImageOverlayAttributeMap, onC
       const options = createMemo(() => attribute.type === "select"
         ? (attribute as ImageOverlaySelectAttribute).options.map(option => ({ id: option, value: option, label: option }))
         : []);
+      let lastColor = String(attribute.value).toLowerCase();
 
       return <div class={styles.AttributeRow}>
         <span class={styles.AttributeLabel}>{label()}</span>
@@ -28,7 +29,12 @@ function OverlayAttributeList(props: { attributes: ImageOverlayAttributeMap, onC
                   format="hex"
                   theme="dark"
                   value={attribute.value as string}
-                  onChange={color => props.onChange(attribute.name, color)}
+                  onChange={color => {
+                    // The picker reports its current color once on mount, which isn't an edit.
+                    if (color.toLowerCase() === lastColor) return;
+                    lastColor = color.toLowerCase();
+                    props.onChange(attribute.name, color);
+                  }}
                 />
               </div>
             </Match>

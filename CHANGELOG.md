@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Error messages are readable sentences instead of raw error data.
+- Opening Overlay defaults no longer shows "Saved".
 
 ## [0.3.2] - 2026-11-07
 
