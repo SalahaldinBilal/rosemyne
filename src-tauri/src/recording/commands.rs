@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use serde::Serialize;
 use tauri::async_runtime::Mutex;
@@ -141,11 +141,21 @@ pub async fn start_recording(
     Ok(status)
 }
 
+// Probing opens real hardware encoders, so it runs once per session and off the main thread.
+static AVAILABLE_CODECS: OnceLock<Vec<VideoCodec>> = OnceLock::new();
+
 /// Codecs the running hardware/drivers can actually initialize (probed, not
 /// just OS/crate support), the settings UI only offers what's real.
 #[tauri::command]
-pub fn get_available_video_codecs() -> Vec<VideoCodec> {
-    Recorder::available_codecs()
+pub async fn get_available_video_codecs() -> Result<Vec<VideoCodec>, String> {
+    if let Some(codecs) = AVAILABLE_CODECS.get() {
+        return Ok(codecs.clone());
+    }
+
+    let probed = tauri::async_runtime::spawn_blocking(Recorder::available_codecs)
+        .await
+        .map_err(|err| format!("Couldn't check the available video codecs: {err}"))?;
+    Ok(AVAILABLE_CODECS.get_or_init(|| probed).clone())
 }
 
 #[tauri::command]

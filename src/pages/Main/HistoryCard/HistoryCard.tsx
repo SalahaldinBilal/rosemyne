@@ -13,6 +13,7 @@ import { scaledImageUrl } from "../../../helpers/scaledImage";
 import Button from "../../../components/Button/Button";
 import Tooltip from "../../../components/Tooltip/Tooltip";
 import { Spinner } from "../../../components/Progress/Progress";
+import Skeleton from "../../../components/Skeleton/Skeleton";
 
 const MAX_STAGGERED_CARDS = 14;
 const STAGGER_MS = 22;
@@ -47,6 +48,8 @@ const RESIZE_SETTLE_MS = 150;
 function CardImage(props: { src: string, fit: boolean }) {
   const [box, setBox] = createSignal<{ width: number, height: number } | null>(null);
   const [shown, setShown] = createSignal<string | null>(null);
+  const [loaded, setLoaded] = createSignal(false);
+  const [placeholderGone, setPlaceholderGone] = createSignal(false);
   let element!: HTMLDivElement;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -82,7 +85,25 @@ function CardImage(props: { src: string, fit: boolean }) {
 
   return (
     <div ref={element} class={styles.CardImage}>
-      <Show when={shown()}>{url => <img src={url()} draggable={false} />}</Show>
+      {/* Removed once faded out, so the shimmer doesn't keep running under the image. */}
+      <Show when={!placeholderGone()}>
+        <div
+          class={styles.ImagePlaceholder}
+          classList={{ [styles.Hidden]: loaded() }}
+          onTransitionEnd={() => setPlaceholderGone(true)}
+        >
+          <Skeleton class={styles.ImageSkeleton} />
+        </div>
+      </Show>
+      <Show when={shown()}>
+        {url => <img
+          src={url()}
+          classList={{ [styles.Loaded]: loaded() }}
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
+        />}
+      </Show>
     </div>
   );
 }

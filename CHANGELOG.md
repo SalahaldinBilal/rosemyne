@@ -9,12 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - The color picker matches the rest of the app.
+- Card thumbnails show a loading placeholder and fade in once ready.
 
 ### Fixed
 
 - Error messages are readable sentences instead of raw error data.
 - Opening Overlay defaults no longer shows "Saved".
 - Dark cursors and images are easy to see in the Overlay defaults thumbnails.
+- Opening General or Shortcuts settings no longer freezes the window for a moment.
+- Going back from Settings to the history list is faster and no longer stutters while thumbnails load.
+- Dropping a file after visiting Settings no longer imports it more than once.
+- The update notice no longer shows again every time you leave Settings.
 
 ## [0.3.2] - 2026-11-07
 

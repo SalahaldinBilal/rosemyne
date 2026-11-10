@@ -53,6 +53,9 @@ const EMPTY_COUNTS: HistoryTypeCounts = { image: 0, video: 0, file: 0 };
 
 type UpdateStatus = { kind: "upToDate" } | { kind: "available", version: string } | null;
 
+// Main remounts on every return from Settings, but the startup check runs once per session.
+let startupUpdateCheck: ReturnType<typeof checkForUpdate> | undefined;
+
 function CaptureButton(props: { icon: LucideIcon, label: string, tooltip: string, keys: string[] | undefined, primary?: boolean, onClick: () => void }) {
   let button: HTMLButtonElement | undefined;
 
@@ -210,29 +213,24 @@ function Main() {
     }
   });
 
+  // onCleanup does nothing after an await, so async-registered listeners are released through this.
+  const asyncCleanups: Array<() => void> = [];
+  let unmounted = false;
+
+  function releaseOnUnmount(cleanup: () => void) {
+    if (unmounted) cleanup();
+    else asyncCleanups.push(cleanup);
+  }
+
   onCleanup(() => {
+    unmounted = true;
+    asyncCleanups.forEach(cleanup => cleanup());
     clearTimeout(filterTimer);
     clearTimeout(entranceTimer);
   });
 
   onMount(async () => {
     loadSystemDateTimePatterns();
-
-    const general = await safeInvoke("get_general_settings");
-    if (!general.hasCompletedOnboarding && !onboardingJustFinished()) {
-      navigate("/onboarding", { replace: true });
-      return;
-    }
-    setFitThumbnails(general.fitCardThumbnails);
-
-    if (general.checkForUpdatesOnStartup) {
-      checkForUpdate()
-        .then(update => {
-          setUpdateStatus(update ? { kind: "available", version: update.version } : { kind: "upToDate" });
-          if (update) pushToast(`Update available: v${update.version}, see Settings › Updates`, "info", 8000);
-        })
-        .catch(error => console.error("Failed to check for updates", error));
-    }
 
     if (scrollEl) {
       const observer = new ResizeObserver(entries => {
@@ -250,10 +248,40 @@ function Main() {
       onCleanup(() => filtersObserver.disconnect());
     }
 
-    // A full-table scan, loaded in parallel so it never blocks the first page.
+    const [general, launchedInBackground] = await Promise.all([
+      safeInvoke("get_general_settings"),
+      safeInvoke("launched_in_background", undefined),
+    ]);
+    if (unmounted) return;
+    if (!general.hasCompletedOnboarding && !onboardingJustFinished()) {
+      navigate("/onboarding", { replace: true });
+      return;
+    }
+    setFitThumbnails(general.fitCardThumbnails);
+
+    // Autostart and context-menu imports launch this window hidden (tray only). A manual launch shows it.
+    if (!launchedInBackground) getCurrentWebview().window.show();
+    reload();
     refreshTagMetadata();
 
-    const unlistenSaved = await getCurrentWebview().listen("screenshot://new-saved-image", (event: TauriEvent<ImageHistoryData>) => {
+    if (general.checkForUpdatesOnStartup) {
+      const firstCheck = !startupUpdateCheck;
+      startupUpdateCheck ??= checkForUpdate();
+      startupUpdateCheck
+        .then(update => {
+          if (unmounted) return;
+          setUpdateStatus(update ? { kind: "available", version: update.version } : { kind: "upToDate" });
+          if (update && firstCheck) pushToast(`Update available: v${update.version}, see Settings › Updates`, "info", 8000);
+        })
+        .catch(error => console.error("Failed to check for updates", error));
+    }
+
+    const unlisteners = await Promise.all([listenSaved(), listenUploads(), listenDrop(), listenImportFailed()]);
+    unlisteners.flat().forEach(releaseOnUnmount);
+  });
+
+  function listenSaved() {
+    return getCurrentWebview().listen("screenshot://new-saved-image", (event: TauriEvent<ImageHistoryData>) => {
       // An active filter doesn't mean the new item is excluded, so check it against the filter.
       const { fileName, filePath, type, dateTime, tags, fileSize } = event.payload;
       const augmented = augmentTags(tags, fileName, filePath, type, new Date(dateTime).getTime(), fileSize);
@@ -264,39 +292,38 @@ function Main() {
       if (matchTagsToFilter(queryFilter(true), augmented)) setChipCounts(type, current => current + 1);
       pushToast("Saved to history", "success", 3000);
     });
-    onCleanup(() => unlistenSaved());
+  }
 
-    const unlistenUploadStarted = await getCurrentWebview().listen("upload://started", (event: TauriEvent<UploadStartedEvent>) => {
-      clearTimeout(uploadSuccessTimers[event.payload.fileName]);
-      setUploadSuccess(event.payload.fileName, undefined);
-      setUploadProgress(event.payload.fileName, { sent: 0, total: 0 });
-    });
-    onCleanup(() => unlistenUploadStarted());
+  function listenUploads() {
+    const webview = getCurrentWebview();
+    return Promise.all([
+      webview.listen("upload://started", (event: TauriEvent<UploadStartedEvent>) => {
+        clearTimeout(uploadSuccessTimers[event.payload.fileName]);
+        setUploadSuccess(event.payload.fileName, undefined);
+        setUploadProgress(event.payload.fileName, { sent: 0, total: 0 });
+      }),
+      webview.listen("upload://progress", (event: TauriEvent<UploadProgressEvent>) => {
+        setUploadProgress(event.payload.fileName, { sent: event.payload.sent, total: event.payload.total });
+      }),
+      webview.listen("upload://finished", (event: TauriEvent<UploadFinishedEvent>) => {
+        const { fileName, url, copied } = event.payload;
+        setUploadProgress(fileName, undefined);
+        updateItem(fileName, entry => { entry.url = url; entry.uploadError = undefined; });
+        setUploadSuccess(fileName, { copied });
+        clearTimeout(uploadSuccessTimers[fileName]);
+        uploadSuccessTimers[fileName] = window.setTimeout(() => setUploadSuccess(fileName, undefined), 4000);
+      }),
+      webview.listen("upload://failed", (event: TauriEvent<UploadFailedEvent>) => {
+        const { fileName, error } = event.payload;
+        setUploadProgress(fileName, undefined);
+        updateItem(fileName, entry => { entry.uploadError = error; });
+      }),
+    ]);
+  }
 
-    const unlistenUploadProgress = await getCurrentWebview().listen("upload://progress", (event: TauriEvent<UploadProgressEvent>) => {
-      setUploadProgress(event.payload.fileName, { sent: event.payload.sent, total: event.payload.total });
-    });
-    onCleanup(() => unlistenUploadProgress());
-
-    const unlistenUploadFinished = await getCurrentWebview().listen("upload://finished", (event: TauriEvent<UploadFinishedEvent>) => {
-      const { fileName, url, copied } = event.payload;
-      setUploadProgress(fileName, undefined);
-      updateItem(fileName, entry => { entry.url = url; entry.uploadError = undefined; });
-      setUploadSuccess(fileName, { copied });
-      clearTimeout(uploadSuccessTimers[fileName]);
-      uploadSuccessTimers[fileName] = window.setTimeout(() => setUploadSuccess(fileName, undefined), 4000);
-    });
-    onCleanup(() => unlistenUploadFinished());
-
-    const unlistenUploadFailed = await getCurrentWebview().listen("upload://failed", (event: TauriEvent<UploadFailedEvent>) => {
-      const { fileName, error } = event.payload;
-      setUploadProgress(fileName, undefined);
-      updateItem(fileName, entry => { entry.uploadError = error; });
-    });
-    onCleanup(() => unlistenUploadFailed());
-
-    // Dropping files anywhere on the window imports them. Dragging one of our own cards over it does nothing.
-    const unlistenDrop = await getCurrentWebview().onDragDropEvent(event => {
+  // Dropping files anywhere on the window imports them. Dragging one of our own cards over it does nothing.
+  function listenDrop() {
+    return getCurrentWebview().onDragDropEvent(event => {
       switch (event.payload.type) {
         case "enter":
         case "over":
@@ -313,18 +340,13 @@ function Main() {
           break;
       }
     });
-    onCleanup(() => unlistenDrop());
+  }
 
-    const unlistenImportFailed = await getCurrentWebview().listen("import://failed", (event: TauriEvent<ImportFailedEvent>) => {
+  function listenImportFailed() {
+    return getCurrentWebview().listen("import://failed", (event: TauriEvent<ImportFailedEvent>) => {
       pushToast(`Failed to import ${event.payload.path}: ${event.payload.error}`, "error", 6000);
     });
-    onCleanup(() => unlistenImportFailed());
-
-    // Autostart and context-menu imports launch this window hidden (tray only). A manual launch shows it.
-    const launchedInBackground = await safeInvoke("launched_in_background", undefined);
-    if (!launchedInBackground) await getCurrentWebview().window.show();
-    await reload();
-  });
+  }
 
   async function importPaths(paths: string[]) {
     for (const path of paths) {
