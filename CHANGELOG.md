@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-10
+
 ### Changed
 
 - The color picker matches the rest of the app.
@@ -27,7 +29,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The update notice no longer shows again every time you leave Settings.
 - The recording bar is narrower and shows control labels under its buttons on hover instead of cut-off tooltips.
 - Tooltips always stay inside the window instead of running off its edges.
-
 ## [0.3.2] - 2026-11-07
 
 ### Added
