@@ -153,7 +153,8 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  background: var(--bg-1);
+  // A light checkerboard, so dark cursors and images stay visible and transparency still shows.
+  background: repeating-conic-gradient(#d4d4d8 0% 25%, #a1a1aa 0% 50%) 50% / 8px 8px;
   border: 1px solid var(--line-2);
   border-radius: var(--r-sm);
 
