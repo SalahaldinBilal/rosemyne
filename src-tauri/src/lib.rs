@@ -1,3 +1,4 @@
+use browser_extension::{get_browser_extension_status, open_extension_store, set_browser_extension};
 use capture_overlay::{OVERLAY_BORDER_LABEL, OVERLAY_HUD_LABEL, create_overlay_windows};
 use capture_preview::CAPTURE_PREVIEW_LABEL;
 use capture_profile::CaptureProfile;
@@ -74,6 +75,7 @@ use tauri::{
     async_runtime::RwLock,
 };
 use tauri::{Emitter, State};
+pub mod browser_extension;
 pub mod capture;
 pub mod capture_overlay;
 pub mod capture_profile;
@@ -882,6 +884,9 @@ pub fn run() {
             set_context_menu,
             set_windows11_context_menu,
             update_cmrs,
+            get_browser_extension_status,
+            set_browser_extension,
+            open_extension_store,
             is_uploader_valid,
             upload_image,
             test_uploader,
@@ -997,7 +1002,9 @@ async fn run_callback(
 
             let http_client = app_handle.state::<HttpClientHandler>().inner().clone();
             let settings_handle = app_handle.state::<SettingsHandler>().inner().clone();
+            let extension_app_handle = app_handle.clone();
             tauri::async_runtime::spawn(async move {
+                browser_extension::start_on_launch(&extension_app_handle, &settings_handle).await;
                 context_menu::sync_on_startup(&http_client, &settings_handle).await;
             });
         }

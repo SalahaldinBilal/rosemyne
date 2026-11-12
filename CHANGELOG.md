@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- A browser extension for Chrome, Edge and Firefox that copies any image or video, or sends it to Rosemyne.
+- A "Browser extension support" setting under General, off by default.
+
 ## [0.3.3] - 2026-11-10
 
 ### Changed

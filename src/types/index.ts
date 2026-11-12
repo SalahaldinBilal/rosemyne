@@ -138,8 +138,17 @@ export type GeneralSettings = {
   minSelectionWidth: number,
   minSelectionHeight: number,
   contextMenu: boolean,
+  browserExtension: boolean,
   fitCardThumbnails: boolean,
 }
+
+export type BrowserExtensionStatus = {
+  enabled: boolean,
+  port: number | null,
+  error: string | null,
+}
+
+export type ExtensionStore = "chrome" | "firefox";
 
 export type CmrsStatus = {
   latestVersion: string,

@@ -1350,7 +1350,7 @@ fn random_guid() -> String {
 
 /// Window titles can contain anything: swap out characters Windows forbids in
 /// file names, bound the length, and never return an empty stem.
-fn sanitize_file_name(name: &str) -> String {
+pub(crate) fn sanitize_file_name(name: &str) -> String {
     let mut cleaned: String = name
         .chars()
         .map(|c| match c {

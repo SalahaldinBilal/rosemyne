@@ -62,6 +62,8 @@ pub struct GeneralSettings {
     pub min_selection_height: u32,
     /// Owned by `set_context_menu`, `set_general_settings` never overwrites it.
     pub context_menu: bool,
+    /// Owned by `set_browser_extension`, `set_general_settings` never overwrites it.
+    pub browser_extension: bool,
     /// History cards show the whole image with bars instead of cropping it to fill the card.
     pub fit_card_thumbnails: bool,
 }
@@ -89,6 +91,7 @@ impl Default for GeneralSettings {
             min_selection_width: 15,
             min_selection_height: 15,
             context_menu: true,
+            browser_extension: false,
             fit_card_thumbnails: false,
         }
     }

@@ -1,4 +1,4 @@
-import { CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec, WindowAction } from "@core/types";
+import { BrowserExtensionStatus, CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, ExtensionStore, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec, WindowAction } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderTestResult, UploaderValidation, UploadResult } from "@core/types/request";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
@@ -63,6 +63,9 @@ type Commands = {
   'set_context_menu': Command<{ enabled: boolean }, ContextMenuStatus>,
   'set_windows11_context_menu': Command<{ enabled: boolean }, ContextMenuStatus>,
   'update_cmrs': Command<undefined, ContextMenuStatus>,
+  'get_browser_extension_status': Command<undefined, BrowserExtensionStatus>,
+  'set_browser_extension': Command<{ enabled: boolean }, BrowserExtensionStatus>,
+  'open_extension_store': Command<{ store: ExtensionStore }>,
   'is_uploader_valid': Command<{ uploader: UploaderOptions }, UploaderValidation>,
   'upload_image': Command<{ fileName: string, uploaderId?: string }, UploadResult>,
   'test_uploader': Command<{ uploader: UploaderOptions }, UploaderTestResult>,

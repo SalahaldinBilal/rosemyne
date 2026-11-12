@@ -41,6 +41,7 @@ const DEFAULT_GENERAL: GeneralSettingsData = {
   minSelectionWidth: 15,
   minSelectionHeight: 15,
   contextMenu: true,
+  browserExtension: false,
   fitCardThumbnails: false,
 };
 

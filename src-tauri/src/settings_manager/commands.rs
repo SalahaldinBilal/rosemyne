@@ -95,6 +95,7 @@ pub async fn set_general_settings(
     let mut settings = settings_handle.write().await;
     let old = settings.get_general().clone();
     general.context_menu = old.context_menu;
+    general.browser_extension = old.browser_extension;
     settings.set_general(general.clone())?;
     drop(settings);
 

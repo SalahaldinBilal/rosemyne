@@ -10,6 +10,7 @@
     "serve": "vite preview",
     "tauri": "tauri",
     "build:debug": "tauri build --debug",
+    "build:extension": "node scripts/build-extension.ts",
     "version:bump": "node scripts/bump-version.ts"
   },
   "license": "GPL-3.0-or-later",
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.1",
+    "@types/chrome": "^0.3.7",
     "@types/node": "^26.1.1",
     "sass": "^1.99.0",
     "typescript": "^7.0.2",

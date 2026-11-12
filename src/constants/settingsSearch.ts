@@ -31,6 +31,9 @@ export const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { page: "general", group: "Startup", label: "Check for updates on startup", hint: "You get a notification when a new version is out." },
   { page: "general", group: "Context menu", label: "Upload from the right-click menu", hint: "Adds Upload image, Upload video and Upload file to your file manager.", keywords: "explorer context menu" },
   { page: "general", group: "Context menu", label: "Show in the Windows 11 menu", hint: "Adds it to Explorer's main right-click menu. Needs Developer Mode and uses windows11-context-rs." },
+  { page: "general", group: "Browser extension", label: "Browser extension support", hint: "Lets the Rosemyne browser extension send images and videos to the app.", keywords: "chrome firefox edge port copy media" },
+  { page: "general", group: "Browser extension", label: "Get the extension", hint: "Chrome, Edge and other Chromium browsers use the Chrome Web Store.", keywords: "install download chrome web store firefox add-ons addon edge" },
+  { page: "general", group: "Browser extension", label: "Status", hint: "The port the browser extension connects to.", keywords: "port listening" },
 
   { page: "shortcuts", isPage: true, label: "Shortcuts", hint: "Global keys that work from any app. Each one can override settings for its own captures.", keywords: "hotkeys keybinds" },
   { page: "shortcuts", label: "All shortcuts", hint: "Take a screenshot, record, scroll capture or capture a fixed area, each with its own overrides.", keywords: "hotkey keybind screenshot recording video scrolling instant capture monitor region override task" },

@@ -19,6 +19,7 @@ import { FolderOpen } from "lucide-solid";
 import { BITRATE_MODE_ITEMS, CODEC_LABELS, SCREENSHOT_FORMAT_LABELS, SCREENSHOT_FORMATS } from "@core/helpers/settingsLabels";
 import { InlineControls, SettingRow, SettingsGroup, SettingsPage, ToggleRow } from "../SettingsLayout/SettingsLayout";
 import ContextMenuSettings from "./ContextMenuSettings";
+import BrowserExtensionSettings from "./BrowserExtensionSettings";
 
 const IS_WINDOWS = navigator.userAgent.includes("Windows");
 
@@ -67,6 +68,7 @@ function GeneralSettings() {
     minSelectionWidth: 15,
     minSelectionHeight: 15,
     contextMenu: true,
+    browserExtension: false,
     fitCardThumbnails: false,
   });
   const [availableCodecs, setAvailableCodecs] = createSignal<VideoCodec[]>(["h264"]);
@@ -263,6 +265,10 @@ function GeneralSettings() {
 
     <SettingsGroup title="Context menu" right={<Show when={IS_WINDOWS}><Badge>Windows</Badge></Show>}>
       <ContextMenuSettings />
+    </SettingsGroup>
+
+    <SettingsGroup title="Browser extension">
+      <BrowserExtensionSettings />
     </SettingsGroup>
   </SettingsPage>;
 }
