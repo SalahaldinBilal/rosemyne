@@ -53,7 +53,7 @@ function run(command: string, args: string[], cwd: string): void {
   const target = spawned(command, args);
   const result = spawnSync(target.command, target.args, { cwd, shell: target.shell, stdio: "inherit" });
   if (result.error) fail(`Couldn't run ${command}: ${result.error.message}`);
-  if (result.status !== 0) fail(`${command} ${args[0]} failed, nothing was published after this point`);
+  if (result.status !== 0) fail(`${command} ${args[0]} failed. Nothing after this step was run.`);
 }
 
 function checkNpmLogin(): void {
@@ -77,6 +77,32 @@ function checkNpmLogin(): void {
     fail(`npm user ${user} is not a member of the ${NPM_ORG} org with publish rights (role: ${role ?? "none"})`);
   }
   console.log(`npm: logged in as ${user}, ${role} of the ${NPM_ORG} org`);
+  checkNpmTwoFactor(user);
+}
+
+// npm refuses to publish without two-factor auth, and says so only at the upload.
+function checkNpmTwoFactor(user: string): void {
+  const profile = capture("npm", ["profile", "get", "--json"], tsDir);
+  // An access token can't read the profile. Such a token publishes only if it was made to bypass 2FA.
+  if (!profile.ok) {
+    console.log("npm: logged in with an access token, so two-factor auth couldn't be checked");
+    return;
+  }
+
+  let tfa: unknown;
+  try {
+    tfa = (JSON.parse(profile.stdout) as { tfa?: unknown }).tfa;
+  } catch {
+    fail(`npm gave an unexpected answer for the profile of ${user}: ${profile.stdout}`);
+  }
+  const enabled = typeof tfa === "object" && tfa !== null && (tfa as { pending?: boolean }).pending !== true;
+  if (!enabled) {
+    fail(
+      `npm user ${user} has no two-factor auth, and npm won't publish without it. Turn it on at `
+      + "https://www.npmjs.com/settings/~/profile (or run: npm profile enable-2fa auth-and-writes), then run this again.",
+    );
+  }
+  console.log("npm: two-factor auth is on. npm will ask for the code when it publishes.");
 }
 
 function tokenFromCredentials(text: string): string | null {
@@ -189,6 +215,7 @@ async function main(): Promise<void> {
 
   step("Publishing");
   if (publishCrate) run("cargo", ["publish"], rustDir);
+  // No --otp flag: a code would expire during the build, so npm asks for it here.
   if (publishNpm) run("npm", ["publish"], tsDir);
   console.log("\nDone.");
 }
