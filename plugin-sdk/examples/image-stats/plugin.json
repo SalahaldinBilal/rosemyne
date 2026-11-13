@@ -1,0 +1,19 @@
+{
+  "apiVersion": 1,
+  "id": "com.rosemyne.examples.image-stats",
+  "name": "Image stats",
+  "version": "1.0.0",
+  "author": "Rosemyne",
+  "description": "Tags every screenshot with its size in megapixels and its orientation.",
+  "tagKey": "Stats",
+  "permissions": {
+    "tagsWrite": true,
+    "toast": true
+  },
+  "hooks": ["on_capture_saved"],
+  "settings": [
+    { "type": "group", "title": "Notifications", "children": [
+      { "type": "toggle", "id": "notify", "label": "Tell me when a capture is tagged", "value": false }
+    ]}
+  ]
+}

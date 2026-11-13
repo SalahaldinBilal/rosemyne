@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "build:debug": "tauri build --debug",
     "build:extension": "node scripts/build-extension.ts",
-    "version:bump": "node scripts/bump-version.ts"
+    "version:bump": "node scripts/bump-version.ts",
+    "publish:sdk": "node scripts/publish-sdk.ts"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {

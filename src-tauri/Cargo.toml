@@ -48,8 +48,17 @@ tauri-plugin-opener = "2.5.4"
 cpal = "0.16.0"
 rodio = "0.21.1"
 tauri-plugin-drag = "2.1.1"
-tokio = { version = "1.52.3", features = ["time"] }
+tokio = { version = "1.52.3", features = ["time", "sync"] }
 tiny_http = "0.12"
+# Extism's own HTTP host function stays out of the build; plugins use ours (plugins/net.rs).
+extism = { version = "1.41", default-features = false, features = ["wasmtime-default-features"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
+sha2 = "0.10"
+# Only its package rules (manifest and view tree checks), shared with the plugin packer.
+rosemyne-plugin = { path = "../plugin-sdk/rust", default-features = false }
+
+[dev-dependencies]
+rosemyne-plugin = { path = "../plugin-sdk/rust" }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.62.2"
@@ -82,9 +91,6 @@ version = "0.62.2"
 [target.'cfg(target_os = "windows")'.dependencies.windows-capture]
 git = "https://github.com/SalahaldinBilal/windows-capture"
 branch = "rate-control"
-
-[target.'cfg(target_os = "windows")'.dependencies.sha2]
-version = "0.10"
 
 [target.'cfg(target_os = "windows")'.dependencies.webview2-com]
 version = "0.38.2"

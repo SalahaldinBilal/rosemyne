@@ -620,45 +620,83 @@ impl HistoryStore {
         }
 
         let inner = self.lock();
-        let row: Option<(i64, Option<String>)> = inner
-            .conn
-            .query_row(
-                "SELECT id, tags FROM history WHERE file_name = ?1",
-                [file_name],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()?;
-
-        let Some((history_id, old_tags_raw)) = row else {
-            return Err(HistoryError::Task(format!("{file_name} is not in the history")));
-        };
-
-        if let Some(raw) = old_tags_raw {
-            if let Ok(old_tags_value) = serde_json::from_str::<Value>(&raw) {
-                unrecord_tags(&inner.conn, &old_tags_value)?;
-            }
-        }
-        inner.conn.execute("DELETE FROM tag_index WHERE history_id = ?1", [history_id])?;
-
-        let tags = tags.filter(|map| !map.is_empty());
-        let tags_value = tags.as_ref().map(|map| serde_json::to_value(map).unwrap_or(Value::Null));
-        let tags_json = tags_value.as_ref().map(|value| value.to_string());
-
-        inner.conn.execute("UPDATE history SET tags = ?1 WHERE id = ?2", params![tags_json, history_id])?;
-
-        if let Some(tags_value) = &tags_value {
-            record_tag_index_and_counts(&inner.conn, history_id, tags_value)?;
-        }
+        let (history_id, old_tags_raw) = tags_row(&inner.conn, file_name)?;
+        let tags_value = tags
+            .filter(|map| !map.is_empty())
+            .map(|map| serde_json::to_value(map).unwrap_or(Value::Null));
+        replace_row_tags(&inner.conn, history_id, old_tags_raw.as_deref(), tags_value.as_ref())?;
 
         // A tag can drop out of use entirely here, so recompute rather than merge.
         let schema = rebuild_schema(&inner.conn)?;
         save_schema(&inner.conn, &schema)?;
 
-        inner
-            .conn
-            .prepare_cached(&format!("SELECT {COLUMNS} FROM history WHERE file_name = ?1"))?
-            .query_row([file_name], row_to_entry)
-            .map_err(HistoryError::from)
+        entry_by_file_name(&inner.conn, file_name)
+    }
+
+    /// Replaces (or with `None` removes) one top-level tag key of a row, leaving the rest as it is.
+    pub fn set_tag_key(
+        &self,
+        file_name: &str,
+        key: &str,
+        value: Option<TagValue>,
+    ) -> Result<ImageHistoryData, HistoryError> {
+        if key.starts_with('$') {
+            return Err(HistoryError::Task("Tag names can't start with \"$\" (reserved)".to_string()));
+        }
+
+        let inner = self.lock();
+        let (history_id, old_tags_raw) = tags_row(&inner.conn, file_name)?;
+        let mut tags = old_tags_raw
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<Map<String, Value>>(raw).ok())
+            .unwrap_or_default();
+
+        match value {
+            Some(value) => {
+                tags.insert(key.to_owned(), serde_json::to_value(value).unwrap_or(Value::Null));
+            }
+            None => {
+                tags.remove(key);
+            }
+        }
+
+        let tags_value = (!tags.is_empty()).then(|| Value::Object(tags));
+        replace_row_tags(&inner.conn, history_id, old_tags_raw.as_deref(), tags_value.as_ref())?;
+
+        let schema = rebuild_schema(&inner.conn)?;
+        save_schema(&inner.conn, &schema)?;
+
+        entry_by_file_name(&inner.conn, file_name)
+    }
+
+    pub fn count_tag_key(&self, key: &str) -> Result<u64, HistoryError> {
+        Ok(rows_with_tag_key(&self.lock().conn, key)?.len() as u64)
+    }
+
+    /// Drops one top-level tag key from every row that has it. Returns how many rows changed.
+    pub fn remove_tag_key(&self, key: &str) -> Result<u64, HistoryError> {
+        let mut inner = self.lock();
+        let rows = rows_with_tag_key(&inner.conn, key)?;
+        let tx = inner.conn.transaction()?;
+
+        for (history_id, raw, mut tags) in rows.iter().cloned() {
+            tags.remove(key);
+            let tags_value = (!tags.is_empty()).then(|| Value::Object(tags));
+            replace_row_tags(&tx, history_id, Some(&raw), tags_value.as_ref())?;
+        }
+
+        let schema = rebuild_schema(&tx)?;
+        save_schema(&tx, &schema)?;
+        tx.commit()?;
+        Ok(rows.len() as u64)
+    }
+
+    pub fn set_deletion_url(&self, file_name: &str, deletion_url: &str) -> Result<(), HistoryError> {
+        self.lock().conn.execute(
+            "UPDATE history SET deletion_url = ?1 WHERE file_name = ?2",
+            params![deletion_url, file_name],
+        )?;
+        Ok(())
     }
 
     pub fn set_upload_result(&self, file_name: &str, host: &str, url: &str) -> Result<(), HistoryError> {
@@ -1109,6 +1147,59 @@ fn unrecord_tags(conn: &Connection, tags: &Value) -> rusqlite::Result<()> {
     }
     conn.execute("DELETE FROM tag_value_counts WHERE count <= 0", [])?;
     Ok(())
+}
+
+fn tags_row(conn: &Connection, file_name: &str) -> Result<(i64, Option<String>), HistoryError> {
+    conn.query_row(
+        "SELECT id, tags FROM history WHERE file_name = ?1",
+        [file_name],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .optional()?
+    .ok_or_else(|| HistoryError::Task(format!("{file_name} is not in the history")))
+}
+
+fn entry_by_file_name(conn: &Connection, file_name: &str) -> Result<ImageHistoryData, HistoryError> {
+    conn.prepare_cached(&format!("SELECT {COLUMNS} FROM history WHERE file_name = ?1"))?
+        .query_row([file_name], row_to_entry)
+        .map_err(HistoryError::from)
+}
+
+/// Swaps one row's tags and its counts/`tag_index` entries; callers rebuild the schema after.
+fn replace_row_tags(
+    conn: &Connection,
+    history_id: i64,
+    old_tags_raw: Option<&str>,
+    tags_value: Option<&Value>,
+) -> rusqlite::Result<()> {
+    if let Some(old_tags_value) = old_tags_raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok()) {
+        unrecord_tags(conn, &old_tags_value)?;
+    }
+    conn.execute("DELETE FROM tag_index WHERE history_id = ?1", [history_id])?;
+
+    let tags_json = tags_value.map(|value| value.to_string());
+    conn.execute("UPDATE history SET tags = ?1 WHERE id = ?2", params![tags_json, history_id])?;
+
+    if let Some(tags_value) = tags_value {
+        record_tag_index_and_counts(conn, history_id, tags_value)?;
+    }
+    Ok(())
+}
+
+fn rows_with_tag_key(conn: &Connection, key: &str) -> rusqlite::Result<Vec<(i64, String, Map<String, Value>)>> {
+    let mut stmt = conn.prepare("SELECT id, tags FROM history WHERE tags IS NOT NULL")?;
+    let mut rows = stmt.query([])?;
+    let mut matching = Vec::new();
+    while let Some(row) = rows.next()? {
+        let history_id: i64 = row.get(0)?;
+        let raw: String = row.get(1)?;
+        if let Ok(tags) = serde_json::from_str::<Map<String, Value>>(&raw) {
+            if tags.contains_key(key) {
+                matching.push((history_id, raw, tags));
+            }
+        }
+    }
+    Ok(matching)
 }
 
 fn serialize_tags(
@@ -1819,6 +1910,82 @@ mod tests {
         assert_eq!(page_total(&page), Some(0));
         let page = store.query(equals(&["ProcessName"], json!("chrome")), None, None, 10).unwrap();
         assert_eq!(page_total(&page), Some(1));
+    }
+
+    fn names_matching(store: &HistoryStore, filter: FilterNode) -> Vec<String> {
+        let mut names: Vec<String> = store
+            .query(filter, None, None, 50)
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|item| item.file_name)
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_plugin_tag_key_is_filterable_and_leaves_other_tags_alone() {
+        let store = temp_store();
+        store
+            .insert_batch(vec![
+                entry("a.png", 100, process("firefox")),
+                entry("b.png", 200, process("chrome")),
+            ])
+            .unwrap();
+
+        let label = |text: &str| {
+            Some(TagValue::Map(HashMap::from([("Label".to_string(), TagValue::String(text.to_string()))])))
+        };
+        store.set_tag_key("a.png", "Imgbox", label("cat")).unwrap();
+        store.set_tag_key("b.png", "Imgbox", label("dog")).unwrap();
+
+        assert_eq!(names_matching(&store, equals(&["Imgbox", "Label"], json!("cat"))), vec!["a.png"]);
+        assert_eq!(names_matching(&store, equals(&["ProcessName"], json!("firefox"))), vec!["a.png"]);
+
+        // Replacing the key drops the old value from the index, not just adds the new one.
+        store.set_tag_key("a.png", "Imgbox", label("bird")).unwrap();
+        assert!(names_matching(&store, equals(&["Imgbox", "Label"], json!("cat"))).is_empty());
+        assert_eq!(names_matching(&store, equals(&["Imgbox", "Label"], json!("bird"))), vec!["a.png"]);
+
+        let suggestions = store.suggest_tag_values(&["Imgbox".to_string(), "Label".to_string()], "").unwrap();
+        let values: Vec<_> = suggestions.iter().map(|suggestion| suggestion.value.clone()).collect();
+        assert!(values.contains(&json!("bird")) && values.contains(&json!("dog")));
+        assert!(!values.contains(&json!("cat")));
+    }
+
+    #[test]
+    fn removing_a_plugin_tag_key_clears_it_everywhere_and_nothing_else() {
+        let store = temp_store();
+        store
+            .insert_batch(vec![
+                entry("a.png", 100, process("firefox")),
+                entry("b.png", 200, process("chrome")),
+                entry("c.png", 300, process("firefox")),
+            ])
+            .unwrap();
+        let flag = Some(TagValue::Map(HashMap::from([("Done".to_string(), TagValue::Bool(true))])));
+        store.set_tag_key("a.png", "Imgbox", flag.clone()).unwrap();
+        store.set_tag_key("b.png", "Imgbox", flag).unwrap();
+
+        assert_eq!(store.count_tag_key("Imgbox").unwrap(), 2);
+        assert_eq!(store.remove_tag_key("Imgbox").unwrap(), 2);
+
+        assert!(names_matching(&store, equals(&["Imgbox", "Done"], json!(true))).is_empty());
+        assert_eq!(names_matching(&store, equals(&["ProcessName"], json!("firefox"))), vec!["a.png", "c.png"]);
+        assert!(store.suggest_tag_values(&["Imgbox".to_string(), "Done".to_string()], "").unwrap().is_empty());
+        assert!(store.get_by_file_name("a.png").unwrap().unwrap().tags.unwrap().contains_key("ProcessName"));
+
+        let schema = store.tag_metadata().unwrap().schema;
+        assert!(schema.get("Imgbox").is_none());
+        assert!(schema.get("ProcessName").is_some());
+    }
+
+    #[test]
+    fn plugin_tag_keys_cannot_use_the_system_namespace() {
+        let store = temp_store();
+        store.insert_batch(vec![entry("a.png", 100, process("firefox"))]).unwrap();
+        assert!(store.set_tag_key("a.png", "$file", Some(TagValue::Bool(true))).is_err());
     }
 
     #[test]

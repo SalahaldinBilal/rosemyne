@@ -1,0 +1,49 @@
+{
+  "name": "@rosemyne/plugin",
+  "version": "1.0.0",
+  "description": "Write, build and pack Rosemyne plugins in TypeScript (plugin API 1)",
+  "keywords": ["rosemyne", "plugin", "extism", "wasm"],
+  "license": "GPL-3.0-or-later",
+  "author": "SalahaldinBilal",
+  "homepage": "https://github.com/SalahaldinBilal/rosemyne/tree/main/plugin-sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SalahaldinBilal/rosemyne.git",
+    "directory": "plugin-sdk/ts"
+  },
+  "bugs": "https://github.com/SalahaldinBilal/rosemyne/issues",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./pack": {
+      "types": "./dist/packer.d.mts",
+      "default": "./dist/packer.mjs"
+    }
+  },
+  "bin": {
+    "rosemyne-plugin-pack": "dist/cli.mjs"
+  },
+  "files": ["dist"],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
+  }
+}

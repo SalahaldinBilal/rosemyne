@@ -1,0 +1,38 @@
+[package]
+name = "rosemyne-plugin"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Write, build and pack Rosemyne plugins in Rust (plugin API 1)"
+authors = ["SalahaldinBilal"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/SalahaldinBilal/rosemyne"
+homepage = "https://github.com/SalahaldinBilal/rosemyne/tree/main/plugin-sdk"
+readme = "README.md"
+keywords = ["rosemyne", "plugin", "extism", "wasm"]
+categories = ["wasm", "development-tools::build-utils"]
+
+# The packer: `cargo install rosemyne-plugin`, then `rosemyne-plugin-pack` in a plugin's folder.
+[[bin]]
+name = "rosemyne-plugin-pack"
+path = "src/main.rs"
+required-features = ["pack"]
+
+[features]
+default = ["pack"]
+# The packer command and its functions. Only ever compiled for the machine you build on,
+# never into a plugin's wasm.
+pack = ["dep:zip"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Inside a plugin: the calls into Rosemyne.
+[target.'cfg(target_family = "wasm")'.dependencies]
+extism-pdk = "1.4"
+
+# On the build machine: the package rules and the packer.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+semver = "1"
+zip = { version = "9", default-features = false, features = ["deflate"], optional = true }

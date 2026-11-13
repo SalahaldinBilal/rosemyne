@@ -263,7 +263,7 @@ pub type ProgressCallback = Box<dyn FnMut(u64, u64) + Send + Sync>;
 /// Wraps `bytes` in a chunked stream so reqwest reports progress as it's sent,
 /// instead of handing over the whole buffer as one opaque body. Only used for
 /// the real upload path, validation/test requests have nothing to track.
-fn chunked_progress_body(bytes: Vec<u8>, mut on_progress: ProgressCallback) -> reqwest::Body {
+pub(crate) fn chunked_progress_body(bytes: Vec<u8>, mut on_progress: ProgressCallback) -> reqwest::Body {
     const CHUNK_SIZE: usize = 64 * 1024;
     let total = bytes.len() as u64;
     let mut sent: u64 = 0;

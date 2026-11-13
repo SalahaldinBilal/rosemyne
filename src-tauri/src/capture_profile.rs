@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     SettingsHandler,
+    plugins::{PluginManager, PluginManagerHandler, UPLOADER_ID_PREFIX},
     recording::recorder_trait::{BitrateMode, VideoCodec},
     screen_manager::screenshot_manager::ScreenshotImageFormat,
     scrolling_capture::{ScrollDistance, ScrollingCaptureSettings},
@@ -64,15 +65,27 @@ pub struct CaptureProfile {
 }
 
 impl CaptureProfile {
-    pub fn resolve(settings: &Settings, overrides: &CaptureOverrides, is_instant_capture: bool) -> Self {
+    pub fn resolve(
+        settings: &Settings,
+        overrides: &CaptureOverrides,
+        is_instant_capture: bool,
+        plugins: Option<&PluginManager>,
+    ) -> Self {
         let general = settings.get_general();
         let sounds = settings.get_sound_settings();
         let scrolling = settings.get_scrolling_capture();
 
+        let auto_uploads = |id: &String| match id.starts_with(UPLOADER_ID_PREFIX) {
+            true => plugins
+                .and_then(|plugins| plugins.uploader(id))
+                .is_some_and(|uploader| uploader.auto_upload),
+            false => settings.get_uploader(id).is_some_and(|uploader| uploader.auto_upload),
+        };
+
         let uploader_id = match &overrides.upload {
             Some(UploadOverride::Skip) => None,
             Some(UploadOverride::Uploader(id)) => Some(id.clone()),
-            None => settings.get_default_uploader().filter(|uploader| uploader.auto_upload).map(|uploader| uploader.id.clone()),
+            None => settings.get_default_uploader_id().filter(|id| auto_uploads(*id)).cloned(),
         };
 
         Self {
@@ -109,12 +122,18 @@ impl CaptureProfile {
     pub async fn load(app_handle: &AppHandle, overrides: &CaptureOverrides, is_instant_capture: bool) -> Self {
         let settings_handle = app_handle.state::<SettingsHandler>();
         let settings = settings_handle.read().await;
-        Self::resolve(&settings, overrides, is_instant_capture)
+        Self::resolve(&settings, overrides, is_instant_capture, plugin_manager(app_handle).as_deref())
     }
 
     pub async fn defaults(app_handle: &AppHandle) -> Self {
         Self::load(app_handle, &CaptureOverrides::default(), false).await
     }
+}
+
+pub fn plugin_manager(app_handle: &AppHandle) -> Option<PluginManagerHandler> {
+    app_handle
+        .try_state::<PluginManagerHandler>()
+        .map(|plugins| plugins.inner().clone())
 }
 
 /// Region-select overlays (record, scrolling capture) hand their result back

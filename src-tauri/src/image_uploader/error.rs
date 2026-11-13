@@ -52,6 +52,7 @@ pub enum UploaderError {
     NoDefaultUploader,
     #[serde(serialize_with = "error_serialize")]
     FileReadFailed(IoError),
+    Plugin(String),
 }
 
 impl Display for UploaderError {
@@ -74,6 +75,7 @@ impl Display for UploaderError {
             Self::UploaderNotFound(id) => write!(f, "Uploader \"{id}\" no longer exists"),
             Self::NoDefaultUploader => f.write_str("No default uploader is configured"),
             Self::FileReadFailed(error) => write!(f, "Could not read the image file: {error}"),
+            Self::Plugin(message) => write!(f, "The plugin failed to upload: {message}"),
         }
     }
 }

@@ -15,6 +15,7 @@ function uploaderErrorMessage(error: UploaderCreationError): string | null {
     case "uploaderNotFound": return `Uploader "${error.data}" no longer exists`;
     case "noDefaultUploader": return "No default uploader is configured, create one in Settings › Uploaders";
     case "fileReadFailed": return `Could not read the image file: ${error.data}`;
+    case "plugin": return `The plugin failed to upload: ${error.data}`;
     default: return null;
   }
 }

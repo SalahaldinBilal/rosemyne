@@ -24,6 +24,13 @@ use mouse_rs::Mouse;
 use overlay_images::commands::{
     add_overlay_image, get_overlay_images, remove_overlay_image, rename_overlay_image,
 };
+use plugins::commands::{
+    count_plugin_tagged, get_plugin_log, get_plugin_settings, inspect_plugin_package, install_plugin,
+    list_plugin_uploaders, list_plugins, load_unpacked_plugin, open_plugin_link, plugin_card_action, plugin_ui_event,
+    plugin_ui_render, reload_plugins, set_plugin_enabled, set_plugin_order, set_plugin_setting,
+    set_plugin_uploader_auto_upload, uninstall_plugin,
+};
+use plugins::{PluginManager, PluginManagerHandler};
 use recording::commands::{
     RecordingManagerHandler, cancel_recording, get_available_video_codecs, get_recording_status,
     start_recording, stop_recording,
@@ -89,6 +96,7 @@ pub mod history_store;
 pub mod image_uploader;
 pub mod locale;
 pub mod overlay_images;
+pub mod plugins;
 pub mod recording;
 pub mod screen_manager;
 pub mod screenshot_window;
@@ -119,6 +127,10 @@ pub fn notify_history_saved(
 ) {
     emit_on_main_thread!(app_handle, "screenshot://new-saved-image", entry.clone());
 
+    if let Some(plugins) = app_handle.try_state::<PluginManagerHandler>() {
+        plugins.capture_saved(entry);
+    }
+
     let app_handle = app_handle.clone();
     let file_name = entry.file_name.clone();
     tauri::async_runtime::spawn(async move {
@@ -130,6 +142,16 @@ pub fn notify_history_saved(
 }
 
 static APP_EXITING: AtomicBool = AtomicBool::new(false);
+
+/// The only webviews `rosemyne-photo` answers, since `/saved` reaches the whole history.
+const PHOTO_SCHEME_WINDOWS: &[&str] = &[
+    "main",
+    SCREENSHOT_WINDOW_LABEL,
+    RESULT_WINDOW_LABEL,
+    OVERLAY_HUD_LABEL,
+    OVERLAY_BORDER_LABEL,
+    CAPTURE_PREVIEW_LABEL,
+];
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -604,7 +626,16 @@ pub fn run() {
         )
         .register_asynchronous_uri_scheme_protocol(
             "rosemyne-photo",
-            move |_app, request, responder| {
+            move |context, request, responder| {
+                if !PHOTO_SCHEME_WINDOWS.contains(&context.webview_label()) {
+                    responder.respond(status_response(403));
+                    return;
+                }
+                let plugins = context
+                    .app_handle()
+                    .try_state::<PluginManagerHandler>()
+                    .map(|state| state.inner().clone());
+
                 let screenshot_manager = scheme_manager_ref.clone();
                 let history_store = scheme_store_ref.clone();
                 let pending_scroll_capture = scheme_pending_ref.clone();
@@ -773,6 +804,32 @@ pub fn run() {
                             };
                             responder.respond(response);
                         }
+                        ["plugin-asset", plugin_id, asset_id] => {
+                            let asset = plugins.as_ref().and_then(|plugins| plugins.asset(plugin_id, asset_id));
+                            let response = match asset {
+                                Some(asset) => Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", asset.mime)
+                                    .header("X-Content-Type-Options", "nosniff")
+                                    .body(asset.bytes.as_ref().clone())
+                                    .expect("Valid response"),
+                                None => status_response(404),
+                            };
+                            responder.respond(response);
+                        }
+                        ["plugin-icon", plugin_id] => {
+                            let icon = plugins.as_ref().and_then(|plugins| plugins.icon(plugin_id));
+                            let response = match icon {
+                                Some(icon) => Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", "image/png")
+                                    .header("X-Content-Type-Options", "nosniff")
+                                    .body(icon)
+                                    .expect("Valid response"),
+                                None => status_response(404),
+                            };
+                            responder.respond(response);
+                        }
                         _ => {
                             println!("Unknown request: {:#?}", request);
 
@@ -916,7 +973,25 @@ pub fn run() {
             set_sound_volume,
             set_custom_sound,
             reset_custom_sound,
-            preview_sound
+            preview_sound,
+            list_plugins,
+            inspect_plugin_package,
+            install_plugin,
+            load_unpacked_plugin,
+            reload_plugins,
+            set_plugin_enabled,
+            set_plugin_order,
+            count_plugin_tagged,
+            uninstall_plugin,
+            get_plugin_settings,
+            set_plugin_setting,
+            plugin_ui_render,
+            plugin_ui_event,
+            plugin_card_action,
+            get_plugin_log,
+            list_plugin_uploaders,
+            set_plugin_uploader_auto_upload,
+            open_plugin_link
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
@@ -955,6 +1030,14 @@ pub fn run() {
     app.manage(system_cursors);
     app.manage(Arc::new(reqwest::Client::new()));
     app.manage(Arc::new(Mouse::new()));
+
+    // After the history store is managed: loading plugins doesn't need it, their hooks do.
+    match PluginManager::new(app.handle().clone(), &app_path) {
+        Ok(plugins) => {
+            app.manage(plugins);
+        }
+        Err(err) => eprintln!("Plugins are unavailable: {err}"),
+    }
 
     app.run(move |app_handle, event| {
         // Exit bookkeeping must happen synchronously, the spawned handler below

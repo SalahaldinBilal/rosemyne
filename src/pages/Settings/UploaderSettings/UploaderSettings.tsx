@@ -7,14 +7,20 @@ import { safeInvoke } from "@core/helpers/safeInvoke";
 import { errorMessage } from "@core/helpers/errorMessage";
 import { SavedUploader } from "@core/types/request";
 import { createSignal, For, onMount, Show } from "solid-js";
-import { Copy, Pencil, Plus, Star, Trash2 } from "lucide-solid";
+import { Copy, Pencil, Plus, Puzzle, Star, Trash2 } from "lucide-solid";
+import { useNavigate } from "@solidjs/router";
+import usePluginsState from "@core/states/pluginsState";
+import { PluginUploaderInfo } from "@core/types/plugins";
 import useToastState from "@core/states/toastState";
 import useSettingsSavedState from "@core/states/settingsSavedState";
 import { SettingRow, SettingsGroup, SettingsPage } from "../SettingsLayout/SettingsLayout";
 
 function UploaderSettings() {
   const [uploaders, setUploaders] = createSignal<SavedUploader[]>([]);
+  const [pluginUploaders, setPluginUploaders] = createSignal<PluginUploaderInfo[]>([]);
   const [defaultId, setDefaultId] = createSignal<string | null>(null);
+  const { requestOpen } = usePluginsState;
+  const navigate = useNavigate();
   const [editing, setEditing] = createSignal<SavedUploader | "new" | null>(null);
   const [pendingDelete, setPendingDelete] = createSignal<SavedUploader | null>(null);
   const { pushToast } = useToastState;
@@ -22,7 +28,13 @@ function UploaderSettings() {
 
   async function refresh() {
     setUploaders(await safeInvoke("get_uploaders"));
+    setPluginUploaders(await safeInvoke("list_plugin_uploaders"));
     setDefaultId(await safeInvoke("get_default_uploader"));
+  }
+
+  function openPlugin(uploader: PluginUploaderInfo) {
+    requestOpen(uploader.pluginId);
+    navigate("/settings/plugins");
   }
 
   onMount(refresh);
@@ -51,7 +63,7 @@ function UploaderSettings() {
     setPendingDelete(null);
   });
 
-  const makeDefault = (uploader: SavedUploader) => run(() => safeInvoke("set_default_uploader", { id: uploader.id }));
+  const makeDefault = (uploader: { id: string }) => run(() => safeInvoke("set_default_uploader", { id: uploader.id }));
 
   return <>
     <Show when={editing()} keyed fallback={
@@ -100,6 +112,40 @@ function UploaderSettings() {
             )}
           </For>
         </SettingsGroup>
+        <Show when={pluginUploaders().length > 0}>
+          <SettingsGroup title="From plugins">
+            <For each={pluginUploaders()}>
+              {uploader => (
+                <div class={styles.Row}>
+                  <div class={styles.Info}>
+                    <b>
+                      {uploader.name}
+                      <Show when={uploader.id === defaultId()}>
+                        <Badge tone="accent"><Star size={10} />Default</Badge>
+                      </Show>
+                      <Show when={uploader.autoUpload}>
+                        <Badge>Auto upload</Badge>
+                      </Show>
+                    </b>
+                    <div class={styles.Url}>
+                      <span>Plugin: {uploader.pluginName}</span>
+                    </div>
+                  </div>
+                  <div class={styles.Actions}>
+                    <Show when={uploader.id !== defaultId()}>
+                      <Button isIcon size="sm" tooltip="Set as default" onClick={() => makeDefault(uploader)}>
+                        <Star size={15} />
+                      </Button>
+                    </Show>
+                    <Button isIcon size="sm" tooltip="Open the plugin's settings" onClick={() => openPlugin(uploader)}>
+                      <Puzzle size={15} />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </For>
+          </SettingsGroup>
+        </Show>
       </SettingsPage>
     }>
       {editing =>

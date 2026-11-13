@@ -1,0 +1,28 @@
+{
+  "apiVersion": 1,
+  "id": "com.rosemyne.examples.litterbox",
+  "name": "Litterbox",
+  "version": "1.0.0",
+  "author": "Rosemyne",
+  "description": "Uploads captures to litterbox.catbox.moe, where they are deleted after a while.",
+  "homepage": "https://litterbox.catbox.moe",
+  "permissions": {
+    "capturesRead": true,
+    "clipboardWrite": true,
+    "toast": true,
+    "network": ["litterbox.catbox.moe"]
+  },
+  "hooks": ["upload", "ui_render", "ui_event", "card_action"],
+  "uploaders": [{ "id": "main", "name": "Litterbox" }],
+  "cardActions": [{ "id": "share", "label": "Share Litterbox link", "types": ["image", "video", "file"] }],
+  "settings": [
+    { "type": "group", "title": "Uploads", "children": [
+      { "type": "select", "id": "keepFor", "label": "Keep files for", "value": "24h", "items": [
+        { "value": "1h", "label": "1 hour" },
+        { "value": "12h", "label": "12 hours" },
+        { "value": "24h", "label": "1 day" },
+        { "value": "72h", "label": "3 days" }
+      ]}
+    ]}
+  ]
+}

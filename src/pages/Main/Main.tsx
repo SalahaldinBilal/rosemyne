@@ -27,7 +27,10 @@ import { safeInvoke } from "@core/helpers/safeInvoke";
 import { errorMessage } from "@core/helpers/errorMessage";
 import UploadErrorDetailsModal from "@core/components/UploadErrorDetailsModal/UploadErrorDetailsModal";
 import { UploaderCreationError } from "@core/types/request";
-import { Camera, CloudUpload, Copy, ExternalLink, File, FileSymlink, FolderOpen, FolderSymlink, Import, Link, LucideIcon, Pencil, ScrollText, SearchX, Settings2, Tag, Trash2, Video } from "lucide-solid";
+import { Camera, CloudUpload, Copy, ExternalLink, File, FileSymlink, FolderOpen, FolderSymlink, Import, Link, LucideIcon, Pencil, Puzzle, ScrollText, SearchX, Settings2, Tag, Trash2, Video } from "lucide-solid";
+import usePluginsState from "@core/states/pluginsState";
+import PluginModalHost, { PluginModalRequest } from "@core/components/PluginView/PluginModalHost";
+import { PluginCardAction } from "@core/types/plugins";
 import pkg from "../../../package.json";
 import useToastState from "@core/states/toastState";
 import { checkForUpdate } from "@core/helpers/updater";
@@ -79,6 +82,8 @@ function shortcutChars(binding: ShortcutBinding | undefined): string[] | undefin
   return keys && keys.length > 0 ? keys : undefined;
 }
 
+type PluginCardEntry = { plugin: { id: string, name: string }, action: PluginCardAction };
+
 function Main() {
   const [items, setItems] = createStore<Array<ImageHistoryData>>([]);
   const [counts, setCounts] = createStore<HistoryTypeCounts>({ ...EMPTY_COUNTS });
@@ -107,7 +112,16 @@ function Main() {
   const { root, quick, queryFilter, filtersOpen, anyFilterActive, clearFilter } = useTagFilterState;
   const { shortcuts } = useSettingsState;
   const { pushToast } = useToastState;
+  const { running: runningPlugins } = usePluginsState;
+  const [pluginModal, setPluginModal] = createSignal<PluginModalRequest | null>(null);
   const navigate = useNavigate();
+
+  const pluginCardActions = createMemo<PluginCardEntry[]>(() => runningPlugins()
+    .filter(plugin => plugin.manifest.hooks.includes("card_action"))
+    .flatMap(plugin => plugin.manifest.cardActions.map(action => ({
+      plugin: { id: plugin.manifest.id, name: plugin.manifest.name },
+      action,
+    }))));
 
   const [viewportWidth, setViewportWidth] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
@@ -276,7 +290,7 @@ function Main() {
         .catch(error => console.error("Failed to check for updates", error));
     }
 
-    const unlisteners = await Promise.all([listenSaved(), listenUploads(), listenDrop(), listenImportFailed()]);
+    const unlisteners = await Promise.all([listenSaved(), listenUploads(), listenDrop(), listenImportFailed(), listenTagsUpdated()]);
     unlisteners.flat().forEach(releaseOnUnmount);
   });
 
@@ -346,6 +360,38 @@ function Main() {
     return getCurrentWebview().listen("import://failed", (event: TauriEvent<ImportFailedEvent>) => {
       pushToast(`Failed to import ${event.payload.path}: ${event.payload.error}`, "error", 6000);
     });
+  }
+
+  function listenTagsUpdated() {
+    const webview = getCurrentWebview();
+    return Promise.all([
+      webview.listen("history://tags-updated", (event: TauriEvent<ImageHistoryData>) => {
+        updateItem(event.payload.fileName, entry => { entry.tags = event.payload.tags; });
+        refreshTagMetadata();
+      }),
+      // A plugin's tag key was removed from every capture, so any loaded card may be stale.
+      webview.listen("history://tags-removed", () => {
+        reload();
+        refreshTagMetadata();
+      }),
+    ]);
+  }
+
+  async function runPluginAction(screenshot: ImageHistoryData, entry: PluginCardEntry) {
+    try {
+      const response = await safeInvoke("plugin_card_action", {
+        id: entry.plugin.id,
+        actionId: entry.action.id,
+        fileName: screenshot.fileName,
+      });
+      if (response?.toast) {
+        const kind = response.toast.kind ?? "info";
+        pushToast(`${entry.plugin.name}: ${response.toast.text}`, kind, kind === "error" ? 6000 : 4000);
+      }
+      if (response?.modal) setPluginModal({ plugin: entry.plugin, actionId: entry.action.id, modal: response.modal });
+    } catch (error) {
+      pushToast(`${entry.plugin.name}: ${errorMessage(error)}`, "error", 6000);
+    }
   }
 
   async function importPaths(paths: string[]) {
@@ -591,6 +637,7 @@ function Main() {
                   {(screenshot, index) => {
                     const { show: showContextMenu, id: menuId } = useContextMenu();
                     const upload = createMemo(() => ({ progress: uploadProgress[screenshot.fileName], success: uploadSuccess[screenshot.fileName] }));
+                    const pluginActions = createMemo(() => pluginCardActions().filter(entry => entry.action.types.length === 0 || entry.action.types.includes(screenshot.type)));
 
                     return <>
                       <HistoryCard
@@ -631,6 +678,14 @@ function Main() {
                         <ContextMenuItem icon={{ icon: Tag }} onClick={() => setEditingTags(screenshot)}>Edit tags</ContextMenuItem>
                         <ContextMenuSeparator />
                         <ContextMenuItem icon={{ icon: Trash2 }} danger onClick={() => setPendingDelete(screenshot)}>Delete</ContextMenuItem>
+                        <Show when={pluginActions().length > 0}>
+                          <ContextMenuSeparator />
+                          <For each={pluginActions()}>
+                            {entry => (
+                              <ContextMenuItem icon={{ icon: Puzzle }} onClick={() => runPluginAction(screenshot, entry)}>{entry.action.label}</ContextMenuItem>
+                            )}
+                          </For>
+                        </Show>
                       </ContextMenu>
                     </>;
                   }}
@@ -742,6 +797,7 @@ function Main() {
         refreshTagMetadata();
       }}
     />
+    <PluginModalHost request={pluginModal()} onHide={() => setPluginModal(null)} />
   </div>
 }
 

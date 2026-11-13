@@ -669,6 +669,12 @@ pub(crate) async fn persist_capture(
         ("Timestamp".to_owned(), TagValue::date_time_millis(now_ms())),
     ]);
 
+    let edited = match crate::capture_profile::plugin_manager(app_handle) {
+        Some(plugins) if plugins.edits_images() => Some(plugins.edit_image(image.clone()).await),
+        _ => None,
+    };
+    let image = edited.as_ref().unwrap_or(image);
+
     let saved_image = match history_store.save_rendered(
         image,
         Some(tags),

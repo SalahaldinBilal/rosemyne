@@ -243,7 +243,10 @@ impl Settings {
     }
 
     pub fn set_default_uploader(&mut self, id: Option<String>) -> Result<(), SettingsError> {
-        self.user_settings.default_uploader_id = id.filter(|id| self.get_uploader(id).is_some());
+        // Plugin uploaders aren't stored here; whether one still exists is checked when it's used.
+        self.user_settings.default_uploader_id = id.filter(|id| {
+            id.starts_with(crate::plugins::UPLOADER_ID_PREFIX) || self.get_uploader(id).is_some()
+        });
         self.save_settings()
     }
 

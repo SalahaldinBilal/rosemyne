@@ -12,16 +12,22 @@ import KeyRenderer from "@core/components/KeyRenderer/KeyRenderer";
 import { SETTINGS_ROUTES } from "@core/constants/settingsRoutes";
 import { SETTINGS_SEARCH_ENTRIES, SettingsSearchEntry } from "@core/constants/settingsSearch";
 import useSettingsSavedState from "@core/states/settingsSavedState";
+import usePluginsState from "@core/states/pluginsState";
 
 type Searchable = SettingsSearchEntry & { where: string, hintText: string, keywordText: string };
 
 const ROUTE_BY_PATH = new Map(SETTINGS_ROUTES.map(route => [route.path, route]));
-const SEARCHABLE: Searchable[] = SETTINGS_SEARCH_ENTRIES.map(entry => ({
-  ...entry,
-  where: [ROUTE_BY_PATH.get(entry.page)?.title, entry.group].filter(Boolean).join(" › "),
-  hintText: entry.hint ?? "",
-  keywordText: entry.keywords ?? "",
-}));
+
+function toSearchable(entry: SettingsSearchEntry): Searchable {
+  return {
+    ...entry,
+    where: [ROUTE_BY_PATH.get(entry.page)?.title, entry.group].filter(Boolean).join(" › "),
+    hintText: entry.hint ?? "",
+    keywordText: entry.keywords ?? "",
+  };
+}
+
+const SEARCHABLE: Searchable[] = SETTINGS_SEARCH_ENTRIES.map(toSearchable);
 const SEARCH_KEYS = ["label", "where", "hintText", "keywordText"] as const;
 // The label counts most. Descriptions and extra keywords only win when nothing matches the label as well.
 const KEY_WEIGHTS = [1, 0.75, 0.55, 0.55];
@@ -43,10 +49,13 @@ function Settings(props: { children?: JSX.Element }) {
   const [query, setQuery] = createSignal("");
   const [active, setActive] = createSignal(0);
   const searching = createMemo(() => query().trim().length > 0);
+  const { settingsSearchEntries, requestOpen } = usePluginsState;
+  // Plugin settings come from installed manifests, so they join the hand-kept list at runtime.
+  const searchable = createMemo(() => [...SEARCHABLE, ...settingsSearchEntries().map(toSearchable)]);
   const results = createMemo(() => {
     const text = query().trim();
     if (!text) return [];
-    return fuzzysort.go(text, SEARCHABLE, {
+    return fuzzysort.go(text, searchable(), {
       keys: SEARCH_KEYS,
       threshold: MIN_SCORE,
       limit: MAX_RESULTS,
@@ -104,6 +113,7 @@ function Settings(props: { children?: JSX.Element }) {
 
   function open(entry: Searchable) {
     setQuery("");
+    if (entry.plugin) requestOpen(entry.plugin);
     navigate(`/settings/${entry.page}`);
     if (!entry.isPage) revealRow(entry.label);
   }

@@ -86,13 +86,16 @@ function describeDistance(distance: ScrollDistance): string {
   return distance.type === "percent" ? `${distance.data}% of the selection` : `${distance.data} px`;
 }
 
-function describeUpload(upload: UploadOverride, uploaders: SavedUploader[]): string {
+// Saved and plugin uploaders side by side, with only what this page reads.
+type UploaderChoice = Pick<SavedUploader, "id" | "name" | "autoUpload">;
+
+function describeUpload(upload: UploadOverride, uploaders: UploaderChoice[]): string {
   if (upload.type === "skip") return "Don't upload";
   const uploader = uploaders.find(u => u.id === upload.data);
   return uploader ? `Upload with ${uploader.name}` : "Uploader no longer exists";
 }
 
-function describeDefaults(values: DefaultValues, uploaders: SavedUploader[]): Record<OverrideKey, string> {
+function describeDefaults(values: DefaultValues, uploaders: UploaderChoice[]): Record<OverrideKey, string> {
   return {
     copyToClipboard: onOff(values.copyToClipboard),
     showCapturePreview: onOff(values.showCapturePreview),
@@ -124,7 +127,7 @@ function ShortcutSettings() {
   const [sounds, setSounds] = createSignal<SoundSettings | null>(null);
   const [scrolling, setScrolling] = createSignal<ScrollingCaptureSettings | null>(null);
   const [previewEnabled, setPreviewEnabled] = createSignal<boolean | null>(null);
-  const [uploaders, setUploaders] = createSignal<SavedUploader[]>([]);
+  const [uploaders, setUploaders] = createSignal<UploaderChoice[]>([]);
   const [defaultUploaderId, setDefaultUploaderId] = createSignal<string | null>(null);
   const [codecs, setCodecs] = createSignal<VideoCodec[]>(["h264"]);
 
@@ -147,19 +150,20 @@ function ShortcutSettings() {
     }
 
     try {
-      const [generalSettings, soundSettings, scrollingSettings, preview, savedUploaders, defaultId] = await Promise.all([
+      const [generalSettings, soundSettings, scrollingSettings, preview, savedUploaders, pluginUploaders, defaultId] = await Promise.all([
         safeInvoke("get_general_settings"),
         safeInvoke("get_sound_settings"),
         safeInvoke("get_scrolling_capture_settings"),
         safeInvoke("get_capture_preview_settings"),
         safeInvoke("get_uploaders"),
+        safeInvoke("list_plugin_uploaders"),
         safeInvoke("get_default_uploader"),
       ]);
       setGeneral(generalSettings);
       setSounds(soundSettings);
       setScrolling(scrollingSettings);
       setPreviewEnabled(preview.enabled);
-      setUploaders(savedUploaders);
+      setUploaders([...savedUploaders, ...pluginUploaders]);
       setDefaultUploaderId(defaultId);
     } catch (error) {
       console.error("Failed to load the settings shortcuts can override", error);

@@ -1,4 +1,4 @@
-import { CloudUpload, Import, PictureInPicture2, RefreshCw, ScrollText, Settings2, Shapes, SquareSlash, Volume2 } from "lucide-solid";
+import { CloudUpload, Import, PictureInPicture2, Puzzle, RefreshCw, ScrollText, Settings2, Shapes, SquareSlash, Volume2 } from "lucide-solid";
 
 export const SETTINGS_ROUTES = [
   { path: "general", title: "General", icon: Settings2 },
@@ -8,6 +8,7 @@ export const SETTINGS_ROUTES = [
   { path: "overlay-defaults", title: "Overlay defaults", icon: Shapes },
   { path: "capture-preview", title: "Capture preview", icon: PictureInPicture2 },
   { path: "scrolling-capture", title: "Scrolling capture", icon: ScrollText },
+  { path: "plugins", title: "Plugins", icon: Puzzle },
   { path: "sharex", title: "ShareX import", icon: Import },
   { path: "updates", title: "Updates", icon: RefreshCw },
 ];

@@ -143,6 +143,7 @@ pub fn shortcut_handler(app_handle: &AppHandle, shortcut: &Shortcut, event: Shor
     let shortcut = *shortcut;
 
     tauri::async_runtime::spawn(async move {
+        let plugins = crate::capture_profile::plugin_manager(&app_handle);
         let settings = app_handle.state::<SettingsHandler>();
         let settings = settings.read().await;
         let matching = settings
@@ -151,7 +152,7 @@ pub fn shortcut_handler(app_handle: &AppHandle, shortcut: &Shortcut, event: Shor
             .find(|existing| existing.matches(&shortcut).unwrap_or(false))
             .map(|existing| {
                 let is_instant = matches!(existing.method, ShortcutMethod::InstantCapture(_));
-                let profile = CaptureProfile::resolve(&settings, &existing.overrides, is_instant);
+                let profile = CaptureProfile::resolve(&settings, &existing.overrides, is_instant, plugins.as_deref());
                 (existing.method.clone(), profile)
             });
         drop(settings);

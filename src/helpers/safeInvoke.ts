@@ -1,5 +1,6 @@
 import { BrowserExtensionStatus, CapturePreviewSettings, ContextMenuStatus, CursorImageInfo, DateTimePatterns, Dimensions, ExtensionStore, FilterGroup, GeneralSettings, HistoryCursor, HistoryPage, HistorySort, ImageEditSession, ImageHistoryData, MigrationSummary, MonitorInfo, OverlayDefaultOverrides, OverlayImage, RecordingStatus, RestitchResult, SavedFilter, ScrollCaptureOverrides, ScrollCaptureSession, ScrollingCaptureSettings, ShortcutBinding, SoundKind, SoundSetting, SoundSettings, StitchParams, SystemCursorInfo, TagMetadata, TagValue, TagValueSuggestion, VideoCodec, WindowAction } from "@core/types";
 import { SavedUploader, UploaderOptions, UploaderTestResult, UploaderValidation, UploadResult } from "@core/types/request";
+import { PluginCardActionResponse, PluginInfo, PluginInspection, PluginLogLine, PluginUiEvent, PluginUiResponse, PluginUploaderInfo } from "@core/types/plugins";
 import { invoke, InvokeOptions } from "@tauri-apps/api/core";
 
 export async function safeInvoke<T extends keyof Commands>(cmd: T, ...[args, options]: SafeInvokeArgs<Commands[T]["parameters"]>): Promise<Commands[T]["return"]> {
@@ -96,6 +97,24 @@ type Commands = {
   'set_custom_sound': Command<{ kind: SoundKind, path: string }, SoundSetting>,
   'reset_custom_sound': Command<{ kind: SoundKind }, SoundSetting>,
   'preview_sound': Command<{ kind: SoundKind }>,
+  'list_plugins': Command<undefined, PluginInfo[]>,
+  'inspect_plugin_package': Command<{ path: string }, PluginInspection>,
+  'install_plugin': Command<{ path: string, wasmSha256: string }>,
+  'load_unpacked_plugin': Command<{ path: string }>,
+  'reload_plugins': Command,
+  'set_plugin_enabled': Command<{ id: string, enabled: boolean }>,
+  'set_plugin_order': Command<{ ids: string[] }>,
+  'count_plugin_tagged': Command<{ id: string }, number>,
+  'uninstall_plugin': Command<{ id: string, deleteData: boolean, removeTags: boolean }>,
+  'get_plugin_settings': Command<{ id: string }, Record<string, unknown>>,
+  'set_plugin_setting': Command<{ id: string, settingId: string, value: unknown }>,
+  'plugin_ui_render': Command<{ id: string, view: string }, PluginUiResponse>,
+  'plugin_ui_event': Command<{ id: string, view: string, event: PluginUiEvent }, PluginUiResponse>,
+  'plugin_card_action': Command<{ id: string, actionId: string, fileName: string }, PluginCardActionResponse>,
+  'get_plugin_log': Command<{ id: string }, PluginLogLine[]>,
+  'list_plugin_uploaders': Command<undefined, PluginUploaderInfo[]>,
+  'set_plugin_uploader_auto_upload': Command<{ id: string, enabled: boolean }>,
+  'open_plugin_link': Command<{ url: string }>,
 };
 
 // `hide_and_save_screenshot` is intentionally absent: it takes a raw binary

@@ -45,7 +45,8 @@ export type UploaderCreationError =
   BaseUploaderType<"httpError", { status: number, body: string, request: RequestSnapshot, responseHeaders: Array<[string, string]> }> |
   BaseUploaderType<"responseNotJson", string> | BaseUploaderType<"jsonPathNotFound", { path: string }> |
   BaseUploaderType<"imageNotFound", string> | BaseUploaderType<"uploaderNotFound", string> |
-  BaseUploaderType<"noDefaultUploader", never> | BaseUploaderType<"fileReadFailed", string>;
+  BaseUploaderType<"noDefaultUploader", never> | BaseUploaderType<"fileReadFailed", string> |
+  BaseUploaderType<"plugin", string>;
 
 export type UploaderValidation = {
   valid: boolean,

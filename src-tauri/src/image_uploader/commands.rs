@@ -10,7 +10,9 @@ use crate::{
     HistoryStoreHandler, HttpClientHandler, SettingsHandler,
     capture_profile::CaptureProfile,
     emit_on_main_thread,
+    plugins::{PluginManagerHandler, PluginUploaderInfo, UPLOADER_ID_PREFIX},
     screen_manager::screenshot_manager::encode_image_as,
+    settings_manager::settings::Settings,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -87,15 +89,10 @@ pub async fn upload_image(
     uploader_id: Option<String>,
 ) -> Result<UploadResult, UploaderError> {
     let settings = settings_handle.read().await;
-    let uploader = match &uploader_id {
-        Some(id) => settings
-            .get_uploader(id)
-            .ok_or_else(|| UploaderError::UploaderNotFound(id.clone()))?,
-        None => settings
-            .get_default_uploader()
-            .ok_or(UploaderError::NoDefaultUploader)?,
-    }
-    .clone();
+    let id = uploader_id
+        .or_else(|| settings.get_default_uploader_id().cloned())
+        .ok_or(UploaderError::NoDefaultUploader)?;
+    let uploader = resolve_uploader(&app_handle, &settings, &id).ok_or(UploaderError::UploaderNotFound(id))?;
     let success_sound = settings
         .get_sound_settings()
         .get(crate::sound_manager::SoundKind::TaskSuccess)
@@ -103,6 +100,31 @@ pub async fn upload_image(
     drop(settings);
 
     run_upload(&app_handle, history_store.inner(), http_client.inner(), &uploader, &file_name, success_sound).await
+}
+
+/// Where an upload goes: a saved HTTP uploader, or one provided by a plugin.
+pub enum UploaderTarget {
+    Http(SavedUploader),
+    Plugin(PluginUploaderInfo),
+}
+
+impl UploaderTarget {
+    fn name(&self) -> &str {
+        match self {
+            Self::Http(uploader) => &uploader.name,
+            Self::Plugin(uploader) => &uploader.name,
+        }
+    }
+}
+
+pub fn resolve_uploader(app_handle: &AppHandle, settings: &Settings, id: &str) -> Option<UploaderTarget> {
+    if id.starts_with(UPLOADER_ID_PREFIX) {
+        return app_handle
+            .try_state::<PluginManagerHandler>()?
+            .uploader(id)
+            .map(UploaderTarget::Plugin);
+    }
+    settings.get_uploader(id).cloned().map(UploaderTarget::Http)
 }
 
 /// Uploads with the given uploader if there's an image to upload, emitting
@@ -114,7 +136,7 @@ pub async fn run_upload(
     app_handle: &AppHandle,
     history_store: &HistoryStoreHandler,
     http_client: &HttpClientHandler,
-    uploader: &SavedUploader,
+    uploader: &UploaderTarget,
     file_name: &str,
     success_sound: bool,
 ) -> Result<UploadResult, UploaderError> {
@@ -122,7 +144,7 @@ pub async fn run_upload(
 
     match &result {
         Ok(upload) => {
-            if let Err(err) = history_store.set_upload_result(file_name, &uploader.name, &upload.url) {
+            if let Err(err) = history_store.set_upload_result(file_name, uploader.name(), &upload.url) {
                 eprintln!("Failed to persist upload result for {}: {}", file_name, err);
             }
             crate::sound_manager::play_sound(
@@ -161,38 +183,60 @@ async fn try_upload(
     app_handle: &AppHandle,
     history_store: &HistoryStoreHandler,
     http_client: &HttpClientHandler,
-    uploader: &SavedUploader,
+    uploader: &UploaderTarget,
     file_name: &str,
 ) -> Result<UploadResult, UploaderError> {
-    let file_path = history_store
+    let entry = history_store
         .get_by_file_name(file_name)
         .map_err(|_| UploaderError::ImageNotFound(file_name.to_string()))?
-        .ok_or_else(|| UploaderError::ImageNotFound(file_name.to_string()))?
-        .file_path;
+        .ok_or_else(|| UploaderError::ImageNotFound(file_name.to_string()))?;
 
-    let bytes = std::fs::read(&file_path).map_err(UploaderError::FileReadFailed)?;
-    let file = UploadFile::from_file_name(file_name.to_string(), bytes);
+    let url = match uploader {
+        UploaderTarget::Http(uploader) => {
+            let bytes = std::fs::read(&entry.file_path).map_err(UploaderError::FileReadFailed)?;
+            let file = UploadFile::from_file_name(file_name.to_string(), bytes);
 
-    emit_on_main_thread!(
-        app_handle,
-        "upload://started",
-        UploadStartedPayload { file_name: file_name.to_string() }
-    );
+            emit_on_main_thread!(
+                app_handle,
+                "upload://started",
+                UploadStartedPayload { file_name: file_name.to_string() }
+            );
 
-    let progress_app_handle = app_handle.clone();
-    let progress_file_name = file_name.to_string();
-    let on_progress: super::ProgressCallback = Box::new(move |sent, total| {
-        emit_on_main_thread!(
-            progress_app_handle,
-            "upload://progress",
-            UploadProgressPayload { file_name: progress_file_name.clone(), sent, total }
-        );
-    });
+            let progress_app_handle = app_handle.clone();
+            let progress_file_name = file_name.to_string();
+            let on_progress: super::ProgressCallback = Box::new(move |sent, total| {
+                emit_on_main_thread!(
+                    progress_app_handle,
+                    "upload://progress",
+                    UploadProgressPayload { file_name: progress_file_name.clone(), sent, total }
+                );
+            });
 
-    let (request, body_summary) = uploader.options.build_upload_request(http_client, &file, on_progress)?;
-    let body = execute_and_capture(http_client, request, body_summary).await?;
+            let (request, body_summary) = uploader.options.build_upload_request(http_client, &file, on_progress)?;
+            let body = execute_and_capture(http_client, request, body_summary).await?;
 
-    let url = uploader.options.response_handler.parse_response(&body)?;
+            uploader.options.response_handler.parse_response(&body)?
+        }
+        UploaderTarget::Plugin(uploader) => {
+            let plugins = app_handle
+                .try_state::<PluginManagerHandler>()
+                .ok_or_else(|| UploaderError::UploaderNotFound(uploader.id.clone()))?;
+
+            emit_on_main_thread!(
+                app_handle,
+                "upload://started",
+                UploadStartedPayload { file_name: file_name.to_string() }
+            );
+
+            let upload = plugins.upload(uploader, &entry).await.map_err(UploaderError::Plugin)?;
+            if let Some(deletion_url) = &upload.deletion_url {
+                if let Err(err) = history_store.set_deletion_url(file_name, deletion_url) {
+                    eprintln!("Failed to persist the deletion link for {}: {}", file_name, err);
+                }
+            }
+            upload.url
+        }
+    };
 
     let copied = match crate::file_clipboard::copy_text(&url) {
         Ok(()) => true,
@@ -212,7 +256,7 @@ pub async fn maybe_auto_upload(app_handle: AppHandle, file_name: String, profile
     };
 
     let settings_handle = app_handle.state::<SettingsHandler>();
-    let uploader = settings_handle.read().await.get_uploader(uploader_id).cloned();
+    let uploader = resolve_uploader(&app_handle, &*settings_handle.read().await, uploader_id);
     let Some(uploader) = uploader else {
         eprintln!("Uploader {} no longer exists, skipping the upload of {}", uploader_id, file_name);
         return;

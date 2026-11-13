@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - A browser extension for Chrome, Edge and Firefox that copies any image or video, or sends it to Rosemyne.
 - A "Browser extension support" setting under General, off by default.
+- Plugins, installed from a file under Settings › Plugins. They can run on new captures, edit screenshots, add uploaders, tags and card menu entries.
+- An SDK for writing plugins in Rust or TypeScript, in `plugin-sdk`.
 
 ## [0.3.3] - 2026-11-10
 

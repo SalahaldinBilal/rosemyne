@@ -9,6 +9,8 @@ export type SettingsSearchEntry = {
   keywords?: string,
   // Page results open the page itself instead of scrolling to a row.
   isPage?: boolean,
+  // A plugin's own setting: the Plugins page opens that plugin before the row is looked for.
+  plugin?: string,
 };
 
 export const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
@@ -64,6 +66,9 @@ export const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = [
   { page: "scrolling-capture", group: "Capture", label: "Delay between frames", hint: "How long to wait after each scroll for the page to redraw." },
   { page: "scrolling-capture", group: "Capture", label: "Scroll amount", hint: "How far one step tries to scroll. Percent follows the selection's height." },
   { page: "scrolling-capture", group: "Capture", label: "Maximum frames", hint: "A safety cap. Capturing normally stops once scrolling stops changing the content." },
+
+  { page: "plugins", isPage: true, label: "Plugins", hint: "Add-ons that run on your captures. Each one only gets what you allow when you install it.", keywords: "extensions addons wasm" },
+  { page: "plugins", label: "Installed plugins", hint: "Install from a file, turn plugins on or off, and set the order they run in.", keywords: "install uninstall enable disable load unpacked permissions" },
 
   { page: "sharex", isPage: true, label: "ShareX import", hint: "Bring your ShareX history over. Files are copied, your ShareX folder isn't touched.", keywords: "migrate" },
   { page: "sharex", group: "Source", label: "ShareX folder", hint: "Close ShareX before importing.", keywords: "migrate history" },

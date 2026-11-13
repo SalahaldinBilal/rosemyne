@@ -22,6 +22,7 @@ import OverlayDefaultsSettings from "./pages/Settings/OverlayDefaultsSettings/Ov
 import CapturePreviewSettings from "./pages/Settings/CapturePreviewSettings/CapturePreviewSettings";
 import ScrollingCaptureSettings from "./pages/Settings/ScrollingCaptureSettings/ScrollingCaptureSettings";
 import ScrollCaptureResult from "./pages/ScrollCaptureResult/ScrollCaptureResult";
+import PluginSettings from "./pages/Settings/PluginSettings/PluginSettings";
 
 render(
   () => <Router root={App}>
@@ -41,6 +42,7 @@ render(
       <Route path="/overlay-defaults" component={OverlayDefaultsSettings}></Route>
       <Route path="/capture-preview" component={CapturePreviewSettings}></Route>
       <Route path="/scrolling-capture" component={ScrollingCaptureSettings}></Route>
+      <Route path="/plugins" component={PluginSettings}></Route>
       <Route path="/sharex" component={ShareXImport}></Route>
       <Route path="/updates" component={UpdateSettings}></Route>
     </Route>
