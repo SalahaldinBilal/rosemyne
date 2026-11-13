@@ -274,6 +274,31 @@
   animation: drop-in var(--t-base) var(--e-out);
 }
 
+.PreviewTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.PreviewName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.PreviewSize {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  background: var(--bg-4);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .PreviewBody {
   display: flex;
   align-items: center;

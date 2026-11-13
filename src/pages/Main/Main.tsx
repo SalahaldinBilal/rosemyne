@@ -92,6 +92,11 @@ function Main() {
   const [loading, setLoading] = createSignal(true);
   const [metadata, setMetadata] = createSignal<TagMetadata | null>(null);
   const [preview, setPreview] = createSignal<ImageHistoryData | null>(null);
+  const [previewSize, setPreviewSize] = createSignal<{ width: number, height: number } | null>(null);
+  const previewSizeLabel = createMemo(() => {
+    const size = previewSize();
+    return size ? `${size.width} × ${size.height}` : null;
+  });
   const [editSession, setEditSession] = createSignal<ImageEditSession | null>(null);
   let editViewerApi: ImageViewerApi | undefined;
   const [pendingDelete, setPendingDelete] = createSignal<ImageHistoryData | null>(null);
@@ -496,6 +501,19 @@ function Main() {
     setPreview(null);
   }
 
+  function setPreviewSizeFor(fileName: string, width: number, height: number) {
+    if (preview()?.fileName === fileName && width > 0 && height > 0) setPreviewSize({ width, height });
+  }
+
+  // The viewer loads the same URL, so this read comes from the cache.
+  createEffect(on(preview, current => {
+    setPreviewSize(null);
+    if (current?.type !== "image") return;
+    const image = new Image();
+    image.onload = () => setPreviewSizeFor(current.fileName, image.naturalWidth, image.naturalHeight);
+    image.src = savedUrl(current.fileName);
+  }));
+
   async function saveEdit() {
     const session = editSession();
     if (!session) return;
@@ -710,7 +728,14 @@ function Main() {
     <Modal
       show={!!preview()}
       onHide={closePreview}
-      title={preview()?.fileName}
+      title={
+        <span class={styles.PreviewTitle}>
+          <span class={styles.PreviewName} title={preview()?.fileName}>{preview()?.fileName}</span>
+          <Show when={previewSizeLabel()}>
+            {label => <span class={styles.PreviewSize}>{label()}</span>}
+          </Show>
+        </span>
+      }
       width="86%"
       height="86%"
       headerActions={preview()?.type === "image" ? (
@@ -728,7 +753,12 @@ function Main() {
           <div class={styles.PreviewBody}>
             <Switch>
               <Match when={screenshot.type === "video"}>
-                <video src={savedUrl(screenshot.fileName)} controls autoplay />
+                <video
+                  src={savedUrl(screenshot.fileName)}
+                  controls
+                  autoplay
+                  onLoadedMetadata={event => setPreviewSizeFor(screenshot.fileName, event.currentTarget.videoWidth, event.currentTarget.videoHeight)}
+                />
               </Match>
               <Match when={screenshot.type === "file"}>
                 <div class={styles.FilePreview}>
